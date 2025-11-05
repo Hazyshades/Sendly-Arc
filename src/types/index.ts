@@ -4,6 +4,6 @@ export type { TwitterContact, TwitchContact, TikTokContact, InstagramContact, Un
 export type { GiftCardInfo as Web3GiftCardInfo, BlockchainGiftCardInfo as Web3BlockchainGiftCardInfo } from './web3';
 export type { GiftCardRecord as SupabaseGiftCardRecord, GiftCardInsert as SupabaseGiftCardInsert, TwitterContact as SupabaseTwitterContact, TikTokContact as SupabaseTikTokContact, InstagramContact as SupabaseInstagramContact, UnifiedContact as SupabaseUnifiedContact } from './supabase';
 
-export type { ChainConfig } from '../utils/bridge/chainRegistry';
-export type { TokenConfig } from '../utils/bridge/tokenRegistry';
+export type { ChainConfig } from '../../utils/bridge/chainRegistry';
+export type { TokenConfig } from '../../utils/bridge/tokenRegistry';
 

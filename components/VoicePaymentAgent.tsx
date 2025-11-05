@@ -121,7 +121,11 @@ export function VoicePaymentAgent() {
       console.log('Transcribed text:', text);
       console.log('Contacts:', contacts);
 
-      const parsed = await aimlapiService.parsePaymentCommand(text, contacts);
+      const contactsWithWallet = contacts
+        .filter(c => c.wallet)
+        .map(c => ({ name: c.name, wallet: c.wallet! }));
+      
+      const parsed = await aimlapiService.parsePaymentCommand(text, contactsWithWallet);
       
       console.log('Parsed command:', parsed);
 
@@ -201,6 +205,13 @@ export function VoicePaymentAgent() {
       }
 
       await web3Service.initialize(clientToUse, address);
+
+      if (!contact.wallet) {
+        setError('Contact wallet address is missing');
+        toast.error('Contact wallet address is missing');
+        setRecordingState('idle');
+        return;
+      }
 
       await web3Service.createGiftCard(
         contact.wallet,

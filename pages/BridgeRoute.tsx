@@ -1,7 +1,7 @@
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import BridgeDialog from '../components/BridgeDialog';
-import { getChainBySlug, getChainByChainId, getTokenByAddress, getTokenAddress } from '../utils/bridge/bridgeConfig';
+import { getChainBySlug, getChainByChainId, getTokenByAddress } from '../utils/bridge/bridgeConfig';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';

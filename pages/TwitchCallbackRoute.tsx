@@ -7,7 +7,7 @@ export function TwitchCallbackRoute() {
 
   useEffect(() => {
     console.log('[POPUP] TwitchCallbackRoute mounted');
-    console.log('[POPUP] Location:', location.href);
+    console.log('[POPUP] Location:', window.location.href);
     console.log('[POPUP] Location hash:', location.hash);
     console.log('[POPUP] Window opener exists:', !!window.opener);
     console.log('[POPUP] Window opener closed:', window.opener?.closed);

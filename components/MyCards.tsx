@@ -49,7 +49,6 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -205,7 +204,6 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
 
   const syncWithBlockchain = async (userAddress: string) => {
     try {
-      setIsSyncing(true);
       
       // Initialize web3 service
       const walletClient = createWalletClient({
@@ -382,7 +380,6 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       console.error('Error syncing with blockchain:', error);
       // Don't show error to user - they already have data from Supabase
     } finally {
-      setIsSyncing(false);
     }
   };
 

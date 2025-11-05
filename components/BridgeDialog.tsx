@@ -35,7 +35,7 @@ export default function BridgeDialog({
   fromChainId,
   toChainId,
   fromCurrency,
-  toCurrency,
+  toCurrency: _toCurrency,
   tokenSymbol
 }: BridgeDialogProps) {
   const { address, chainId: connectedChainId } = useAccount();

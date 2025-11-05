@@ -4,6 +4,16 @@ import type { TwitterContact, TikTokContact, InstagramContact, UnifiedContact } 
 
 export type { TwitterContact, TikTokContact, InstagramContact, UnifiedContact };
 
+export interface Contact {
+  name: string;
+  wallet?: string;
+  source?: 'manual' | 'twitch' | 'twitter' | 'tiktok' | 'instagram';
+  socialId?: string;
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
+}
+
 export async function syncTwitchContacts(
   userId: string,
   contacts: TwitchContact[]
@@ -224,17 +234,7 @@ export async function getInstagramContacts(userId: string): Promise<InstagramCon
   }));
 }
 
-interface UnifiedContact {
-  name: string;
-  wallet?: string;
-  source: 'manual' | 'twitch' | 'twitter' | 'tiktok' | 'instagram';
-  socialId?: string;
-  username?: string;
-  displayName?: string;
-  avatarUrl?: string;
-}
-
-export async function getAllSocialContacts(userId: string): Promise<UnifiedContact[]> {
+export async function getAllSocialContacts(userId: string): Promise<Contact[]> {
   const [twitchContacts, twitterContacts, tiktokContacts, instagramContacts] = await Promise.all([
     getTwitchContacts(userId).catch(() => []),
     getTwitterContacts(userId).catch(() => []),
@@ -242,7 +242,7 @@ export async function getAllSocialContacts(userId: string): Promise<UnifiedConta
     getInstagramContacts(userId).catch(() => []),
   ]);
 
-  const unified: UnifiedContact[] = [];
+  const unified: Contact[] = [];
 
   twitchContacts.forEach((contact) => {
     unified.push({
