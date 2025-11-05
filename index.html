@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <title>Sendly</title>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sendly-app.vercel.app/" />
+    <meta property="og:title" content="Sendly - NFT Gift Cards on ARC" />
+    <meta property="og:description" content="Create and send NFT gift cards. Perfect for gifting crypto and digital experiences." />
+    <meta property="og:image" content="https://sendly-app.vercel.app/box.png" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://sendly-app.vercel.app/" />
+    <meta property="twitter:title" content="Sendly - NFT Gift Cards on ARC" />
+    <meta property="twitter:description" content="Create and send NFT gift cards. Perfect for gifting crypto and digital experiences." />
+    <meta property="twitter:image" content="https://sendly-app.vercel.app/box.png" />
+    <meta name="fc:miniapp" content='{
+      "version":"next",
+      "imageUrl":"https://sendly-app.vercel.app/box.png",
+      "button":{
+        "title":"Open Sendly",
+        "action":{
+          "type":"launch_frame",
+          "name":"Sendly",
+          "url":"https://sendly-app.vercel.app",
+          "splashImageUrl":"https://sendly-app.vercel.app/box.png",
+          "splashBackgroundColor":"#8B5CF6"
+        }
+      }
+    }' />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html> 

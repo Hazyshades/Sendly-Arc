@@ -1,0 +1,59 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build output
+dist/
+build/
+out/
+.vite/ # Vite's internal cache directory
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Local history files
+.history
+
+# Test coverage
+coverage/
+
+# IDE specific files (e.g., for WebStorm, VS Code)
+*.iml
+.project
+.classpath
+.settings/
+.cache/
+
+# Other temporary files
+tmp/
+*.tmp
+*.bak
+*.orig
+
+*.md
+/artifacts/
+/cache/
+/contracts/
+.cursorignore
+/.git backup/
+/supabase/
+/.git backup/
+/.git backup2/
