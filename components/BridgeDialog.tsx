@@ -34,7 +34,7 @@ export default function BridgeDialog({
   initialAmount,
   fromChainId,
   toChainId,
-  fromCurrency,
+  fromCurrency: _fromCurrency,
   toCurrency: _toCurrency,
   tokenSymbol
 }: BridgeDialogProps) {
