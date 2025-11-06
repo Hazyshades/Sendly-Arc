@@ -98,5 +98,25 @@ export class DeveloperWalletService {
       return false;
     }
   }
+
+  /**
+   * Request testnet tokens for a wallet
+   */
+  static async requestTestnetTokens(walletAddress: string, blockchain: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await apiCall('/wallets/request-testnet-tokens', {
+        method: 'POST',
+        body: JSON.stringify({
+          walletAddress,
+          blockchain
+        })
+      });
+
+      return response as { success: boolean; message?: string };
+    } catch (error) {
+      console.error('Error requesting testnet tokens:', error);
+      throw error;
+    }
+  }
 }
 

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, UserPlus, RefreshCw, Twitch, Twitter, User, Heart } from 'lucide-react';
+import { Plus, Trash2, UserPlus, RefreshCw, Twitch, Twitter, User, Heart, ChevronUp, ChevronDown, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Alert, AlertDescription } from './ui/alert';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -12,6 +12,7 @@ import { Separator } from './ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
 import { Spinner } from './ui/spinner';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { toast } from 'sonner';
 import { usePrivy } from '@privy-io/react-auth';
 import { useAccount } from 'wagmi';
@@ -94,6 +95,7 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
   const [loadingTwitchContacts, setLoadingTwitchContacts] = useState(false);
   const [twitterContacts, setTwitterContacts] = useState<TwitterContact[]>([]);
   const [loadingTwitterContacts, setLoadingTwitterContacts] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   const twitchAccount = user?.twitch;
   const twitterAccount = user?.twitter;
@@ -975,237 +977,275 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
 
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Contacts</CardTitle>
-          <div className="flex items-center gap-2">
-            {hasTwitch && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSyncTwitch}
-                disabled={syncing || !authenticated}
-              >
-                {syncing ? <Spinner className="w-4 h-4 mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                Sync Twitch
-              </Button>
-            )}
-            {hasTwitter && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSyncTwitter}
-                disabled={syncingTwitter || !authenticated}
-              >
-                {syncingTwitter ? <Spinner className="w-4 h-4 mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                Sync Twitter
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {hasTwitch && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Twitch className="w-5 h-5 text-purple-600" />
-              <CardTitle className="text-base">Twitch</CardTitle>
+    <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-50 border border-blue-100">
+                <Users className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold">Contacts</CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Manage your contacts for voice commands
+                </CardDescription>
+              </div>
             </div>
-            {loadingTwitchContacts ? (
-              <Alert>
-                <AlertDescription>Loading Twitch contacts...</AlertDescription>
-              </Alert>
-            ) : twitchContacts.length === 0 ? (
-              <Alert>
-                <AlertDescription>
-                  No contacts found. Click "Sync Twitch" to sync.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-2 pr-4">
-                  {twitchContacts.map((contact, index) => {
-                    const isFavorite = (contact as any).is_favorite || false;
-                    return (
-                      <div key={`twitch-${contact.broadcaster_name}-${index}`}>
-                        <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
-                          <div className="flex items-center gap-3 flex-1">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback className="bg-purple-500 text-white">
-                                {getInitials(contact.broadcaster_name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span 
-                                  className="font-medium cursor-pointer hover:text-purple-600 transition-colors"
-                                  onClick={() => {
-                                    localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
-                                      type: 'twitch',
-                                      username: contact.broadcaster_login,
-                                      displayName: contact.broadcaster_name
-                                    }));
-                                    navigate('/create');
-                                    toast.success(`Selected ${contact.broadcaster_name} for gift card`);
-                                  }}
-                                >
-                                  {contact.broadcaster_name}
-                                </span>
-                                <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
-                                  <Twitch className="w-3 h-3 mr-1" />
-                                  Twitch
-                                </Badge>
-                              </div>
-                              <div 
-                                className="text-sm text-gray-500 cursor-pointer hover:text-purple-600 transition-colors"
-                                onClick={() => {
-                                  localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
-                                    type: 'twitch',
-                                    username: contact.broadcaster_login,
-                                    displayName: contact.broadcaster_name
-                                  }));
-                                  navigate('/create');
-                                  toast.success(`Selected ${contact.broadcaster_login} for gift card`);
-                                }}
-                              >
-                                {contact.broadcaster_login}
-                              </div>
-                            </div>
-                          </div>
-                          {isConnected && address && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                const contactObj: Contact = {
-                                  name: contact.broadcaster_name,
-                                  source: 'twitch',
-                                  socialId: contact.broadcaster_id,
-                                  username: contact.broadcaster_login,
-                                  displayName: contact.broadcaster_name,
-                                  isFavorite: isFavorite,
-                                };
-                                handleToggleFavorite(contactObj);
-                              }}
-                              className={`p-1 ${isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
-                            >
-                              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-                            </Button>
-                          )}
-                        </div>
-                        {index < twitchContacts.length - 1 && <Separator className="my-2" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            )}
-          </div>
-        )}
-        {hasTwitter && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Twitter className="w-5 h-5 text-blue-600" />
-              <CardTitle className="text-base">Twitter</CardTitle>
-            </div>
-            {loadingTwitterContacts ? (
-              <Alert>
-                <AlertDescription>Loading Twitter contacts...</AlertDescription>
-              </Alert>
-            ) : twitterContacts.length === 0 ? (
-              <Alert>
-                <AlertDescription>
-                  No contacts found. Click "Sync Twitter" to sync.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-2 pr-4">
-                  {twitterContacts.map((contact, index) => {
-                    const isFavorite = (contact as any).is_favorite || false;
-                    return (
-                      <div key={`twitter-${contact.username}-${index}`}>
-                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                          <div className="flex items-center gap-3 flex-1">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback className="bg-blue-500 text-white">
-                                {getInitials(contact.display_name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span 
-                                  className="font-medium cursor-pointer hover:text-blue-600 transition-colors"
-                                  onClick={() => {
-                                    localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
-                                      type: 'twitter',
-                                      username: contact.username,
-                                      displayName: contact.display_name
-                                    }));
-                                    navigate('/create');
-                                    toast.success(`Selected ${contact.display_name} for gift card`);
-                                  }}
-                                >
-                                  {contact.display_name}
-                                </span>
-                                <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
-                                  <Twitter className="w-3 h-3 mr-1" />
-                                  Twitter
-                                </Badge>
-                              </div>
-                              <div 
-                                className="text-sm text-gray-500 cursor-pointer hover:text-blue-600 transition-colors"
-                                onClick={() => {
-                                  localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
-                                    type: 'twitter',
-                                    username: contact.username,
-                                    displayName: contact.display_name
-                                  }));
-                                  navigate('/create');
-                                  toast.success(`Selected @${contact.username} for gift card`);
-                                }}
-                              >
-                                @{contact.username}
-                              </div>
-                            </div>
-                          </div>
-                          {isConnected && address && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                const contactObj: Contact = {
-                                  name: contact.display_name,
-                                  source: 'twitter',
-                                  socialId: contact.twitter_user_id,
-                                  username: contact.username,
-                                  displayName: contact.display_name,
-                                  isFavorite: isFavorite,
-                                };
-                                handleToggleFavorite(contactObj);
-                              }}
-                              className={`p-1 ${isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
-                            >
-                              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-                            </Button>
-                          )}
-                        </div>
-                        {index < twitterContacts.length - 1 && <Separator className="my-2" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            )}
-          </div>
-        )}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <User className="w-5 h-5 text-gray-600" />
-              <CardTitle className="text-base">Personal Contact</CardTitle>
+              {hasTwitch && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSyncTwitch}
+                  disabled={syncing || !authenticated}
+                  className="h-8"
+                >
+                  {syncing ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                  Sync Twitch
+                </Button>
+              )}
+              {hasTwitter && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSyncTwitter}
+                  disabled={syncingTwitter || !authenticated}
+                  className="h-8"
+                >
+                  {syncingTwitter ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                  Sync Twitter
+                </Button>
+              )}
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                >
+                  {isOpen ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
             </div>
+          </div>
+        </CardHeader>
+        
+        <CollapsibleContent>
+          <CardContent className="space-y-5 pt-0">
+            {hasTwitch && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded bg-purple-50">
+                    <Twitch className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <p className="text-sm font-semibold">Twitch</p>
+                </div>
+                {loadingTwitchContacts ? (
+                  <Alert>
+                    <AlertDescription>Loading Twitch contacts...</AlertDescription>
+                  </Alert>
+                ) : twitchContacts.length === 0 ? (
+                  <Alert>
+                    <AlertDescription>
+                      No contacts found. Click "Sync Twitch" to sync.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-2 pr-4">
+                      {twitchContacts.map((contact, index) => {
+                        const isFavorite = (contact as any).is_favorite || false;
+                        return (
+                          <div key={`twitch-${contact.broadcaster_name}-${index}`}>
+                            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                              <div className="flex items-center gap-3 flex-1">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarFallback className="bg-purple-500 text-white">
+                                    {getInitials(contact.broadcaster_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span 
+                                      className="font-medium cursor-pointer hover:text-purple-600 transition-colors"
+                                      onClick={() => {
+                                        localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                          type: 'twitch',
+                                          username: contact.broadcaster_login,
+                                          displayName: contact.broadcaster_name
+                                        }));
+                                        navigate('/create');
+                                        toast.success(`Selected ${contact.broadcaster_name} for gift card`);
+                                      }}
+                                    >
+                                      {contact.broadcaster_name}
+                                    </span>
+                                    <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
+                                      <Twitch className="w-3 h-3 mr-1" />
+                                      Twitch
+                                    </Badge>
+                                  </div>
+                                  <div 
+                                    className="text-sm text-gray-500 cursor-pointer hover:text-purple-600 transition-colors"
+                                    onClick={() => {
+                                      localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                        type: 'twitch',
+                                        username: contact.broadcaster_login,
+                                        displayName: contact.broadcaster_name
+                                      }));
+                                      navigate('/create');
+                                      toast.success(`Selected ${contact.broadcaster_login} for gift card`);
+                                    }}
+                                  >
+                                    {contact.broadcaster_login}
+                                  </div>
+                                </div>
+                              </div>
+                              {isConnected && address && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    const contactObj: Contact = {
+                                      name: contact.broadcaster_name,
+                                      source: 'twitch',
+                                      socialId: contact.broadcaster_id,
+                                      username: contact.broadcaster_login,
+                                      displayName: contact.broadcaster_name,
+                                      isFavorite: isFavorite,
+                                    };
+                                    handleToggleFavorite(contactObj);
+                                  }}
+                                  className={`p-1 ${isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
+                                >
+                                  <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                                </Button>
+                              )}
+                            </div>
+                            {index < twitchContacts.length - 1 && <Separator className="my-2" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+            )}
+            
+            {hasTwitter && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded bg-blue-50">
+                    <Twitter className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <p className="text-sm font-semibold">Twitter</p>
+                </div>
+                {loadingTwitterContacts ? (
+                  <Alert>
+                    <AlertDescription>Loading Twitter contacts...</AlertDescription>
+                  </Alert>
+                ) : twitterContacts.length === 0 ? (
+                  <Alert>
+                    <AlertDescription>
+                      No contacts found. Click "Sync Twitter" to sync.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-2 pr-4">
+                      {twitterContacts.map((contact, index) => {
+                        const isFavorite = (contact as any).is_favorite || false;
+                        return (
+                          <div key={`twitter-${contact.username}-${index}`}>
+                            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                              <div className="flex items-center gap-3 flex-1">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarFallback className="bg-blue-500 text-white">
+                                    {getInitials(contact.display_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span 
+                                      className="font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                                      onClick={() => {
+                                        localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                          type: 'twitter',
+                                          username: contact.username,
+                                          displayName: contact.display_name
+                                        }));
+                                        navigate('/create');
+                                        toast.success(`Selected ${contact.display_name} for gift card`);
+                                      }}
+                                    >
+                                      {contact.display_name}
+                                    </span>
+                                    <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+                                      <Twitter className="w-3 h-3 mr-1" />
+                                      Twitter
+                                    </Badge>
+                                  </div>
+                                  <div 
+                                    className="text-sm text-gray-500 cursor-pointer hover:text-blue-600 transition-colors"
+                                    onClick={() => {
+                                      localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                        type: 'twitter',
+                                        username: contact.username,
+                                        displayName: contact.display_name
+                                      }));
+                                      navigate('/create');
+                                      toast.success(`Selected @${contact.username} for gift card`);
+                                    }}
+                                  >
+                                    @{contact.username}
+                                  </div>
+                                </div>
+                              </div>
+                              {isConnected && address && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    const contactObj: Contact = {
+                                      name: contact.display_name,
+                                      source: 'twitter',
+                                      socialId: contact.twitter_user_id,
+                                      username: contact.username,
+                                      displayName: contact.display_name,
+                                      isFavorite: isFavorite,
+                                    };
+                                    handleToggleFavorite(contactObj);
+                                  }}
+                                  className={`p-1 ${isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
+                                >
+                                  <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                                </Button>
+                              )}
+                            </div>
+                            {index < twitterContacts.length - 1 && <Separator className="my-2" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+            )}
+            
+            <Separator />
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded bg-gray-50">
+                    <User className="w-4 h-4 text-gray-600" />
+                  </div>
+                  <p className="text-sm font-semibold">Personal Contacts</p>
+                </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
@@ -1244,114 +1284,116 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                   </Button>
                 </div>
               </DialogContent>
-            </Dialog>
-          </div>
-          {loadingContacts ? (
-            <Alert>
-              <AlertDescription>Loading contacts...</AlertDescription>
-            </Alert>
-          ) : contacts.length === 0 ? (
-            <Alert>
-              <AlertDescription>
-                You don't have any Personal contacts yet. Add contacts manually or sync from social media.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <ScrollArea className="h-[300px]">
-              <div className="space-y-2 pr-4">
-                {contacts.map((contact, index) => (
-                  <div key={`${contact.source || 'manual'}-${contact.socialId || contact.name}-${index}`}>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3 flex-1">
-                        <Avatar className="h-10 w-10">
-                          {contact.avatarUrl ? (
-                            <img src={contact.avatarUrl} alt={contact.name} />
-                          ) : (
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              {getInitials(contact.name)}
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span 
-                              className="font-medium cursor-pointer hover:text-blue-600 transition-colors"
-                              onClick={() => {
-                                if (contact.wallet) {
-                                  localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
-                                    type: 'address',
-                                    address: contact.wallet,
-                                    displayName: contact.name
-                                  }));
-                                  navigate('/create');
-                                  toast.success(`Selected ${contact.name} for gift card`);
-                                }
-                              }}
-                            >
-                              {contact.name}
-                            </span>
-                            {getSourceBadge(contact.source)}
+              </Dialog>
+            </div>
+            {loadingContacts ? (
+              <Alert>
+                <AlertDescription>Loading contacts...</AlertDescription>
+              </Alert>
+            ) : contacts.length === 0 ? (
+              <Alert>
+                <AlertDescription>
+                  You don't have any Personal contacts yet. Add contacts manually or sync from social media.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <ScrollArea className="h-[300px]">
+                <div className="space-y-2 pr-4">
+                  {contacts.map((contact, index) => (
+                    <div key={`${contact.source || 'manual'}-${contact.socialId || contact.name}-${index}`}>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center gap-3 flex-1">
+                          <Avatar className="h-10 w-10">
+                            {contact.avatarUrl ? (
+                              <img src={contact.avatarUrl} alt={contact.name} />
+                            ) : (
+                              <AvatarFallback className="bg-primary text-primary-foreground">
+                                {getInitials(contact.name)}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span 
+                                className="font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                                onClick={() => {
+                                  if (contact.wallet) {
+                                    localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                      type: 'address',
+                                      address: contact.wallet,
+                                      displayName: contact.name
+                                    }));
+                                    navigate('/create');
+                                    toast.success(`Selected ${contact.name} for gift card`);
+                                  }
+                                }}
+                              >
+                                {contact.name}
+                              </span>
+                              {getSourceBadge(contact.source)}
+                            </div>
+                            {contact.wallet ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div 
+                                    className="text-sm text-gray-500 font-mono cursor-pointer hover:text-blue-600 transition-colors"
+                                    onClick={() => {
+                                      if (contact.wallet) {
+                                        localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                          type: 'address',
+                                          address: contact.wallet,
+                                          displayName: contact.name
+                                        }));
+                                        navigate('/create');
+                                        toast.success(`Selected ${contact.wallet.slice(0, 6)}...${contact.wallet.slice(-4)} for gift card`);
+                                      }
+                                    }}
+                                  >
+                                    {contact.wallet.slice(0, 6)}...{contact.wallet.slice(-4)}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {contact.wallet}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <div className="text-sm text-gray-400 italic">Not linked</div>
+                            )}
                           </div>
-                          {contact.wallet ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div 
-                                  className="text-sm text-gray-500 font-mono cursor-pointer hover:text-blue-600 transition-colors"
-                                  onClick={() => {
-                                    if (contact.wallet) {
-                                      localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
-                                        type: 'address',
-                                        address: contact.wallet,
-                                        displayName: contact.name
-                                      }));
-                                      navigate('/create');
-                                      toast.success(`Selected ${contact.wallet.slice(0, 6)}...${contact.wallet.slice(-4)} for gift card`);
-                                    }
-                                  }}
-                                >
-                                  {contact.wallet.slice(0, 6)}...{contact.wallet.slice(-4)}
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {contact.wallet}
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <div className="text-sm text-gray-400 italic">Not linked</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {isConnected && address && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleToggleFavorite(contact)}
+                              className={`p-1 ${contact.isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
+                            >
+                              <Heart className={`w-4 h-4 ${contact.isFavorite ? 'fill-current' : ''}`} />
+                            </Button>
+                          )}
+                          {contact.source === 'manual' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteContact(index)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {isConnected && address && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleToggleFavorite(contact)}
-                            className={`p-1 ${contact.isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
-                          >
-                            <Heart className={`w-4 h-4 ${contact.isFavorite ? 'fill-current' : ''}`} />
-                          </Button>
-                        )}
-                        {contact.source === 'manual' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteContact(index)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
+                      {index < contacts.length - 1 && <Separator className="my-2" />}
                     </div>
-                    {index < contacts.length - 1 && <Separator className="my-2" />}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </div>
-      </CardContent>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }

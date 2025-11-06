@@ -1326,6 +1326,74 @@ export class Web3Service {
     return this.account;
   }
 
+  /**
+   * Send tokens directly to an address
+   * @param tokenType 'USDC' or 'EURC'
+   * @param to Recipient address
+   * @param amount Amount in token units (e.g., "10.5" for 10.5 USDC)
+   * @returns Transaction hash
+   */
+  async sendToken(
+    tokenType: 'USDC' | 'EURC',
+    to: string,
+    amount: string
+  ): Promise<string> {
+    if (!this.walletClient || !this.account) {
+      throw new Error('Wallet not connected');
+    }
+
+    await this.ensureCorrectChain();
+
+    try {
+      const tokenAddress = tokenType === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const amountWei = this.parseAmount(amount);
+
+      if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
+        throw new Error(`${tokenType} address is not configured`);
+      }
+
+      if (!to || !to.startsWith('0x')) {
+        throw new Error('Invalid recipient address');
+      }
+
+      // Check balance
+      const balance = await this.safeRequest(async () => {
+        return await this.publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [this.account as `0x${string}`],
+        });
+      });
+
+      const amountBigInt = BigInt(amountWei);
+      if (balance < amountBigInt) {
+        throw new Error(`Insufficient ${tokenType} balance. Required: ${amount}, Available: ${this.formatAmount(balance)}`);
+      }
+
+      // Send transfer transaction
+      const hash = await this.walletClient.writeContract({
+        chain: arcTestnet,
+        address: tokenAddress as `0x${string}`,
+        abi: ERC20ABI,
+        functionName: 'transfer',
+        args: [to as `0x${string}`, amountBigInt],
+        account: this.account as `0x${string}`,
+      });
+
+      // Wait for transaction receipt
+      await this.safeRequest(async () => {
+        return await this.publicClient.waitForTransactionReceipt({ hash });
+      });
+
+      console.log(`Successfully sent ${amount} ${tokenType} to ${to}, txHash: ${hash}`);
+      return hash;
+    } catch (error: any) {
+      console.error(`Error sending ${tokenType}:`, error);
+      throw error;
+    }
+  }
+
   private parseAmount(amount: string): string {
     // Convert amount to wei (6 decimals for USDC/USDT)
     return (parseFloat(amount) * 1000000).toString();

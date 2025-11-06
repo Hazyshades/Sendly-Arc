@@ -1,5 +1,4 @@
 import { MyCards } from '../components/MyCards';
-import { DeveloperWalletComponent } from '../components/DeveloperWallet';
 import { Layout } from './Layout';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,7 +12,6 @@ export function MyRoute() {
   return (
     <Layout>
       <div className="space-y-6">
-        <DeveloperWalletComponent blockchain="ARC-TESTNET" />
         <MyCards onSpendCard={handleSpendCard} />
       </div>
     </Layout>

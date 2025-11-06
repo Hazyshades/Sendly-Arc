@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react';
+import { Mic, MicOff, CheckCircle, XCircle, AlertCircle, Info, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Spinner } from './ui/spinner';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { toast } from 'sonner';
 import { useAccount, useWalletClient } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
@@ -28,6 +29,7 @@ export function VoicePaymentAgent() {
   const [transcribedText, setTranscribedText] = useState('');
   const [parsedCommand, setParsedCommand] = useState<ParsedPaymentCommand | null>(null);
   const [error, setError] = useState('');
+  const [isOpen, setIsOpen] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -263,125 +265,171 @@ export function VoicePaymentAgent() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <h2 className="text-2xl font-semibold">Voice AI Agent</h2>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="w-5 h-5 text-gray-400 cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent>
-              Connect your contacts and speak natural language commands
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <p className="text-gray-600">
-          Say a command like: "Send Alice a gift card for her birthday with $25"
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Voice Command</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
+    <div className="space-y-6">
+      <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-50 border border-purple-100">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                </div>
                 <div>
-                  <Button
-                    size="lg"
-                    variant={recordingState === 'recording' ? 'destructive' : 'default'}
-                    onClick={recordingState === 'recording' ? stopRecording : startRecording}
-                    disabled={recordingState === 'processing' || recordingState === 'creating' || contacts.length === 0}
-                    className="w-32 h-32 rounded-full"
-                  >
-                    {recordingState === 'recording' ? (
-                      <MicOff className="w-8 h-8" />
-                    ) : recordingState === 'processing' || recordingState === 'creating' ? (
-                      <Spinner className="w-8 h-8" />
-                    ) : (
-                      <Mic className="w-8 h-8" />
-                    )}
-                  </Button>
+                  <CardTitle className="text-lg font-semibold">Voice AI Agent</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Speak natural language commands to create gift cards
+                  </CardDescription>
                 </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                {contacts.length === 0 && 'Add contacts first to use voice commands'}
-                {contacts.length > 0 && recordingState === 'idle' && 'Click to start recording'}
-                {recordingState === 'recording' && 'Click to stop recording'}
-                {(recordingState === 'processing' || recordingState === 'creating') && 'Processing...'}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-
-          {recordingState === 'recording' && (
-            <div className="text-center">
-              <Badge variant="destructive" className="animate-pulse">
-                Recording...
-              </Badge>
+              </div>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                >
+                  {isOpen ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
             </div>
-          )}
-
-          {transcribedText && (
-            <Alert>
-              <AlertDescription>
-                <div className="font-medium mb-2">Transcribed text:</div>
-                <div className="text-sm">{transcribedText}</div>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {parsedCommand && recordingState === 'confirming' && (
-            <Alert>
-              <AlertDescription className="space-y-4">
-                <div className="font-medium mb-2">Confirm card creation:</div>
-                <div className="space-y-2 text-sm">
-                  <div><strong>Recipient:</strong> {parsedCommand.recipientName}</div>
-                  <div><strong>Amount:</strong> ${parsedCommand.amount} {parsedCommand.currency}</div>
-                  {parsedCommand.message && (
-                    <div><strong>Message:</strong> {parsedCommand.message}</div>
-                  )}
-                  {parsedCommand.occasion && (
-                    <div><strong>Occasion:</strong> {parsedCommand.occasion}</div>
-                  )}
+          </CardHeader>
+          
+          <CollapsibleContent>
+            <CardContent className="space-y-5 pt-0">
+              {/* Voice Command Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-center py-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Button
+                          size="lg"
+                          variant={recordingState === 'recording' ? 'destructive' : 'default'}
+                          onClick={recordingState === 'recording' ? stopRecording : startRecording}
+                          disabled={recordingState === 'processing' || recordingState === 'creating' || contacts.length === 0}
+                          className="w-32 h-32 rounded-full"
+                        >
+                          {recordingState === 'recording' ? (
+                            <MicOff className="w-8 h-8" />
+                          ) : recordingState === 'processing' || recordingState === 'creating' ? (
+                            <Spinner className="w-8 h-8" />
+                          ) : (
+                            <Mic className="w-8 h-8" />
+                          )}
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {contacts.length === 0 && 'Add contacts first to use voice commands'}
+                      {contacts.length > 0 && recordingState === 'idle' && 'Click to start recording'}
+                      {recordingState === 'recording' && 'Click to stop recording'}
+                      {(recordingState === 'processing' || recordingState === 'creating') && 'Processing...'}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <Button onClick={confirmAndCreate} className="flex-1">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Confirm
-                  </Button>
-                  <Button onClick={cancel} variant="outline" className="flex-1">
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Cancel
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+                {recordingState === 'recording' && (
+                  <div className="text-center">
+                    <Badge variant="destructive" className="animate-pulse">
+                      Recording...
+                    </Badge>
+                  </div>
+                )}
+              </div>
 
-          {recordingState === 'creating' && (
-            <Alert>
-              <AlertDescription>
-                <div className="flex items-center gap-2">
-                  <Spinner className="w-4 h-4" />
-                  Creating gift card...
+              <Separator />
+
+              {/* Transcribed Text */}
+              {transcribedText && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Transcribed Text</p>
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-50/50 p-3.5 rounded-lg border border-gray-200 text-sm">
+                    {transcribedText}
+                  </div>
                 </div>
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
+              )}
+
+              {/* Confirmation Section */}
+              {parsedCommand && recordingState === 'confirming' && (
+                <div className="space-y-4 p-4 rounded-lg bg-blue-50/50 border border-blue-100">
+                  <p className="text-sm font-semibold text-blue-900">Confirm Card Creation</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Recipient</p>
+                      <Badge variant="outline" className="font-normal">
+                        {parsedCommand.recipientName}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Amount</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        ${parsedCommand.amount} {parsedCommand.currency}
+                      </p>
+                    </div>
+                    {parsedCommand.message && (
+                      <div className="space-y-1.5 col-span-2">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Message</p>
+                        <p className="text-sm text-gray-700">{parsedCommand.message}</p>
+                      </div>
+                    )}
+                    {parsedCommand.occasion && (
+                      <div className="space-y-1.5 col-span-2">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Occasion</p>
+                        <Badge variant="outline" className="font-normal">
+                          {parsedCommand.occasion}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button onClick={confirmAndCreate} className="flex-1">
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Confirm
+                    </Button>
+                    <Button onClick={cancel} variant="outline" className="flex-1">
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Alert */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Creating Status */}
+              {recordingState === 'creating' && (
+                <Alert>
+                  <AlertDescription>
+                    <div className="flex items-center gap-2">
+                      <Spinner className="w-4 h-4" />
+                      Creating gift card...
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Info Alert */}
+              {contacts.length === 0 && recordingState === 'idle' && (
+                <div className="flex gap-3 p-3 rounded-lg bg-blue-50/50 border border-blue-100">
+                  <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-900 leading-relaxed">
+                    Add contacts first to use voice commands. Say commands like: "Send Alice a gift card for her birthday with $25"
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
-      
-      <Separator />
 
       <ContactsManager contacts={contacts} onContactsChange={setContacts} />
     </div>
