@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, UserPlus, RefreshCw, Twitch, Twitter, User } from 'lucide-react';
+import { Plus, Trash2, UserPlus, RefreshCw, Twitch, Twitter, User, Heart } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -14,9 +14,10 @@ import { Badge } from './ui/badge';
 import { Spinner } from './ui/spinner';
 import { toast } from 'sonner';
 import { usePrivy } from '@privy-io/react-auth';
+import { useAccount } from 'wagmi';
 import { useNavigate } from 'react-router-dom';
 import { apiCall } from '../utils/supabase/client';
-import { getAllSocialContacts, getTwitchContacts, getTwitterContacts } from '../utils/supabase/contacts';
+import { getAllSocialContacts, getTwitchContacts, getTwitterContacts, getPersonalContacts, syncPersonalContact, deletePersonalContact, toggleFavoritePersonalContact, toggleFavoriteSocialContact } from '../utils/supabase/contacts';
 import type { TwitchContact } from '../utils/twitch/contactsAPI';
 import type { TwitterContact } from '../utils/supabase/contacts';
 
@@ -28,6 +29,7 @@ export interface Contact {
   username?: string;
   displayName?: string;
   avatarUrl?: string;
+  isFavorite?: boolean;
 }
 
 interface ContactsManagerProps {
@@ -65,8 +67,23 @@ function getSourceBadge(source: Contact['source']) {
   );
 }
 
+// Helper function to get user ID (wallet address)
+// Uses wallet address as user_id for consistency
+// Does NOT depend on Privy - only uses wagmi address
+const getUserId = (address: string | undefined): string | null => {
+  // Use connected wallet address from wagmi (works with or without Privy)
+  if (address) {
+    return address.toLowerCase();
+  }
+  
+  return null;
+};
+
 export function ContactsManager({ contacts, onContactsChange }: ContactsManagerProps) {
+  // Privy is optional - only used for social media contacts (Twitch/Twitter)
+  // For personal contacts and favorites, we only need wallet address from wagmi
   const { authenticated, user } = usePrivy();
+  const { address, isConnected } = useAccount();
   const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newContact, setNewContact] = useState<Contact>({ name: '', wallet: '' });
@@ -83,74 +100,82 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
   const hasTwitch = !!twitchAccount?.subject;
   const hasTwitter = !!twitterAccount?.subject;
 
-  useEffect(() => {
-    const saved = localStorage.getItem('sendly_contacts');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as Contact[];
-        if (parsed.length > 0 && contacts.length === 0) {
-          onContactsChange(parsed);
-        }
-      } catch (e) {
-        console.error('Error loading contacts:', e);
-      }
-    }
-  }, [onContactsChange, contacts.length]);
-
-  useEffect(() => {
-    if (authenticated) {
-      loadSocialContacts();
-      if (hasTwitch) {
-        loadTwitchContacts();
-      }
-      if (hasTwitter) {
-        loadTwitterContacts();
-      }
-    }
-  }, [authenticated, hasTwitch, hasTwitter]);
-
-  useEffect(() => {
-    const manualContacts = contacts.filter(c => !c.source || c.source === 'manual');
-    if (manualContacts.length > 0) {
-      localStorage.setItem('sendly_contacts', JSON.stringify(manualContacts));
-    }
-  }, [contacts]);
-
   const loadSocialContacts = async () => {
-    if (!authenticated || !user?.id) return;
-
     try {
       setLoadingContacts(true);
-      const socialContacts = await getAllSocialContacts(user.id);
       
-      const manualContacts = contacts.filter(c => !c.source || c.source === 'manual');
-      const updatedContacts = [...manualContacts, ...socialContacts];
+      let personalContacts: Contact[] = [];
+      let socialContacts: Contact[] = [];
+
+      // Use wallet address as user_id for consistency (doesn't depend on Privy)
+      const userId = getUserId(address);
       
+      // Load personal contacts from database (works with just wallet address, no Privy needed)
+      if (userId) {
+        try {
+          const loadedContacts = await getPersonalContacts(userId);
+          personalContacts = loadedContacts || [];
+        } catch (error) {
+          console.error('Error loading personal contacts from DB:', error);
+          // Fallback to localStorage if DB fails
+          const saved = localStorage.getItem('sendly_contacts');
+          if (saved) {
+            try {
+              personalContacts = JSON.parse(saved) as Contact[];
+            } catch (e) {
+              console.error('Error parsing contacts from localStorage:', e);
+            }
+          }
+        }
+      } else {
+        // If no wallet connected, try to load from localStorage
+        const saved = localStorage.getItem('sendly_contacts');
+        if (saved) {
+          try {
+            personalContacts = JSON.parse(saved) as Contact[];
+          } catch (e) {
+            console.error('Error parsing contacts from localStorage:', e);
+          }
+        }
+      }
+
+      // Load social contacts only if we have a wallet address
+      // Note: Social contacts require Privy OAuth, but favorites work with just wallet
+      if (userId) {
+        try {
+          socialContacts = await getAllSocialContacts(userId);
+        } catch (error) {
+          console.error('Error loading social contacts:', error);
+        }
+      }
+      
+      // Sort: favorites first, then alphabetically
+      const updatedContacts = [...personalContacts, ...socialContacts].sort((a, b) => {
+        if (a.isFavorite && !b.isFavorite) return -1;
+        if (!a.isFavorite && b.isFavorite) return 1;
+        return a.name.localeCompare(b.name);
+      });
       onContactsChange(updatedContacts);
     } catch (error) {
-      console.error('Error loading social contacts:', error);
+      console.error('Error loading contacts:', error);
     } finally {
       setLoadingContacts(false);
     }
   };
 
   const loadTwitterContacts = async () => {
-    if (!authenticated || !user?.id) return;
+    const userId = getUserId(address);
+    // Note: Twitter contacts require Privy OAuth, but we use wallet address as user_id
+    if (!authenticated || !userId) return;
 
     try {
       setLoadingTwitterContacts(true);
       
-      const twitterUserId = twitterAccount?.subject;
-      if (!twitterUserId) {
-        console.log('No Twitter user ID found in account');
-        setTwitterContacts([]);
-        return;
-      }
-
-      console.log('Loading Twitter contacts for Twitter user ID:', twitterUserId);
+      // Use wallet address as user_id for loading contacts
+      console.log('Loading Twitter contacts for wallet address (user_id):', userId);
 
       try {
-        const response = await apiCall(`/contacts/twitter?userId=${encodeURIComponent(twitterUserId)}`, {
+        const response = await apiCall(`/contacts/twitter?userId=${encodeURIComponent(userId)}`, {
           method: 'GET',
         });
 
@@ -166,7 +191,7 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
       } catch (serverError) {
         console.error('Server endpoint error:', serverError);
         try {
-          const twitterData = await getTwitterContacts(twitterUserId);
+          const twitterData = await getTwitterContacts(userId);
           console.log(`Loaded ${twitterData.length} Twitter contacts from direct query`);
           setTwitterContacts(twitterData);
         } catch (fallbackError) {
@@ -183,26 +208,20 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
   };
 
   const loadTwitchContacts = async () => {
-    if (!authenticated || !user?.id) return;
+    const userId = getUserId(address);
+    // Note: Twitch contacts require Privy OAuth, but we use wallet address as user_id
+    if (!authenticated || !userId) return;
 
     try {
       setLoadingTwitchContacts(true);
       
-      // Try to get Twitch user ID from the account
-      // This is the ID that was used when saving contacts during sync
-      const twitchUserId = twitchAccount?.subject;
-      if (!twitchUserId) {
-        console.log('No Twitch user ID found in account');
-        setTwitchContacts([]);
-        return;
-      }
-
-      console.log('Loading Twitch contacts for Twitch user ID:', twitchUserId);
+      // Use wallet address as user_id for loading contacts
+      console.log('Loading Twitch contacts for wallet address (user_id):', userId);
 
       // Use server endpoint to get contacts (bypasses RLS issues)
       // The server uses service_role key and can read all data
       try {
-        const response = await apiCall(`/contacts/twitch?userId=${encodeURIComponent(twitchUserId)}`, {
+        const response = await apiCall(`/contacts/twitch?userId=${encodeURIComponent(userId)}`, {
           method: 'GET',
         });
 
@@ -217,11 +236,11 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
         }
       } catch (serverError) {
         console.error('Server endpoint error:', serverError);
-        // Fallback: try direct Supabase query with Twitch user ID
-        console.log('Trying direct Supabase query with Twitch user ID:', twitchUserId);
+        // Fallback: try direct Supabase query with wallet address
+        console.log('Trying direct Supabase query with wallet address (user_id):', userId);
         try {
           // Note: This might fail due to RLS, but worth trying
-          const twitchData = await getTwitchContacts(twitchUserId);
+          const twitchData = await getTwitchContacts(userId);
           console.log(`Loaded ${twitchData.length} Twitch contacts from direct query`);
           setTwitchContacts(twitchData);
         } catch (fallbackError) {
@@ -236,6 +255,39 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
       setLoadingTwitchContacts(false);
     }
   };
+
+  // Migration: Migrate contacts from old user_id (Privy ID or anonymous ID) to wallet address
+  useEffect(() => {
+    const migrateContactsToWallet = async () => {
+      const currentUserId = getUserId(address);
+      if (!currentUserId) return;
+      
+      // Check if we have old contacts with different user_id
+      // This will be handled automatically by the Edge Function when searching by wallet
+      // But we can proactively migrate if needed
+      console.log('[ContactsManager] Current user_id (wallet):', currentUserId);
+    };
+
+    migrateContactsToWallet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
+
+  useEffect(() => {
+    // Always load contacts (from DB if wallet connected, from localStorage if not)
+    loadSocialContacts();
+    
+    // Load social media contacts only if authenticated via Privy (for Twitch/Twitter OAuth)
+    // Personal contacts work with just wallet connection (no Privy needed)
+    if (authenticated) {
+      if (hasTwitch) {
+        loadTwitchContacts();
+      }
+      if (hasTwitter) {
+        loadTwitterContacts();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated, hasTwitch, hasTwitter, address]);
 
   const handleSyncTwitch = async () => {
     if (!authenticated || !user || !twitchAccount) {
@@ -346,11 +398,14 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
       }
 
       try {
+        // Set wallet address as user_id for saving to DB as user_id
+        const walletAddress = getUserId(address);
         const response = await apiCall('/contacts/sync', {
           method: 'POST',
           body: JSON.stringify({
             platform: 'twitch',
-            userId: effectiveTwitchUserId,
+            userId: effectiveTwitchUserId, // Twitch user ID for API
+            walletAddress: walletAddress, // Wallet for db 
             accessToken: accessToken,
             clientId: twitchClientId,
             privyUserId: user.id,
@@ -586,11 +641,14 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
       }
 
       try {
+        // Set wallet address as user_id for saving to DB as user_id
+        const walletAddress = getUserId(address);
         const response = await apiCall('/contacts/sync', {
           method: 'POST',
           body: JSON.stringify({
             platform: 'twitter',
-            userId: effectiveTwitterUserId,
+            userId: effectiveTwitterUserId, // Twitter user ID for API
+            walletAddress: walletAddress, // Wallet for db 
             accessToken: accessToken,
             privyUserId: user.id,
           }),
@@ -769,7 +827,7 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
     });
   };
 
-  const handleAddContact = () => {
+  const handleAddContact = async () => {
     if (!newContact.name.trim() || !newContact.wallet?.trim()) {
       toast.error('Please fill in all fields');
       return;
@@ -781,27 +839,138 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
     }
 
     const contact: Contact = {
-      ...newContact,
+      name: newContact.name.trim(),
+      wallet: newContact.wallet.trim(),
       source: 'manual',
     };
 
-    const updated = [...contacts, contact];
-    onContactsChange(updated);
-    setNewContact({ name: '', wallet: '' });
-    setIsDialogOpen(false);
-    toast.success('Contact added');
+    try {
+      // Use wallet address as user_id (doesn't depend on Privy)
+      // If no wallet connected, use the contact's wallet as user_id (for anonymous users)
+      const userId = getUserId(address) || contact.wallet?.toLowerCase();
+      
+      if (!userId || !contact.wallet) {
+        throw new Error('Wallet address is required. Please connect your wallet or provide a wallet address.');
+      }
+      
+      try {
+        console.log('Attempting to save contact to DB:', { userId, authenticated, contact });
+        await syncPersonalContact(userId, {
+          name: contact.name,
+          wallet: contact.wallet,
+        });
+        console.log('Contact saved to DB successfully');
+      } catch (dbError) {
+        console.error('Failed to save to DB, falling back to localStorage:', dbError);
+        // Fallback to localStorage if DB save fails
+        const saved = localStorage.getItem('sendly_contacts');
+        const existingContacts = saved ? JSON.parse(saved) as Contact[] : [];
+        const updatedContacts = [...existingContacts, contact];
+        localStorage.setItem('sendly_contacts', JSON.stringify(updatedContacts));
+        toast.warning('Contact saved locally (database unavailable)');
+      }
+
+      const updated = [...contacts, contact];
+      onContactsChange(updated);
+      setNewContact({ name: '', wallet: '' });
+      setIsDialogOpen(false);
+      toast.success('Contact added');
+    } catch (error) {
+      console.error('Error adding contact:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to add contact');
+    }
   };
 
-  const handleDeleteContact = (index: number) => {
+  const handleDeleteContact = async (index: number) => {
     const contact = contacts[index];
     if (contact.source && contact.source !== 'manual') {
       toast.error('Social contacts cannot be deleted. Unfollow them on the platform.');
       return;
     }
 
-    const updated = contacts.filter((_, i) => i !== index);
-    onContactsChange(updated);
-    toast.success('Contact deleted');
+    if (!contact.wallet) {
+      toast.error('Cannot delete contact: wallet address missing');
+      return;
+    }
+
+    try {
+      // Use wallet address as user_id (doesn't depend on Privy)
+      const userId = getUserId(address) || contact.wallet?.toLowerCase();
+      
+      if (!userId) {
+        throw new Error('Cannot identify user. Please connect your wallet.');
+      }
+      
+      try {
+        await deletePersonalContact(userId, contact.wallet);
+      } catch (dbError) {
+        console.error('Failed to delete from DB, trying localStorage:', dbError);
+        // Fallback to localStorage if DB delete fails
+        const saved = localStorage.getItem('sendly_contacts');
+        if (saved) {
+          try {
+            const existingContacts = JSON.parse(saved) as Contact[];
+            const updatedContacts = existingContacts.filter(
+              c => c.wallet !== contact.wallet
+            );
+            localStorage.setItem('sendly_contacts', JSON.stringify(updatedContacts));
+          } catch (e) {
+            console.error('Error updating localStorage:', e);
+          }
+        }
+      }
+
+      const updated = contacts.filter((_, i) => i !== index);
+      onContactsChange(updated);
+      toast.success('Contact deleted');
+    } catch (error) {
+      console.error('Error deleting contact:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete contact');
+    }
+  };
+
+  const handleToggleFavorite = async (contact: Contact) => {
+    // Use wallet address as user_id (doesn't depend on Privy)
+    const userId = getUserId(address);
+    
+    if (!userId || !isConnected) {
+      toast.error('Please connect your wallet to mark contacts as favorite');
+      return;
+    }
+
+    const newFavoriteStatus = !contact.isFavorite;
+
+    try {
+      if (contact.source === 'manual' && contact.wallet) {
+        // Personal contact - use wallet address as user_id
+        await toggleFavoritePersonalContact(userId, contact.wallet, newFavoriteStatus);
+      } else if (contact.source && contact.source !== 'manual' && contact.socialId) {
+        // Social contact - use wallet address as user_id
+        await toggleFavoriteSocialContact(
+          userId,
+          contact.source,
+          contact.socialId,
+          newFavoriteStatus
+        );
+      } else {
+        toast.error('Cannot update favorite status for this contact');
+        return;
+      }
+
+      // Reload contacts to get updated order from DB
+      await loadSocialContacts();
+      
+      if (contact.source === 'twitch') {
+        await loadTwitchContacts();
+      } else if (contact.source === 'twitter') {
+        await loadTwitterContacts();
+      }
+      
+      toast.success(newFavoriteStatus ? 'Contact added to favorites' : 'Contact removed from favorites');
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update favorite status');
+    }
   };
 
 
@@ -856,19 +1025,40 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
             ) : (
               <ScrollArea className="h-[200px]">
                 <div className="space-y-2 pr-4">
-                  {twitchContacts.map((contact, index) => (
-                    <div key={`twitch-${contact.broadcaster_name}-${index}`}>
-                      <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
-                        <div className="flex items-center gap-3 flex-1">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-purple-500 text-white">
-                              {getInitials(contact.broadcaster_name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span 
-                                className="font-medium cursor-pointer hover:text-purple-600 transition-colors"
+                  {twitchContacts.map((contact, index) => {
+                    const isFavorite = (contact as any).is_favorite || false;
+                    return (
+                      <div key={`twitch-${contact.broadcaster_name}-${index}`}>
+                        <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                          <div className="flex items-center gap-3 flex-1">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback className="bg-purple-500 text-white">
+                                {getInitials(contact.broadcaster_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span 
+                                  className="font-medium cursor-pointer hover:text-purple-600 transition-colors"
+                                  onClick={() => {
+                                    localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                      type: 'twitch',
+                                      username: contact.broadcaster_login,
+                                      displayName: contact.broadcaster_name
+                                    }));
+                                    navigate('/create');
+                                    toast.success(`Selected ${contact.broadcaster_name} for gift card`);
+                                  }}
+                                >
+                                  {contact.broadcaster_name}
+                                </span>
+                                <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
+                                  <Twitch className="w-3 h-3 mr-1" />
+                                  Twitch
+                                </Badge>
+                              </div>
+                              <div 
+                                className="text-sm text-gray-500 cursor-pointer hover:text-purple-600 transition-colors"
                                 onClick={() => {
                                   localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
                                     type: 'twitch',
@@ -876,36 +1066,38 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                                     displayName: contact.broadcaster_name
                                   }));
                                   navigate('/create');
-                                  toast.success(`Selected ${contact.broadcaster_name} for gift card`);
+                                  toast.success(`Selected ${contact.broadcaster_login} for gift card`);
                                 }}
                               >
-                                {contact.broadcaster_name}
-                              </span>
-                              <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
-                                <Twitch className="w-3 h-3 mr-1" />
-                                Twitch
-                              </Badge>
-                            </div>
-                            <div 
-                              className="text-sm text-gray-500 cursor-pointer hover:text-purple-600 transition-colors"
-                              onClick={() => {
-                                localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
-                                  type: 'twitch',
-                                  username: contact.broadcaster_login,
-                                  displayName: contact.broadcaster_name
-                                }));
-                                navigate('/create');
-                                toast.success(`Selected ${contact.broadcaster_login} for gift card`);
-                              }}
-                            >
-                              {contact.broadcaster_login}
+                                {contact.broadcaster_login}
+                              </div>
                             </div>
                           </div>
+                          {isConnected && address && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                const contactObj: Contact = {
+                                  name: contact.broadcaster_name,
+                                  source: 'twitch',
+                                  socialId: contact.broadcaster_id,
+                                  username: contact.broadcaster_login,
+                                  displayName: contact.broadcaster_name,
+                                  isFavorite: isFavorite,
+                                };
+                                handleToggleFavorite(contactObj);
+                              }}
+                              className={`p-1 ${isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
+                            >
+                              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                            </Button>
+                          )}
                         </div>
+                        {index < twitchContacts.length - 1 && <Separator className="my-2" />}
                       </div>
-                      {index < twitchContacts.length - 1 && <Separator className="my-2" />}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             )}
@@ -930,19 +1122,40 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
             ) : (
               <ScrollArea className="h-[200px]">
                 <div className="space-y-2 pr-4">
-                  {twitterContacts.map((contact, index) => (
-                    <div key={`twitter-${contact.username}-${index}`}>
-                      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                        <div className="flex items-center gap-3 flex-1">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-blue-500 text-white">
-                              {getInitials(contact.display_name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span 
-                                className="font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                  {twitterContacts.map((contact, index) => {
+                    const isFavorite = (contact as any).is_favorite || false;
+                    return (
+                      <div key={`twitter-${contact.username}-${index}`}>
+                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                          <div className="flex items-center gap-3 flex-1">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback className="bg-blue-500 text-white">
+                                {getInitials(contact.display_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span 
+                                  className="font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                                  onClick={() => {
+                                    localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                      type: 'twitter',
+                                      username: contact.username,
+                                      displayName: contact.display_name
+                                    }));
+                                    navigate('/create');
+                                    toast.success(`Selected ${contact.display_name} for gift card`);
+                                  }}
+                                >
+                                  {contact.display_name}
+                                </span>
+                                <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+                                  <Twitter className="w-3 h-3 mr-1" />
+                                  Twitter
+                                </Badge>
+                              </div>
+                              <div 
+                                className="text-sm text-gray-500 cursor-pointer hover:text-blue-600 transition-colors"
                                 onClick={() => {
                                   localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
                                     type: 'twitter',
@@ -950,36 +1163,38 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                                     displayName: contact.display_name
                                   }));
                                   navigate('/create');
-                                  toast.success(`Selected ${contact.display_name} for gift card`);
+                                  toast.success(`Selected @${contact.username} for gift card`);
                                 }}
                               >
-                                {contact.display_name}
-                              </span>
-                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
-                                <Twitter className="w-3 h-3 mr-1" />
-                                Twitter
-                              </Badge>
-                            </div>
-                            <div 
-                              className="text-sm text-gray-500 cursor-pointer hover:text-blue-600 transition-colors"
-                              onClick={() => {
-                                localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
-                                  type: 'twitter',
-                                  username: contact.username,
-                                  displayName: contact.display_name
-                                }));
-                                navigate('/create');
-                                toast.success(`Selected @${contact.username} for gift card`);
-                              }}
-                            >
-                              @{contact.username}
+                                @{contact.username}
+                              </div>
                             </div>
                           </div>
+                          {isConnected && address && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                const contactObj: Contact = {
+                                  name: contact.display_name,
+                                  source: 'twitter',
+                                  socialId: contact.twitter_user_id,
+                                  username: contact.username,
+                                  displayName: contact.display_name,
+                                  isFavorite: isFavorite,
+                                };
+                                handleToggleFavorite(contactObj);
+                              }}
+                              className={`p-1 ${isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
+                            >
+                              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                            </Button>
+                          )}
                         </div>
+                        {index < twitterContacts.length - 1 && <Separator className="my-2" />}
                       </div>
-                      {index < twitterContacts.length - 1 && <Separator className="my-2" />}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             )}
@@ -1059,13 +1274,41 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{contact.name}</span>
+                            <span 
+                              className="font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                              onClick={() => {
+                                if (contact.wallet) {
+                                  localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                    type: 'address',
+                                    address: contact.wallet,
+                                    displayName: contact.name
+                                  }));
+                                  navigate('/create');
+                                  toast.success(`Selected ${contact.name} for gift card`);
+                                }
+                              }}
+                            >
+                              {contact.name}
+                            </span>
                             {getSourceBadge(contact.source)}
                           </div>
                           {contact.wallet ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-sm text-gray-500 font-mono cursor-help">
+                                <div 
+                                  className="text-sm text-gray-500 font-mono cursor-pointer hover:text-blue-600 transition-colors"
+                                  onClick={() => {
+                                    if (contact.wallet) {
+                                      localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                        type: 'address',
+                                        address: contact.wallet,
+                                        displayName: contact.name
+                                      }));
+                                      navigate('/create');
+                                      toast.success(`Selected ${contact.wallet.slice(0, 6)}...${contact.wallet.slice(-4)} for gift card`);
+                                    }
+                                  }}
+                                >
                                   {contact.wallet.slice(0, 6)}...{contact.wallet.slice(-4)}
                                 </div>
                               </TooltipTrigger>
@@ -1078,16 +1321,28 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                           )}
                         </div>
                       </div>
-                      {contact.source === 'manual' && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteContact(index)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {isConnected && address && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleToggleFavorite(contact)}
+                            className={`p-1 ${contact.isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
+                          >
+                            <Heart className={`w-4 h-4 ${contact.isFavorite ? 'fill-current' : ''}`} />
+                          </Button>
+                        )}
+                        {contact.source === 'manual' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteContact(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     {index < contacts.length - 1 && <Separator className="my-2" />}
                   </div>

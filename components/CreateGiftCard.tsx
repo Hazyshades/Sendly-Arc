@@ -107,6 +107,14 @@ export function CreateGiftCard() {
           localStorage.removeItem('selectedGiftCardRecipient');
           // Remove highlight after animation
           setTimeout(() => setHighlightField(null), 2000);
+        } else if (recipient.type === 'address' && recipient.address) {
+          setFormData(prev => ({
+            ...prev,
+            recipientType: 'address',
+            recipientAddress: recipient.address
+          }));
+          toast.success(`Selected ${recipient.displayName || recipient.address.slice(0, 6) + '...' + recipient.address.slice(-4)} for gift card`);
+          localStorage.removeItem('selectedGiftCardRecipient');
         }
       } catch (error) {
         console.error('Error parsing selected recipient:', error);

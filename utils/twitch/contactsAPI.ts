@@ -3,6 +3,7 @@ export interface TwitchContact {
   broadcaster_login: string;
   broadcaster_name: string;
   followed_at: string;
+  is_favorite?: boolean;
 }
 
 interface TwitchFollowedChannelsResponse {

@@ -3,6 +3,7 @@ export interface TwitterContact {
   username: string;
   display_name: string;
   followed_at: string;
+  is_favorite?: boolean;
 }
 
 export interface TwitchContact {
@@ -11,6 +12,7 @@ export interface TwitchContact {
   display_name: string;
   avatar_url?: string;
   followed_at: string;
+  is_favorite?: boolean;
 }
 
 export interface TikTokContact {
@@ -19,6 +21,7 @@ export interface TikTokContact {
   display_name: string;
   avatar_url?: string;
   followed_at: string;
+  is_favorite?: boolean;
 }
 
 export interface InstagramContact {
@@ -27,6 +30,7 @@ export interface InstagramContact {
   display_name: string;
   avatar_url?: string;
   followed_at: string;
+  is_favorite?: boolean;
 }
 
 export interface UnifiedContact {

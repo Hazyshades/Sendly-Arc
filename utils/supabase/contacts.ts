@@ -12,6 +12,7 @@ export interface Contact {
   username?: string;
   displayName?: string;
   avatarUrl?: string;
+  isFavorite?: boolean;
 }
 
 export async function syncTwitchContacts(
@@ -49,6 +50,7 @@ export async function getTwitchContacts(userId: string): Promise<TwitchContact[]
     .from('twitch_followed')
     .select('*')
     .eq('user_id', userId)
+    .order('is_favorite', { ascending: false })
     .order('broadcaster_name', { ascending: true });
 
   if (error) {
@@ -65,6 +67,7 @@ export async function getTwitchContacts(userId: string): Promise<TwitchContact[]
     broadcaster_login: row.broadcaster_login,
     broadcaster_name: row.broadcaster_name,
     followed_at: row.followed_at || new Date().toISOString(),
+    is_favorite: row.is_favorite || false,
   }));
 }
 
@@ -103,6 +106,7 @@ export async function getTwitterContacts(userId: string): Promise<TwitterContact
     .from('twitter_followed')
     .select('*')
     .eq('user_id', userId)
+    .order('is_favorite', { ascending: false })
     .order('display_name', { ascending: true });
 
   if (error) {
@@ -119,6 +123,7 @@ export async function getTwitterContacts(userId: string): Promise<TwitterContact
     username: row.username,
     display_name: row.display_name,
     followed_at: row.followed_at || new Date().toISOString(),
+    is_favorite: row.is_favorite || false,
   }));
 }
 
@@ -158,6 +163,7 @@ export async function getTikTokContacts(userId: string): Promise<TikTokContact[]
     .from('tiktok_followed')
     .select('*')
     .eq('user_id', userId)
+    .order('is_favorite', { ascending: false })
     .order('display_name', { ascending: true });
 
   if (error) {
@@ -175,6 +181,7 @@ export async function getTikTokContacts(userId: string): Promise<TikTokContact[]
     display_name: row.display_name,
     avatar_url: row.avatar_url,
     followed_at: row.followed_at || new Date().toISOString(),
+    is_favorite: row.is_favorite || false,
   }));
 }
 
@@ -214,6 +221,7 @@ export async function getInstagramContacts(userId: string): Promise<InstagramCon
     .from('instagram_followed')
     .select('*')
     .eq('user_id', userId)
+    .order('is_favorite', { ascending: false })
     .order('display_name', { ascending: true });
 
   if (error) {
@@ -231,6 +239,7 @@ export async function getInstagramContacts(userId: string): Promise<InstagramCon
     display_name: row.display_name,
     avatar_url: row.avatar_url,
     followed_at: row.followed_at || new Date().toISOString(),
+    is_favorite: row.is_favorite || false,
   }));
 }
 
@@ -251,6 +260,7 @@ export async function getAllSocialContacts(userId: string): Promise<Contact[]> {
       socialId: contact.broadcaster_id,
       username: contact.broadcaster_login,
       displayName: contact.broadcaster_name,
+      isFavorite: (contact as any).is_favorite || false,
     });
   });
 
@@ -261,6 +271,7 @@ export async function getAllSocialContacts(userId: string): Promise<Contact[]> {
       socialId: contact.twitter_user_id,
       username: contact.username,
       displayName: contact.display_name,
+      isFavorite: (contact as any).is_favorite || false,
     });
   });
 
@@ -272,6 +283,7 @@ export async function getAllSocialContacts(userId: string): Promise<Contact[]> {
       username: contact.username,
       displayName: contact.display_name,
       avatarUrl: contact.avatar_url,
+      isFavorite: (contact as any).is_favorite || false,
     });
   });
 
@@ -283,9 +295,167 @@ export async function getAllSocialContacts(userId: string): Promise<Contact[]> {
       username: contact.username,
       displayName: contact.display_name,
       avatarUrl: contact.avatar_url,
+      isFavorite: (contact as any).is_favorite || false,
     });
   });
 
-  return unified;
+  // Sort: favorites first, then alphabetically
+  return unified.sort((a, b) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export async function syncPersonalContact(
+  userId: string,
+  contact: { name: string; wallet: string }
+): Promise<void> {
+  if (!contact.name || !contact.wallet) {
+    throw new Error('Name and wallet are required');
+  }
+
+  console.log('[syncPersonalContact] Attempting to save via Edge Function:', { userId, contact });
+
+  // Use Edge Function to bypass RLS (uses service_role key)
+  const { apiCall } = await import('./client');
+  
+  try {
+    const response = await apiCall('/contacts/personal', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId,
+        name: contact.name,
+        wallet: contact.wallet,
+      }),
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to save personal contact');
+    }
+
+    console.log('[syncPersonalContact] Successfully saved via Edge Function:', response.data);
+  } catch (error) {
+    console.error('[syncPersonalContact] Edge Function error:', error);
+    throw error instanceof Error ? error : new Error('Failed to sync personal contact');
+  }
+}
+
+export async function getPersonalContacts(userId: string): Promise<Contact[]> {
+  console.log('[getPersonalContacts] Fetching contacts for userId:', userId);
+
+  // Use Edge Function to bypass RLS (uses service_role key)
+  const { apiCall } = await import('./client');
+  
+  try {
+    const response = await apiCall(`/contacts/personal?userId=${encodeURIComponent(userId)}`, {
+      method: 'GET',
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to fetch personal contacts');
+    }
+
+    const contacts = (response.data || []).map((row: any) => ({
+      name: row.name,
+      wallet: row.wallet,
+      source: 'manual' as const,
+      isFavorite: row.is_favorite || false,
+    }));
+
+    // Sort: favorites first, then alphabetically
+    contacts.sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    console.log('[getPersonalContacts] Successfully fetched:', contacts.length, 'contacts');
+    return contacts;
+  } catch (error) {
+    console.error('[getPersonalContacts] Edge Function error:', error);
+    throw error instanceof Error ? error : new Error('Failed to fetch personal contacts');
+  }
+}
+
+export async function deletePersonalContact(
+  userId: string,
+  wallet: string
+): Promise<void> {
+  // Use Edge Function to bypass RLS (uses service_role key)
+  const { apiCall } = await import('./client');
+  
+  try {
+    const response = await apiCall('/contacts/personal', {
+      method: 'DELETE',
+      body: JSON.stringify({
+        userId,
+        wallet,
+      }),
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete personal contact');
+    }
+
+    console.log('[deletePersonalContact] Successfully deleted via Edge Function');
+  } catch (error) {
+    console.error('[deletePersonalContact] Edge Function error:', error);
+    throw error instanceof Error ? error : new Error('Failed to delete personal contact');
+  }
+}
+
+export async function toggleFavoritePersonalContact(
+  userId: string,
+  wallet: string,
+  isFavorite: boolean
+): Promise<void> {
+  const { apiCall } = await import('./client');
+  
+  try {
+    const response = await apiCall('/contacts/personal/favorite', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        userId,
+        wallet,
+        isFavorite,
+      }),
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update favorite status');
+    }
+  } catch (error) {
+    console.error('[toggleFavoritePersonalContact] Edge Function error:', error);
+    throw error instanceof Error ? error : new Error('Failed to update favorite status');
+  }
+}
+
+export async function toggleFavoriteSocialContact(
+  userId: string,
+  platform: 'twitch' | 'twitter' | 'tiktok' | 'instagram',
+  socialId: string,
+  isFavorite: boolean
+): Promise<void> {
+  const { apiCall } = await import('./client');
+  
+  try {
+    const response = await apiCall('/contacts/social/favorite', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        userId,
+        platform,
+        socialId,
+        isFavorite,
+      }),
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update favorite status');
+    }
+  } catch (error) {
+    console.error('[toggleFavoriteSocialContact] Edge Function error:', error);
+    throw error instanceof Error ? error : new Error('Failed to update favorite status');
+  }
 }
 
