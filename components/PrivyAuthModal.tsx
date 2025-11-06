@@ -112,17 +112,22 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
       
       if (authenticated && user) {
         const privyAny = privy as any;
-        if (privyAny.linkOAuth) {
+        // Try linkInstagram first, then linkOAuth, then generic link
+        if (privyAny.linkInstagram) {
+          await privyAny.linkInstagram();
+          onClose();
+        } else if (privyAny.linkOAuth) {
           await privyAny.linkOAuth({ provider: 'instagram' });
           onClose();
         } else if (privyAny.link) {
           await privyAny.link({ provider: 'instagram' });
           onClose();
         } else {
-          toast.error('Linking Instagram is not available');
+          toast.error('Linking Instagram is not available. Please configure Instagram in Privy Dashboard first.');
           setLoading(null);
         }
       } else {
+        // For login, use the standard login method which will show Instagram as an option
         await login();
         onClose();
       }
@@ -178,7 +183,23 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
       }
 
       onClose();
-      toast.error('Instagram unlinking not yet implemented');
+      
+      const privyAny = privy as any;
+      const instagramAccount = (user as any).instagram || (user as any).facebook;
+      
+      if (instagramAccount?.subject) {
+        if (privyAny.unlinkInstagram) {
+          await privyAny.unlinkInstagram(instagramAccount.subject);
+          toast.success('Instagram account unlinked successfully');
+        } else if (privyAny.unlinkOAuth) {
+          await privyAny.unlinkOAuth({ provider: 'instagram', subject: instagramAccount.subject });
+          toast.success('Instagram account unlinked successfully');
+        } else {
+          toast.error('Instagram unlinking is not available in this Privy SDK version');
+        }
+      } else {
+        toast.error('Instagram account information not found');
+      }
     } catch (error) {
       console.error('Failed to unlink Instagram:', error);
       toast.error('Failed to unlink Instagram account');
