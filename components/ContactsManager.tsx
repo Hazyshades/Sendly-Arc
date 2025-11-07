@@ -95,7 +95,7 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
   const [loadingTwitchContacts, setLoadingTwitchContacts] = useState(false);
   const [twitterContacts, setTwitterContacts] = useState<TwitterContact[]>([]);
   const [loadingTwitterContacts, setLoadingTwitterContacts] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   const twitchAccount = user?.twitch;
   const twitterAccount = user?.twitter;

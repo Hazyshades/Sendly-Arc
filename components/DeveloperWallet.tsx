@@ -29,7 +29,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   const [topUpToken, setTopUpToken] = useState<'USDC' | 'EURC'>('USDC');
   const [topUpAmount, setTopUpAmount] = useState('');
   const [topUpLoading, setTopUpLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [requestingTokens, setRequestingTokens] = useState(false);
 
   useEffect(() => {
@@ -217,19 +217,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   };
 
   if (!isConnected || !address) {
-    return (
-      <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="w-5 h-5" />
-            Developer-Controlled Wallet
-          </CardTitle>
-          <CardDescription>
-            Connect MetaMask to create an internal wallet
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return null;
   }
 
   if (checking) {

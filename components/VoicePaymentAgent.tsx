@@ -29,7 +29,7 @@ export function VoicePaymentAgent() {
   const [transcribedText, setTranscribedText] = useState('');
   const [parsedCommand, setParsedCommand] = useState<ParsedPaymentCommand | null>(null);
   const [error, setError] = useState('');
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
