@@ -159,9 +159,13 @@ export function PrivyConnectedAccounts() {
               <span className="text-white text-[10px]">📷</span>
             </div>
           ) : account.type === 'telegram' ? (
-            <div className="w-5 h-5 bg-sky-500 rounded flex items-center justify-center">
-              <span className="text-white text-[10px]">✈️</span>
-            </div>
+        <div className="w-5 h-5 rounded overflow-hidden flex items-center justify-center">
+          <img
+            src="https://cdn.brandfetch.io/id-TjJU-c8/w/400/h/400/theme/default/logo.png"
+            alt="Telegram"
+            className="w-full h-full object-cover"
+          />
+        </div>
           ) : (
             <Avatar className="w-5 h-5">
               <AvatarFallback className={`${account.color} text-white text-[10px] font-bold flex items-center justify-center`}>

@@ -12,6 +12,7 @@ export interface DeveloperWallet {
   custody_type: 'DEVELOPER';
   created_at?: string;
   updated_at?: string;
+  telegram_user_id?: string | null;
 }
 
 export interface CreateWalletRequest {
@@ -30,6 +31,29 @@ export interface CreateWalletResponse {
 export interface GetWalletsResponse {
   success: boolean;
   wallets: DeveloperWallet[];
+}
+
+export interface LinkTelegramRequest {
+  walletAddress: string;
+  blockchain: string;
+  telegramUserId: string;
+  signature?: string;
+  message?: string;
+  privyUserId?: string;
+  validateTelegram?: boolean;
+}
+
+export interface LinkTelegramResponse {
+  success: boolean;
+  wallet?: DeveloperWallet;
+  message?: string;
+  error?: string;
+  details?: string;
+  conflict?: {
+    wallet_address: string;
+    blockchain: string;
+    user_id: string;
+  } | null;
 }
 
 /**
@@ -115,6 +139,31 @@ export class DeveloperWalletService {
       return response as { success: boolean; message?: string };
     } catch (error) {
       console.error('Error requesting testnet tokens:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Link Telegram ID to a developer wallet
+   */
+  static async linkTelegram(request: LinkTelegramRequest): Promise<LinkTelegramResponse> {
+    try {
+      const response = await apiCall('/wallets/link-telegram', {
+        method: 'POST',
+        body: JSON.stringify({
+          wallet_address: request.walletAddress,
+          blockchain: request.blockchain,
+          telegram_user_id: request.telegramUserId,
+          signature: request.signature,
+          message: request.message,
+          privy_user_id: request.privyUserId,
+          validateTelegram: request.validateTelegram ?? false
+        })
+      });
+
+      return response as LinkTelegramResponse;
+    } catch (error) {
+      console.error('Error linking Telegram ID:', error);
       throw error;
     }
   }
