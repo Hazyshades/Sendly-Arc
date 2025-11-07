@@ -356,15 +356,17 @@ export async function getPersonalContacts(userId: string): Promise<Contact[]> {
       throw new Error(response.error || 'Failed to fetch personal contacts');
     }
 
-    const contacts = (response.data || []).map((row: any) => ({
+    const contacts: Contact[] = (response.data || []).map(
+      (row: { name: string; wallet?: string; is_favorite?: boolean }) => ({
       name: row.name,
       wallet: row.wallet,
       source: 'manual' as const,
       isFavorite: row.is_favorite || false,
-    }));
+      })
+    );
 
     // Sort: favorites first, then alphabetically
-    contacts.sort((a, b) => {
+    contacts.sort((a: Contact, b: Contact) => {
       if (a.isFavorite && !b.isFavorite) return -1;
       if (!a.isFavorite && b.isFavorite) return 1;
       return a.name.localeCompare(b.name);
