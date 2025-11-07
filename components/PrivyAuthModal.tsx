@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, LogOut } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 interface PrivyAuthModalProps {
   isOpen: boolean;
@@ -562,13 +563,23 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
                   <span className="text-xs text-muted-foreground">Last account</span>
                 )
               ) : (
-                <Button
-                  onClick={handleInstagramLogin}
-                  disabled={loading !== null}
-                  size="sm"
-                >
-                  {loading === 'instagram' ? 'Connecting...' : 'Connect'}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        onClick={handleInstagramLogin}
+                        disabled
+                        size="sm"
+                        className="pointer-events-none"
+                      >
+                        {loading === 'instagram' ? 'Connecting...' : 'Connect'}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Oops! This feature is taking a short break. Come back soon!
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>

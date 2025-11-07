@@ -5,7 +5,7 @@ import { getChainBySlug, getChainByChainId, getTokenByAddress } from '../utils/b
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
-
+//http://localhost:3000/bridge/base-sepolia?fromChainId=5042002&fromCurrency=0x3600000000000000000000000000000000000000&toCurrency=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 export function BridgeRoute() {
   const { chainSlug } = useParams<{ chainSlug: string }>();
   const [searchParams] = useSearchParams();

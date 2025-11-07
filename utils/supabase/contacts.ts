@@ -1,13 +1,19 @@
 import { supabase } from './client';
 import type { TwitchContact } from '../twitch/contactsAPI';
-import type { TwitterContact, TikTokContact, InstagramContact, UnifiedContact } from '../../src/types/social';
+import type {
+  TwitterContact,
+  TikTokContact,
+  InstagramContact,
+  TelegramContact,
+  UnifiedContact,
+} from '../../src/types/social';
 
-export type { TwitterContact, TikTokContact, InstagramContact, UnifiedContact };
+export type { TwitterContact, TikTokContact, InstagramContact, TelegramContact, UnifiedContact };
 
 export interface Contact {
   name: string;
   wallet?: string;
-  source?: 'manual' | 'twitch' | 'twitter' | 'tiktok' | 'instagram';
+  source?: 'manual' | 'twitch' | 'twitter' | 'tiktok' | 'instagram' | 'telegram';
   socialId?: string;
   username?: string;
   displayName?: string;
@@ -243,12 +249,80 @@ export async function getInstagramContacts(userId: string): Promise<InstagramCon
   }));
 }
 
+export async function syncTelegramContacts(
+  userId: string,
+  contacts: TelegramContact[]
+): Promise<void> {
+  if (contacts.length === 0) {
+    return;
+  }
+
+  const records = contacts.map((contact) => ({
+    user_id: userId,
+    telegram_user_id: contact.telegram_user_id,
+    username: contact.username || null,
+    first_name: contact.first_name || null,
+    last_name: contact.last_name || null,
+    display_name: contact.display_name,
+    phone_number: contact.phone_number || null,
+    is_bot: typeof contact.is_bot === 'boolean' ? contact.is_bot : null,
+    language_code: contact.language_code || null,
+    avatar_url: contact.avatar_url || null,
+    synced_at: contact.synced_at ? new Date(contact.synced_at).toISOString() : new Date().toISOString(),
+  }));
+
+  const { error } = await supabase
+    .from('telegram_contacts')
+    .upsert(records, {
+      onConflict: 'user_id,telegram_user_id',
+      ignoreDuplicates: false,
+    });
+
+  if (error) {
+    console.error('Error syncing Telegram contacts:', error);
+    throw new Error(`Failed to sync Telegram contacts: ${error.message}`);
+  }
+}
+
+export async function getTelegramContacts(userId: string): Promise<TelegramContact[]> {
+  const { data, error } = await supabase
+    .from('telegram_contacts')
+    .select('*')
+    .eq('user_id', userId)
+    .order('is_favorite', { ascending: false })
+    .order('display_name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching Telegram contacts:', error);
+    throw new Error(`Failed to fetch Telegram contacts: ${error.message}`);
+  }
+
+  if (!data) {
+    return [];
+  }
+
+  return data.map((row) => ({
+    telegram_user_id: row.telegram_user_id,
+    username: row.username || undefined,
+    first_name: row.first_name || undefined,
+    last_name: row.last_name || undefined,
+    display_name: row.display_name || row.username || row.first_name || row.last_name || row.telegram_user_id,
+    phone_number: row.phone_number || undefined,
+    avatar_url: row.avatar_url || undefined,
+    is_bot: typeof row.is_bot === 'boolean' ? row.is_bot : undefined,
+    language_code: row.language_code || undefined,
+    synced_at: row.synced_at || undefined,
+    is_favorite: row.is_favorite || false,
+  }));
+}
+
 export async function getAllSocialContacts(userId: string): Promise<Contact[]> {
-  const [twitchContacts, twitterContacts, tiktokContacts, instagramContacts] = await Promise.all([
+  const [twitchContacts, twitterContacts, tiktokContacts, instagramContacts, telegramContacts] = await Promise.all([
     getTwitchContacts(userId).catch(() => []),
     getTwitterContacts(userId).catch(() => []),
     getTikTokContacts(userId).catch(() => []),
     getInstagramContacts(userId).catch(() => []),
+    getTelegramContacts(userId).catch(() => []),
   ]);
 
   const unified: Contact[] = [];
@@ -292,6 +366,18 @@ export async function getAllSocialContacts(userId: string): Promise<Contact[]> {
       name: contact.display_name,
       source: 'instagram',
       socialId: contact.instagram_user_id,
+      username: contact.username,
+      displayName: contact.display_name,
+      avatarUrl: contact.avatar_url,
+      isFavorite: (contact as any).is_favorite || false,
+    });
+  });
+
+  telegramContacts.forEach((contact) => {
+    unified.push({
+      name: contact.display_name,
+      source: 'telegram',
+      socialId: contact.telegram_user_id,
       username: contact.username,
       displayName: contact.display_name,
       avatarUrl: contact.avatar_url,
@@ -435,7 +521,7 @@ export async function toggleFavoritePersonalContact(
 
 export async function toggleFavoriteSocialContact(
   userId: string,
-  platform: 'twitch' | 'twitter' | 'tiktok' | 'instagram',
+  platform: 'twitch' | 'twitter' | 'tiktok' | 'instagram' | 'telegram',
   socialId: string,
   isFavorite: boolean
 ): Promise<void> {

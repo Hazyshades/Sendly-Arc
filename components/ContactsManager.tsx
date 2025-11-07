@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, UserPlus, RefreshCw, Twitch, Twitter, User, Heart, ChevronUp, ChevronDown, Users } from 'lucide-react';
+import { Plus, Trash2, UserPlus, RefreshCw, Twitch, Twitter, Send, User, Heart, ChevronUp, ChevronDown, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -18,14 +18,24 @@ import { usePrivy } from '@privy-io/react-auth';
 import { useAccount } from 'wagmi';
 import { useNavigate } from 'react-router-dom';
 import { apiCall } from '../utils/supabase/client';
-import { getAllSocialContacts, getTwitchContacts, getTwitterContacts, getPersonalContacts, syncPersonalContact, deletePersonalContact, toggleFavoritePersonalContact, toggleFavoriteSocialContact } from '../utils/supabase/contacts';
+import {
+  getAllSocialContacts,
+  getTwitchContacts,
+  getTwitterContacts,
+  getTelegramContacts,
+  getPersonalContacts,
+  syncPersonalContact,
+  deletePersonalContact,
+  toggleFavoritePersonalContact,
+  toggleFavoriteSocialContact,
+} from '../utils/supabase/contacts';
 import type { TwitchContact } from '../utils/twitch/contactsAPI';
-import type { TwitterContact } from '../utils/supabase/contacts';
+import type { TwitterContact, TelegramContact } from '../utils/supabase/contacts';
 
 export interface Contact {
   name: string;
   wallet?: string;
-  source?: 'manual' | 'twitch' | 'twitter' | 'tiktok' | 'instagram';
+  source?: 'manual' | 'twitch' | 'twitter' | 'tiktok' | 'instagram' | 'telegram';
   socialId?: string;
   username?: string;
   displayName?: string;
@@ -49,11 +59,12 @@ function getInitials(name: string): string {
 function getSourceBadge(source: Contact['source']) {
   if (!source || source === 'manual') return null;
   
-  const badges: Record<string, { label: string; icon?: typeof Twitch | typeof Twitter; className: string }> = {
+  const badges: Record<string, { label: string; icon?: typeof Twitch | typeof Twitter | typeof Send; className: string }> = {
     twitch: { label: 'Twitch', icon: Twitch, className: 'bg-purple-100 text-purple-800' },
     twitter: { label: 'Twitter', icon: Twitter, className: 'bg-blue-100 text-blue-800' },
     tiktok: { label: 'TikTok', className: 'bg-black text-white' },
     instagram: { label: 'Instagram', className: 'bg-pink-100 text-pink-800' },
+    telegram: { label: 'Telegram', icon: Send, className: 'bg-sky-100 text-sky-800' },
   };
   
   const badge = badges[source];
@@ -90,17 +101,22 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
   const [newContact, setNewContact] = useState<Contact>({ name: '', wallet: '' });
   const [syncing, setSyncing] = useState(false);
   const [syncingTwitter, setSyncingTwitter] = useState(false);
+  const [syncingTelegram, setSyncingTelegram] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [twitchContacts, setTwitchContacts] = useState<TwitchContact[]>([]);
   const [loadingTwitchContacts, setLoadingTwitchContacts] = useState(false);
   const [twitterContacts, setTwitterContacts] = useState<TwitterContact[]>([]);
   const [loadingTwitterContacts, setLoadingTwitterContacts] = useState(false);
+  const [telegramContacts, setTelegramContacts] = useState<TelegramContact[]>([]);
+  const [loadingTelegramContacts, setLoadingTelegramContacts] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
   const twitchAccount = user?.twitch;
   const twitterAccount = user?.twitter;
+  const telegramAccount = (user as any)?.telegram as (Record<string, any> | undefined);
   const hasTwitch = !!twitchAccount?.subject;
   const hasTwitter = !!twitterAccount?.subject;
+  const hasTelegram = Boolean(telegramAccount?.telegramUserId || telegramAccount?.id || telegramAccount?.subject);
 
   const loadSocialContacts = async () => {
     try {
@@ -209,6 +225,43 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
     }
   };
 
+  const loadTelegramContacts = async () => {
+    const userId = getUserId(address);
+    if (!authenticated || !userId || !hasTelegram) return;
+
+    try {
+      setLoadingTelegramContacts(true);
+
+      try {
+        const response = await apiCall(`/contacts/telegram?userId=${encodeURIComponent(userId)}`, {
+          method: 'GET',
+        });
+
+        if (response.success && Array.isArray(response.contacts)) {
+          setTelegramContacts(response.contacts as TelegramContact[]);
+        } else {
+          console.warn('Telegram contacts endpoint returned unexpected response:', response);
+          setTelegramContacts([]);
+        }
+      } catch (serverError) {
+        console.error('Telegram server endpoint error:', serverError);
+        try {
+          const telegramData = await getTelegramContacts(userId);
+          console.log(`Loaded ${telegramData.length} Telegram contacts from direct query`);
+          setTelegramContacts(telegramData);
+        } catch (fallbackError) {
+          console.error('Telegram direct query failed:', fallbackError);
+          setTelegramContacts([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Telegram contacts:', error);
+      setTelegramContacts([]);
+    } finally {
+      setLoadingTelegramContacts(false);
+    }
+  };
+
   const loadTwitchContacts = async () => {
     const userId = getUserId(address);
     // Note: Twitch contacts require Privy OAuth, but we use wallet address as user_id
@@ -287,9 +340,12 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
       if (hasTwitter) {
         loadTwitterContacts();
       }
+      if (hasTelegram) {
+        loadTelegramContacts();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated, hasTwitch, hasTwitter, address]);
+  }, [authenticated, hasTwitch, hasTwitter, hasTelegram, address]);
 
   const handleSyncTwitch = async () => {
     if (!authenticated || !user || !twitchAccount) {
@@ -687,6 +743,79 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
     }
   };
 
+  const handleSyncTelegram = async () => {
+    if (!authenticated || !user || !telegramAccount) {
+      toast.error('Telegram account not connected');
+      return;
+    }
+
+    const telegramUserId = telegramAccount.telegramUserId || telegramAccount.id || telegramAccount.subject;
+    if (!telegramUserId) {
+      toast.error('Telegram user ID not found');
+      return;
+    }
+
+    const walletAddress = getUserId(address);
+    if (!walletAddress) {
+      toast.error('Wallet address not found. Please connect your wallet.');
+      return;
+    }
+
+    setSyncingTelegram(true);
+
+    try {
+      const requestBody: Record<string, unknown> = {
+        platform: 'telegram',
+        userId: telegramUserId,
+        walletAddress,
+        privyUserId: user.id,
+        telegramUsername: telegramAccount.username || null,
+        telegramProfile: telegramAccount,
+      };
+
+      if (telegramAccount.authData) {
+        requestBody.authData = telegramAccount.authData;
+      } else if (telegramAccount.auth) {
+        requestBody.authData = telegramAccount.auth;
+      }
+
+      if (telegramAccount.accessToken) {
+        requestBody.accessToken = telegramAccount.accessToken;
+      }
+
+      if (telegramAccount.session) {
+        requestBody.session = telegramAccount.session;
+      }
+
+      if (Array.isArray(telegramAccount.contacts)) {
+        requestBody.contacts = telegramAccount.contacts;
+      }
+
+      if (telegramAccount.initDataRaw) {
+        requestBody.telegramAuthData = telegramAccount.initDataRaw;
+      }
+
+      const response = await apiCall('/contacts/sync', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      });
+
+      if (response.success) {
+        toast.success(`Synced ${response.contactsCount || 0} Telegram contacts`);
+        await loadSocialContacts();
+        await loadTelegramContacts();
+      } else {
+        throw new Error(response.error || 'Telegram sync failed');
+      }
+    } catch (error) {
+      console.error('Error syncing Telegram contacts:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sync Telegram contacts';
+      toast.error(errorMessage);
+    } finally {
+      setSyncingTelegram(false);
+    }
+  };
+
   const requestTwitterOAuthTokenFlow = async (): Promise<string | null> => {
     return new Promise((resolve) => {
       const twitterClientId = import.meta.env.VITE_TWITTER_CLIENT_ID;
@@ -966,6 +1095,8 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
         await loadTwitchContacts();
       } else if (contact.source === 'twitter') {
         await loadTwitterContacts();
+      } else if (contact.source === 'telegram') {
+        await loadTelegramContacts();
       }
       
       toast.success(newFavoriteStatus ? 'Contact added to favorites' : 'Contact removed from favorites');
@@ -1003,6 +1134,18 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                 >
                   {syncing ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
                   Sync Twitch
+                </Button>
+              )}
+              {hasTelegram && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSyncTelegram}
+                  disabled={syncingTelegram || !authenticated}
+                  className="h-8"
+                >
+                  {syncingTelegram ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                  Sync Telegram
                 </Button>
               )}
               {hasTwitter && (
@@ -1136,6 +1279,114 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                               )}
                             </div>
                             {index < twitchContacts.length - 1 && <Separator className="my-2" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+            )}
+            {hasTelegram && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded bg-sky-50">
+                    <Send className="w-4 h-4 text-sky-600" />
+                  </div>
+                  <p className="text-sm font-semibold">Telegram</p>
+                </div>
+                {loadingTelegramContacts ? (
+                  <Alert>
+                    <AlertDescription>Loading Telegram contacts...</AlertDescription>
+                  </Alert>
+                ) : telegramContacts.length === 0 ? (
+                  <Alert>
+                    <AlertDescription>
+                      No contacts found. Click "Sync Telegram" to sync.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-2 pr-4">
+                      {telegramContacts.map((contact, index) => {
+                        const isFavorite = (contact as any).is_favorite || contact.is_favorite || false;
+                        const usernameLabel = contact.username ? `@${contact.username}` : contact.telegram_user_id;
+                        const displayLabel = contact.display_name || usernameLabel;
+                        return (
+                          <div key={`telegram-${contact.telegram_user_id}-${index}`}>
+                            <div className="flex items-center justify-between p-3 bg-sky-50 rounded-lg hover:bg-sky-100 transition-colors">
+                              <div className="flex items-center gap-3 flex-1">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarFallback className="bg-sky-500 text-white">
+                                    {getInitials(displayLabel)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="font-medium cursor-pointer hover:text-sky-600 transition-colors"
+                                      onClick={() => {
+                                        localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                          type: 'telegram',
+                                          username: contact.username || contact.telegram_user_id,
+                                          displayName: displayLabel,
+                                        }));
+                                        navigate('/create');
+                                        toast.success(`Selected ${displayLabel} for gift card`);
+                                      }}
+                                    >
+                                      {displayLabel}
+                                    </span>
+                                    <Badge variant="outline" className="bg-sky-100 text-sky-800 text-xs">
+                                      <Send className="w-3 h-3 mr-1" />
+                                      Telegram
+                                    </Badge>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 text-sm text-gray-500">
+                                    <span className="cursor-pointer hover:text-sky-600 transition-colors"
+                                      onClick={() => {
+                                        localStorage.setItem('selectedGiftCardRecipient', JSON.stringify({
+                                          type: 'telegram',
+                                          username: contact.username || contact.telegram_user_id,
+                                          displayName: displayLabel,
+                                        }));
+                                        navigate('/create');
+                                        toast.success(`Selected ${usernameLabel} for gift card`);
+                                      }}
+                                    >
+                                      {usernameLabel}
+                                    </span>
+                                    {contact.phone_number && (
+                                      <span className="text-xs text-gray-400">
+                                        {contact.phone_number}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {isConnected && address && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    const contactObj: Contact = {
+                                      name: displayLabel,
+                                      source: 'telegram',
+                                      socialId: contact.telegram_user_id,
+                                      username: contact.username || contact.telegram_user_id,
+                                      displayName: displayLabel,
+                                      avatarUrl: contact.avatar_url || undefined,
+                                      isFavorite: isFavorite,
+                                    };
+                                    handleToggleFavorite(contactObj);
+                                  }}
+                                  className={`p-1 ${isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'}`}
+                                >
+                                  <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                                </Button>
+                              )}
+                            </div>
+                            {index < telegramContacts.length - 1 && <Separator className="my-2" />}
                           </div>
                         );
                       })}

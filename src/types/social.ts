@@ -33,9 +33,23 @@ export interface InstagramContact {
   is_favorite?: boolean;
 }
 
+export interface TelegramContact {
+  telegram_user_id: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  display_name: string;
+  phone_number?: string;
+  avatar_url?: string;
+  is_bot?: boolean;
+  language_code?: string;
+  synced_at?: string;
+  is_favorite?: boolean;
+}
+
 export interface UnifiedContact {
   id: string;
-  platform: 'twitter' | 'twitch' | 'tiktok' | 'instagram';
+  platform: 'twitter' | 'twitch' | 'tiktok' | 'instagram' | 'telegram';
   username: string;
   display_name: string;
   avatar_url?: string;
