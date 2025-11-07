@@ -312,7 +312,9 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       <Tabs defaultValue="manual" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="manual">Enter manually</TabsTrigger>
-          <TabsTrigger value="scan">Scan QR code</TabsTrigger>
+          <TabsTrigger value="scan" disabled>
+            Scan QR code
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="manual" className="space-y-4">

@@ -291,7 +291,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
       setLinkingTelegram(true);
 
       const timestamp = new Date().toISOString();
-      const messageToSign = `I authorize linking my developer wallet ${wallet.wallet_address.toLowerCase()} to Telegram user ${telegramUserId} at ${timestamp}`;
+      const messageToSign = `I authorize linking my Internal wallet ${wallet.wallet_address.toLowerCase()} to Telegram user ${telegramUserId} at ${timestamp}`;
 
       let signer = walletClient;
       if (!signer) {

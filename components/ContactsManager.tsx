@@ -1006,16 +1006,25 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                 </Button>
               )}
               {hasTwitter && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSyncTwitter}
-                  disabled={syncingTwitter || !authenticated}
-                  className="h-8"
-                >
-                  {syncingTwitter ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                  Sync Twitter
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSyncTwitter}
+                        disabled
+                        className="h-8 pointer-events-none"
+                      >
+                        {syncingTwitter ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                        Sync Twitter
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                  Oops! This feature is taking a short break. Come back soon!
+                  </TooltipContent>
+                </Tooltip>
               )}
               <CollapsibleTrigger asChild>
                 <Button

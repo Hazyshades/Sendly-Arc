@@ -161,7 +161,7 @@ export function PrivyConnectedAccounts() {
           ) : account.type === 'telegram' ? (
         <div className="w-5 h-5 rounded overflow-hidden flex items-center justify-center">
           <img
-            src="https://cdn.brandfetch.io/id-TjJU-c8/w/400/h/400/theme/default/logo.png"
+            src="https://cdn.brandfetch.io/id68S6e-Gp/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1751901140899"
             alt="Telegram"
             className="w-full h-full object-cover"
           />
