@@ -38,6 +38,16 @@ export function PrivyConnectedAccounts() {
       });
     }
 
+    if (user.telegram) {
+      accounts.push({
+        type: 'telegram',
+        name: 'Telegram',
+        identifier: user.telegram.username || user.telegram.firstName || user.telegram.telegramUserId || 'Telegram',
+        icon: '✈️',
+        color: 'bg-sky-500'
+      });
+    }
+
     if (user.google) {
       accounts.push({
         type: 'google',
@@ -117,7 +127,7 @@ export function PrivyConnectedAccounts() {
 
   // Show only main accounts (Twitter, Twitch, Google, TikTok, Instagram)
   const mainAccounts = connectedAccounts.filter(acc => 
-    ['twitter', 'twitch', 'google', 'tiktok', 'instagram'].includes(acc.type)
+    ['twitter', 'twitch', 'telegram', 'google', 'tiktok', 'instagram'].includes(acc.type)
   );
 
   if (mainAccounts.length === 0) {
@@ -147,6 +157,10 @@ export function PrivyConnectedAccounts() {
           ) : account.type === 'instagram' ? (
             <div className="w-5 h-5 bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 rounded flex items-center justify-center">
               <span className="text-white text-[10px]">📷</span>
+            </div>
+          ) : account.type === 'telegram' ? (
+            <div className="w-5 h-5 bg-sky-500 rounded flex items-center justify-center">
+              <span className="text-white text-[10px]">✈️</span>
             </div>
           ) : (
             <Avatar className="w-5 h-5">

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useLoginWithTelegram } from '@privy-io/react-auth';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
@@ -14,13 +14,18 @@ interface PrivyAuthModalProps {
 
 export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
   const privy = usePrivy();
-  const { login, linkTwitter, linkTwitch, user, authenticated, unlinkTwitter, unlinkTwitch, logout } = privy;
+  const { login, linkTwitter, linkTwitch, linkTelegram, user, authenticated, unlinkTwitter, unlinkTwitch, unlinkTelegram, logout } = privy as typeof privy & {
+    linkTelegram?: (options?: { launchParams?: { initDataRaw?: string } }) => Promise<void> | void;
+    unlinkTelegram?: (telegramUserId: string) => Promise<any>;
+  };
+  const { login: loginWithTelegram, state: telegramState } = useLoginWithTelegram();
   const [loading, setLoading] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const hasTwitter = user?.twitter;
   const hasTwitch = user?.twitch;
   const hasInstagram = (user as any)?.instagram || (user as any)?.facebook;
+  const hasTelegram = user?.telegram;
   const linkedAccountsCount = user?.linkedAccounts?.length || 0;
   const canUnlink = linkedAccountsCount > 1;
 
@@ -105,11 +110,119 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
     }
   };
 
+  const handleTelegramLogin = async () => {
+    try {
+      setLoading('telegram');
+      setErrorMessage(null);
+      
+      if (authenticated && user) {
+        const privyAny = privy as any;
+        if (linkTelegram) {
+          await linkTelegram();
+          onClose();
+        } else if (privyAny.linkTelegram) {
+          await privyAny.linkTelegram();
+          onClose();
+        } else if (privyAny.linkOAuth) {
+          await privyAny.linkOAuth({ provider: 'telegram' });
+          onClose();
+        } else if (privyAny.link) {
+          await privyAny.link({ provider: 'telegram' });
+          onClose();
+        } else {
+          toast.error('Linking Telegram is not available. Please configure Telegram in Privy Dashboard first.');
+          setLoading(null);
+        }
+      } else {
+        await loginWithTelegram();
+        onClose();
+      }
+    } catch (error: any) {
+      console.error(`Failed to ${authenticated && user ? 'link' : 'login'} with Telegram:`, error);
+      
+      const errorMessage = (error?.message || error?.toString() || '').toLowerCase();
+      const errorCode = error?.code || '';
+      
+      const isAccountLinkedError = 
+        errorMessage.includes('already been linked') || 
+        errorMessage.includes('already linked') ||
+        errorMessage.includes('authentication failed') ||
+        errorMessage.includes('linked to another user') ||
+        errorMessage.includes('telegram user already exists') ||
+        errorCode.includes('account_already_linked') ||
+        errorCode.includes('user_exists');
+      
+      if (isAccountLinkedError) {
+        setErrorMessage('This Telegram account is already linked to another Privy user. Log out of your current session and try again with the desired account.');
+        toast.error('This account is already linked to another user', {
+          description: 'Log out of your current session and log in again with the desired account',
+          duration: 5000,
+        });
+      } else {
+        toast.error(`Failed to ${authenticated && user ? 'link' : 'login'}`, {
+          description: errorMessage || 'Please try again',
+        });
+      }
+      setLoading(null);
+    }
+  };
+
+  const handleTelegramUnlink = async () => {
+    try {
+      setLoading('unlink-telegram');
+      
+      if (!user) {
+        toast.error('User not found');
+        setLoading(null);
+        return;
+      }
+
+      if (!hasTelegram) {
+        toast.error('Telegram account not connected');
+        setLoading(null);
+        return;
+      }
+
+      if (linkedAccountsCount <= 1) {
+        toast.error('Cannot unlink the last account');
+        setLoading(null);
+        return;
+      }
+
+      onClose();
+      
+      const privyAny = privy as any;
+      const telegramAccount = user.telegram;
+
+      if (telegramAccount?.telegramUserId) {
+        if (unlinkTelegram) {
+          await unlinkTelegram(telegramAccount.telegramUserId);
+          toast.success('Telegram account unlinked successfully');
+        } else if (privyAny.unlinkTelegram) {
+          await privyAny.unlinkTelegram(telegramAccount.telegramUserId);
+          toast.success('Telegram account unlinked successfully');
+        } else if (privyAny.unlinkOAuth) {
+          await privyAny.unlinkOAuth({ provider: 'telegram', subject: telegramAccount.telegramUserId });
+          toast.success('Telegram account unlinked successfully');
+        } else {
+          toast.error('Telegram unlinking is not available in this Privy SDK version');
+        }
+      } else {
+        toast.error('Telegram account information not found');
+      }
+    } catch (error) {
+      console.error('Failed to unlink Telegram:', error);
+      toast.error('Failed to unlink Telegram account');
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const handleInstagramLogin = async () => {
     try {
       setLoading('instagram');
       setErrorMessage(null);
-      
+
       if (authenticated && user) {
         const privyAny = privy as any;
         // Try linkInstagram first, then linkOAuth, then generic link
@@ -133,10 +246,10 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
       }
     } catch (error: any) {
       console.error(`Failed to ${authenticated && user ? 'link' : 'login'} with Instagram:`, error);
-      
+
       const errorMessage = (error?.message || error?.toString() || '').toLowerCase();
       const errorCode = error?.code || '';
-      
+
       const isAccountLinkedError = 
         errorMessage.includes('already been linked') || 
         errorMessage.includes('already linked') ||
@@ -144,7 +257,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
         errorMessage.includes('linked to another user') ||
         errorCode.includes('account_already_linked') ||
         errorCode.includes('user_exists');
-      
+
       if (isAccountLinkedError) {
         setErrorMessage('This Instagram account is already linked to another Privy user. To use a different Instagram account, please log out of your current session first.');
         toast.error('This account is already linked to another user', {
@@ -163,7 +276,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
   const handleInstagramUnlink = async () => {
     try {
       setLoading('unlink-instagram');
-      
+
       if (!user) {
         toast.error('User not found');
         setLoading(null);
@@ -183,7 +296,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
       }
 
       onClose();
-      
+
       const privyAny = privy as any;
       const instagramAccount = (user as any).instagram || (user as any).facebook;
       
@@ -220,6 +333,16 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
   const getInstagramUsername = () => {
     if (!hasInstagram) return 'Instagram';
     return (user as any)?.instagram?.username || (user as any)?.instagram?.email || 'Instagram';
+  };
+
+  const getTelegramDisplayName = () => {
+    if (!hasTelegram) return 'Telegram';
+    return (
+      user?.telegram?.username ? `@${user.telegram.username}` :
+      user?.telegram?.firstName || user?.telegram?.lastName ||
+      user?.telegram?.telegramUserId ||
+      'Telegram'
+    );
   };
 
   const handleLogout = async () => {
@@ -354,6 +477,51 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
                   size="sm"
                 >
                   {loading === 'twitch' ? 'Connecting...' : 'Connect'}
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-sky-500 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-white"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M9.50039 15.0005L9.30305 18.7916C9.63343 18.7916 9.77653 18.6502 9.94861 18.4803L11.4982 16.9898L15.251 19.7367C15.9373 20.1197 16.4205 19.9285 16.6027 19.0304L18.9395 7.42573L18.9402 7.42504C19.1555 6.32428 18.5201 5.86444 17.851 6.13415L4.90234 11.1053C3.84037 11.5206 3.85629 12.1181 4.7964 12.3878L8.10118 13.3485L15.8533 8.52547C16.2199 8.28796 16.5538 8.42039 16.2799 8.6579L9.50039 15.0005Z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="font-medium">Telegram</div>
+                  {hasTelegram && (
+                    <div className="text-sm text-muted-foreground">
+                      {getTelegramDisplayName()}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {hasTelegram ? (
+                canUnlink ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTelegramUnlink}
+                    disabled={loading !== null || telegramState.status === 'loading'}
+                  >
+                    {loading === 'unlink-telegram' ? 'Disconnecting...' : 'Disconnect'}
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Last account</span>
+                )
+              ) : (
+                <Button
+                  onClick={handleTelegramLogin}
+                  disabled={loading !== null || telegramState.status === 'loading'}
+                  size="sm"
+                >
+                  {loading === 'telegram' || telegramState.status === 'loading' ? 'Connecting...' : 'Connect'}
                 </Button>
               )}
             </div>
