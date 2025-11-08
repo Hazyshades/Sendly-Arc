@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Camera, Gift, Lock, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Camera, Gift, Lock, Clock, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -36,12 +37,29 @@ interface SpendCardProps {
   selectedTokenId?: string;
 }
 
+const TECH_GIANT_SERVICES = ['airbnb', 'amazon', 'apple'] as const;
+const USD_WITHDRAW_SERVICES = ['visa', 'circle'] as const;
+type TechGiantService = (typeof TECH_GIANT_SERVICES)[number];
+type UsdWithdrawService = (typeof USD_WITHDRAW_SERVICES)[number];
+
+const SERVICE_DISPLAY_NAMES: Record<string, string> = {
+  amazon: 'Amazon',
+  apple: 'Apple',
+  airbnb: 'Airbnb',
+  stripe: 'Stripe',
+  visa: 'Visa',
+  circle: 'Circle',
+  'usdc-withdraw': 'USDC Withdraw'
+};
+
 export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   const { address, isConnected } = useAccount();
   const [cardInput, setCardInput] = useState('');
   const [password, setPassword] = useState('');
   const [currentCard, setCurrentCard] = useState<RedeemableCard | null>(null);
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [isTechGiantsOpen, setIsTechGiantsOpen] = useState(false);
+  const [isUsdWithdrawOpen, setIsUsdWithdrawOpen] = useState(false);
 
   const [redeemStep, setRedeemStep] = useState<'input' | 'verify' | 'redeem' | 'success'>('input');
   const [error, setError] = useState('');
@@ -49,12 +67,27 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   const [isBridgeComplete, setIsBridgeComplete] = useState(false);
   const [bridgeAmount, setBridgeAmount] = useState<string>('');
 
+  const isTechGiantsSelected =
+    selectedService !== null
+      ? TECH_GIANT_SERVICES.includes(selectedService as TechGiantService)
+      : false;
+  const isUsdWithdrawSelected =
+    selectedService !== null
+      ? USD_WITHDRAW_SERVICES.includes(selectedService as UsdWithdrawService)
+      : false;
+  const selectedServiceLabel = selectedService
+    ? SERVICE_DISPLAY_NAMES[selectedService] ??
+      `${selectedService.charAt(0).toUpperCase()}${selectedService.slice(1)}`
+    : '';
+
   // Service URLs for redirect
   const serviceUrls = {
     amazon: "https://www.amazon.com/gift-cards/",
     apple: "https://www.apple.com/uk/shop/gift-cards",
     airbnb: "https://www.airbnb.com/giftcards",
-    stripe: "https://buy.stripe.com/test_28o4ig0SY9Xq8co3cc"
+    stripe: "https://buy.stripe.com/test_28o4ig0SY9Xq8co3cc",
+    visa: "https://www.visa.com/en-us",
+    circle: "https://www.circle.com/circle-mint"
   };
 
   // Auto-fill Token ID if provided from MyCards
@@ -407,77 +440,312 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
               </Card>
 
               {/* Service Selection */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <h4 className="text-sm font-medium text-gray-700 text-center">Choose where to spend your gift card:</h4>
-                <div className="flex justify-center gap-4">
-                  {/* Airbnb */}
-                  <div 
-                    className={`flex flex-col items-center cursor-pointer transition-all duration-200 ${
-                      selectedService === 'airbnb' ? 'scale-110' : 'hover:scale-105'
-                    }`}
-                    onClick={() => setSelectedService('airbnb')}
+
+                <div className="flex flex-wrap justify-center gap-4">
+                  <Popover
+                    open={isTechGiantsOpen}
+                    onOpenChange={(open) => {
+                      setIsTechGiantsOpen(open);
+                      if (open) {
+                        setIsUsdWithdrawOpen(false);
+                      }
+                    }}
                   >
-                    <div className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                      selectedService === 'airbnb' ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-blue-300'
-                    }`}>
-                      <img 
-                        src="/airbnb.jpg" 
-                        alt="Airbnb" 
-                        className="w-full h-full object-cover"
-                      />
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                          isTechGiantsSelected ? 'scale-110' : 'hover:scale-105'
+                        }`}
+                        aria-label="Open Tech Giants options"
+                      >
+                        <div
+                          className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                            isTechGiantsSelected
+                              ? 'border-sky-500 shadow-lg'
+                              : 'border-gray-200 hover:border-sky-300'
+                          }`}
+                        >
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-sky-500 to-blue-600">
+                            <span className="text-xs font-semibold text-white">Tech</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-xs font-medium transition-colors ${
+                            isTechGiantsSelected ? 'text-sky-600' : 'text-gray-600'
+                          }`}
+                        >
+                          Web 2
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Tech Giants</span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                            isTechGiantsOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        {/* Airbnb */}
+                        <button
+                          type="button"
+                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                            selectedService === 'airbnb' ? 'scale-110' : 'hover:scale-105'
+                          }`}
+                          onClick={() => {
+                            setSelectedService('airbnb');
+                            setIsTechGiantsOpen(false);
+                          }}
+                        >
+                          <div
+                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                              selectedService === 'airbnb'
+                                ? 'border-blue-500 shadow-lg'
+                                : 'border-gray-200 hover:border-blue-300'
+                            }`}
+                          >
+                            <img
+                              src="/airbnb.jpg"
+                              alt="Airbnb"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <span
+                            className={`text-xs font-medium transition-colors ${
+                              selectedService === 'airbnb' ? 'text-blue-600' : 'text-gray-600'
+                            }`}
+                          >
+                            Airbnb
+                          </span>
+                        </button>
+
+                        {/* Amazon */}
+                        <button
+                          type="button"
+                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                            selectedService === 'amazon' ? 'scale-110' : 'hover:scale-105'
+                          }`}
+                          onClick={() => {
+                            setSelectedService('amazon');
+                            setIsTechGiantsOpen(false);
+                          }}
+                        >
+                          <div
+                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                              selectedService === 'amazon'
+                                ? 'border-orange-500 shadow-lg'
+                                : 'border-gray-200 hover:border-orange-300'
+                            }`}
+                          >
+                            <img
+                              src="/amazon.jpg"
+                              alt="Amazon"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <span
+                            className={`text-xs font-medium transition-colors ${
+                              selectedService === 'amazon' ? 'text-orange-600' : 'text-gray-600'
+                            }`}
+                          >
+                            Amazon
+                          </span>
+                        </button>
+
+                        {/* Apple */}
+                        <button
+                          type="button"
+                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                            selectedService === 'apple' ? 'scale-110' : 'hover:scale-105'
+                          }`}
+                          onClick={() => {
+                            setSelectedService('apple');
+                            setIsTechGiantsOpen(false);
+                          }}
+                        >
+                          <div
+                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                              selectedService === 'apple'
+                                ? 'border-gray-500 shadow-lg'
+                                : 'border-gray-200 hover:border-gray-400'
+                            }`}
+                          >
+                            <img
+                              src="/apple.jpg"
+                              alt="Apple"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <span
+                            className={`text-xs font-medium transition-colors ${
+                              selectedService === 'apple' ? 'text-gray-800' : 'text-gray-600'
+                            }`}
+                          >
+                            Apple
+                          </span>
+                        </button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* USDC Withdraw */}
+                  <div
+                    className={`flex flex-col items-center cursor-pointer transition-all duration-200 ${
+                      selectedService === 'usdc-withdraw' ? 'scale-110' : 'hover:scale-105'
+                    }`}
+                    onClick={() => setSelectedService('usdc-withdraw')}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        setSelectedService('usdc-withdraw');
+                      }
+                    }}
+                  >
+                    <div
+                      className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                        selectedService === 'usdc-withdraw'
+                          ? 'border-cyan-500 shadow-lg'
+                          : 'border-gray-200 hover:border-cyan-300'
+                      }`}
+                    >
+                      <div className="w-full h-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center">
+                        <span className="text-white font-bold text-[10px] leading-tight text-center px-1">
+                          USDC
+                        </span>
+                      </div>
                     </div>
-                    <span className={`text-xs font-medium transition-colors ${
-                      selectedService === 'airbnb' ? 'text-blue-600' : 'text-gray-600'
-                    }`}>
-                      Airbnb
+                    <span
+                      className={`text-xs font-medium transition-colors ${
+                        selectedService === 'usdc-withdraw' ? 'text-cyan-600' : 'text-gray-600'
+                      }`}
+                    >
+                      USDC Withdraw
                     </span>
                   </div>
 
-                  {/* Amazon */}
-                  <div 
-                    className={`flex flex-col items-center cursor-pointer transition-all duration-200 ${
-                      selectedService === 'amazon' ? 'scale-110' : 'hover:scale-105'
-                    }`}
-                    onClick={() => setSelectedService('amazon')}
+                  <Popover
+                    open={isUsdWithdrawOpen}
+                    onOpenChange={(open) => {
+                      setIsUsdWithdrawOpen(open);
+                      if (open) {
+                        setIsTechGiantsOpen(false);
+                      }
+                    }}
                   >
-                    <div className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                      selectedService === 'amazon' ? 'border-orange-500 shadow-lg' : 'border-gray-200 hover:border-orange-300'
-                    }`}>
-                      <img 
-                        src="/amazon.jpg" 
-                        alt="Amazon" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <span className={`text-xs font-medium transition-colors ${
-                      selectedService === 'amazon' ? 'text-orange-600' : 'text-gray-600'
-                    }`}>
-                      Amazon
-                    </span>
-                  </div>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                          isUsdWithdrawSelected ? 'scale-110' : 'hover:scale-105'
+                        }`}
+                        aria-label="Open USD Withdraw options"
+                      >
+                        <div
+                          className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                            isUsdWithdrawSelected
+                              ? 'border-emerald-500 shadow-lg'
+                              : 'border-gray-200 hover:border-emerald-300'
+                          }`}
+                        >
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-500 to-lime-500">
+                            <span className="text-xs font-semibold text-white">USD</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-xs font-medium transition-colors ${
+                            isUsdWithdrawSelected ? 'text-emerald-600' : 'text-gray-600'
+                          }`}
+                        >
+                          USD Withdraw
+                        </span>
+                      </button>
+                    </PopoverTrigger>
 
-                  {/* Apple */}
-                  <div 
-                    className={`flex flex-col items-center cursor-pointer transition-all duration-200 ${
-                      selectedService === 'apple' ? 'scale-110' : 'hover:scale-105'
-                    }`}
-                    onClick={() => setSelectedService('apple')}
-                  >
-                    <div className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                      selectedService === 'apple' ? 'border-gray-500 shadow-lg' : 'border-gray-200 hover:border-gray-400'
-                    }`}>
-                      <img 
-                        src="/apple.jpg" 
-                        alt="Apple" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <span className={`text-xs font-medium transition-colors ${
-                      selectedService === 'apple' ? 'text-gray-800' : 'text-gray-600'
-                    }`}>
-                      Apple
-                    </span>
-                  </div>
+                    <PopoverContent className="w-72 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">USD Withdraw</span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                            isUsdWithdrawOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Visa */}
+                        <button
+                          type="button"
+                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                            selectedService === 'visa' ? 'scale-110' : 'hover:scale-105'
+                          }`}
+                          onClick={() => {
+                            setSelectedService('visa');
+                            setIsUsdWithdrawOpen(false);
+                          }}
+                        >
+                          <div
+                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                              selectedService === 'visa'
+                                ? 'border-blue-500 shadow-lg'
+                                : 'border-gray-200 hover:border-blue-300'
+                            }`}
+                          >
+                            <img
+                              src="/visa.png"
+                              alt="Visa"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <span
+                            className={`text-xs font-medium transition-colors ${
+                              selectedService === 'visa' ? 'text-blue-600' : 'text-gray-600'
+                            }`}
+                          >
+                            Visa
+                          </span>
+                        </button>
+
+                        {/* Circle */}
+                        <button
+                          type="button"
+                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                            selectedService === 'circle' ? 'scale-110' : 'hover:scale-105'
+                          }`}
+                          onClick={() => {
+                            setSelectedService('circle');
+                            setIsUsdWithdrawOpen(false);
+                          }}
+                        >
+                          <div
+                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                              selectedService === 'circle'
+                                ? 'border-emerald-500 shadow-lg'
+                                : 'border-gray-200 hover:border-emerald-300'
+                            }`}
+                          >
+                            <img
+                              src="/circle-icon_icon trans.png"
+                              alt="Circle"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <span
+                            className={`text-xs font-medium transition-colors ${
+                              selectedService === 'circle' ? 'text-emerald-600' : 'text-gray-600'
+                            }`}
+                          >
+                            Circle
+                          </span>
+                        </button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
 
                   {/* Stripe */}
                   <div 
@@ -485,6 +753,13 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
                       selectedService === 'stripe' ? 'scale-110' : 'hover:scale-105'
                     }`}
                     onClick={() => setSelectedService('stripe')}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        setSelectedService('stripe');
+                      }
+                    }}
                   >
                     <div className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
                       selectedService === 'stripe' ? 'border-purple-500 shadow-lg' : 'border-gray-200 hover:border-purple-300'
@@ -509,7 +784,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
                 disabled={!selectedService}
               >
                 {selectedService 
-                  ? `Redeem for ${selectedService.charAt(0).toUpperCase() + selectedService.slice(1)}` 
+                  ? `Redeem for ${selectedServiceLabel}` 
                   : 'Select a service first'
                 }
               </Button>

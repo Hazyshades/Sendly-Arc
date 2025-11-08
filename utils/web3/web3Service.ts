@@ -558,16 +558,33 @@ export class Web3Service {
                   { name: 'tokenId', type: 'uint256', indexed: true }
                 ]
               },
-              args: {
-                from: this.account as `0x${string}`
-              },
               fromBlock: batchFromBlock,
               toBlock: batchToBlock
             });
           });
           
-          console.log(`Batch ${i + 1} found ${batchLogs.length} Transfer events`);
-          logs.push(...batchLogs);
+          console.log(`Batch ${i + 1} found ${batchLogs.length} Transfer events before sender filter`);
+
+          const logsFromAccount = await Promise.all(
+            batchLogs.map(async (log: any) => {
+              if (!log.transactionHash) return null;
+              try {
+                const tx = await this.safeRequest(async () => {
+                  return await this.publicClient.getTransaction({ hash: log.transactionHash });
+                });
+                if (tx && tx.from && tx.from.toLowerCase() === this.account!.toLowerCase()) {
+                  return log;
+                }
+              } catch (error) {
+                console.warn(`Failed to verify sender for Transfer event ${log.transactionHash}:`, (error as Error).message ?? error);
+              }
+              return null;
+            })
+          );
+          
+          const filteredBySender = logsFromAccount.filter((log): log is typeof batchLogs[number] => log !== null);
+          console.log(`Batch ${i + 1} kept ${filteredBySender.length} Transfer events from ${this.account}`);
+          logs.push(...filteredBySender);
           
           // Get GiftCardCreated events for regular address cards
           try {
