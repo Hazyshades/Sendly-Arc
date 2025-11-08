@@ -405,14 +405,14 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
           });
           
           // Show helpful message to user
-          if (tokenResponse.error?.includes('not available')) {
+         /* if (tokenResponse.error?.includes('not available')) {
             toast.error(
               'Twitch OAuth token not available through Privy API. ' +
               'Privy does not provide OAuth tokens for security reasons. ' +
               'Please use the Privy dashboard to configure Twitch OAuth scopes.',
               { duration: 6000 }
             );
-          }
+          }*/
         }
       } catch (error) {
         console.error('Failed to get token from server:', error);
