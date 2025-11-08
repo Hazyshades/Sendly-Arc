@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_USDT_ADDRESS: string
   readonly VITE_ELEVENLABS_API_KEY: string
   readonly VITE_AIMLAPI_API_KEY: string
+  readonly VITE_OPENAI_API_KEY?: string
 }
 
 interface ImportMeta {

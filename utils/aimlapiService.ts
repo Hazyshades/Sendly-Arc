@@ -39,9 +39,63 @@ export interface ParsedPaymentCommand {
 export class AIMLAPIService {
   private apiKey: string;
   private baseUrl = 'https://api.aimlapi.com/v1/chat/completions';
+  private openAIApiKey: string;
+  private openAIBaseUrl = 'https://api.openai.com/v1/chat/completions';
 
   constructor() {
     this.apiKey = import.meta.env.VITE_AIMLAPI_API_KEY || '7ed88c0107294ab280db8ad2ddfbc485';
+    const env = import.meta.env as Record<string, string | undefined>;
+    this.openAIApiKey = import.meta.env.VITE_OPENAI_API_KEY || env?.OPENAI_API_KEY || '';
+  }
+
+  private async requestCompletion(
+    provider: 'aimlapi' | 'openai',
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<string> {
+    const isAiml = provider === 'aimlapi';
+    const baseUrl = isAiml ? this.baseUrl : this.openAIBaseUrl;
+    const apiKey = isAiml ? this.apiKey : this.openAIApiKey;
+    const model = isAiml ? 'deepseek/deepseek-chat' : 'gpt-4o-mini';
+
+    if (!apiKey) {
+      throw new Error(
+        `API key for ${provider.toUpperCase()} is not configured.`
+      );
+    }
+
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`${provider.toUpperCase()} API error: ${response.status} - ${errorText}`);
+    }
+
+    const data: AIMLAPIResponse = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    if (!content.trim()) {
+      throw new Error(`${provider.toUpperCase()} API returned empty response`);
+    }
+
+    console.log(`AI provider used: ${provider}`);
+
+    return content;
   }
 
   async parsePaymentCommand(
@@ -55,31 +109,20 @@ export class AIMLAPIService {
     const userPrompt = `Process this command: "${userCommand}"`;
 
     try {
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'deepseek/deepseek-chat',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.3,
-          max_tokens: 500,
-        }),
-      });
+      let content: string;
+      try {
+        content = await this.requestCompletion('aimlapi', systemPrompt, userPrompt);
+      } catch (primaryError) {
+        console.error('Error calling AI/ML API (AIML):', primaryError);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`AI/ML API error: ${response.status} - ${errorText}`);
+        if (!this.openAIApiKey) {
+          throw primaryError;
+        }
+
+        console.warn('Falling back to OpenAI API...');
+        content = await this.requestCompletion('openai', systemPrompt, userPrompt);
       }
 
-      const data: AIMLAPIResponse = await response.json();
-      const content = data.choices[0]?.message?.content || '';
-      
       console.log('AI API response content:', content);
       
       try {
