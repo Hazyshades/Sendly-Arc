@@ -202,9 +202,17 @@ export default function BridgeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Bridge tokens via CCTP</DialogTitle>
+          <DialogTitle>Bridge tokens</DialogTitle>
           <DialogDescription>
-            Transfer {selectedTokenSymbol} between supported networks via Circle CCTP
+            Transfer {selectedTokenSymbol} between supported networks via{' '}
+            <a
+              href="https://www.circle.com/cross-chain-transfer-protocol"
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-600 underline hover:text-blue-800"
+            >
+              Circle CCTP
+            </a>
           </DialogDescription>
         </DialogHeader>
         

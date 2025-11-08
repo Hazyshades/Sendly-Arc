@@ -1,5 +1,5 @@
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import BridgeDialog from '../components/BridgeDialog';
 import { getChainBySlug, getChainByChainId, getTokenByAddress } from '../utils/bridge/bridgeConfig';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -90,52 +90,73 @@ export function BridgeRoute() {
     }
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto p-4 max-w-2xl">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <div className="mt-4">
-          <Button onClick={() => navigate('/')}>Return to home</Button>
+  const content = useMemo(() => {
+    if (error) {
+      return (
+        <div className="space-y-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div className="text-center">
+            <Button onClick={() => navigate('/')}>Return to home</Button>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (!toChain) {
-    return (
-      <div className="container mx-auto p-4 max-w-2xl">
+    if (!toChain) {
+      return (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>Loading...</AlertDescription>
         </Alert>
-      </div>
+      );
+    }
+
+    return (
+      <>
+        <BridgeDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          onBridgeComplete={() => {
+            setIsDialogOpen(false);
+            setTimeout(() => navigate('/'), 2000);
+          }}
+          initialAmount={amount || undefined}
+          fromChainId={fromChainId}
+          toChainId={toChain.chainId}
+          fromCurrency={fromCurrency || undefined}
+          toCurrency={toCurrency || undefined}
+          tokenSymbol={tokenSymbol}
+        />
+        {!isDialogOpen && (
+          <div className="text-center mt-4">
+            <Button onClick={() => navigate('/')}>Return to home</Button>
+          </div>
+        )}
+      </>
     );
-  }
+  }, [
+    amount,
+    error,
+    fromChainId,
+    fromCurrency,
+    isDialogOpen,
+    navigate,
+    toChain,
+    toCurrency,
+    tokenSymbol,
+  ]);
 
   return (
-    <div className="container mx-auto p-4 max-w-2xl">
-      <BridgeDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onBridgeComplete={() => {
-          setIsDialogOpen(false);
-          setTimeout(() => navigate('/'), 2000);
-        }}
-        initialAmount={amount || undefined}
-        fromChainId={fromChainId}
-        toChainId={toChain.chainId}
-        fromCurrency={fromCurrency || undefined}
-        toCurrency={toCurrency || undefined}
-        tokenSymbol={tokenSymbol}
-      />
-      {!isDialogOpen && (
-        <div className="text-center mt-4">
-          <Button onClick={() => navigate('/')}>Return to home</Button>
+    <div className="relative min-h-screen circle-gradient-bg overflow-hidden">
+      <div className="abstract-shape pointer-events-none" />
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="w-full max-w-2xl">
+          {content}
         </div>
-      )}
+      </div>
     </div>
   );
 }

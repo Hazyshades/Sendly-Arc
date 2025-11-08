@@ -1,5 +1,6 @@
 import { VoicePaymentAgent } from '../components/VoicePaymentAgent';
 import { DeveloperWalletComponent } from '../components/DeveloperWallet';
+import { AgentSchedulesPanel } from '../components/AgentSchedulesPanel';
 import { Layout } from './Layout';
 
 export function AgentRoute() {
@@ -7,6 +8,7 @@ export function AgentRoute() {
     <Layout>
       <div className="p-6 space-y-6">
         <DeveloperWalletComponent blockchain="ARC-TESTNET" />
+        <AgentSchedulesPanel />
         <VoicePaymentAgent />
       </div>
     </Layout>
