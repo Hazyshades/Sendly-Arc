@@ -4,7 +4,7 @@ export interface GiftCardRecord {
   sender_address: string;
   recipient_address?: string | null;
   recipient_username?: string | null;
-  recipient_type: 'address' | 'twitter' | 'twitch' | 'tiktok' | 'instagram';
+  recipient_type: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
   amount: string;
   currency: 'USDC' | 'EURC';
   message: string;
@@ -21,7 +21,7 @@ export interface GiftCardInsert {
   sender_address: string;
   recipient_address?: string | null;
   recipient_username?: string | null;
-  recipient_type: 'address' | 'twitter' | 'twitch' | 'tiktok' | 'instagram';
+  recipient_type: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
   amount: string;
   currency: 'USDC' | 'EURC';
   message: string;
@@ -53,9 +53,17 @@ export interface InstagramContact {
   followed_at: string;
 }
 
+export interface TelegramContact {
+  telegram_user_id: string;
+  username?: string;
+  display_name: string;
+  avatar_url?: string;
+  synced_at?: string;
+}
+
 export interface UnifiedContact {
   id: string;
-  platform: 'twitter' | 'twitch' | 'tiktok' | 'instagram';
+  platform: 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
   username: string;
   display_name: string;
   avatar_url?: string;

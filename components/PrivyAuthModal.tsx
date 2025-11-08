@@ -26,6 +26,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
   const hasTwitter = user?.twitter;
   const hasTwitch = user?.twitch;
   const hasInstagram = (user as any)?.instagram || (user as any)?.facebook;
+  const hasTikTok = (user as any)?.tiktok;
   const hasTelegram = user?.telegram;
   const linkedAccountsCount = user?.linkedAccounts?.length || 0;
   const canUnlink = linkedAccountsCount > 1;
@@ -336,6 +337,122 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
     return (user as any)?.instagram?.username || (user as any)?.instagram?.email || 'Instagram';
   };
 
+  const handleTikTokLogin = async () => {
+    try {
+      setLoading('tiktok');
+      setErrorMessage(null);
+
+      if (authenticated && user) {
+        const privyAny = privy as any;
+        if (privyAny.linkTiktok) {
+          await privyAny.linkTiktok();
+          onClose();
+        } else if (privyAny.linkOAuth) {
+          await privyAny.linkOAuth({ provider: 'tiktok' });
+          onClose();
+        } else if (privyAny.link) {
+          await privyAny.link({ provider: 'tiktok' });
+          onClose();
+        } else {
+          toast.error('Linking TikTok is not available. Please configure TikTok in Privy Dashboard first.');
+          setLoading(null);
+        }
+      } else {
+        await login();
+        onClose();
+      }
+    } catch (error: any) {
+      console.error(`Failed to ${authenticated && user ? 'link' : 'login'} with TikTok:`, error);
+
+      const errorMessage = (error?.message || error?.toString() || '').toLowerCase();
+      const errorCode = error?.code || '';
+
+      const isAccountLinkedError =
+        errorMessage.includes('already been linked') ||
+        errorMessage.includes('already linked') ||
+        errorMessage.includes('authentication failed') ||
+        errorMessage.includes('linked to another user') ||
+        errorCode.includes('account_already_linked') ||
+        errorCode.includes('user_exists');
+
+      if (isAccountLinkedError) {
+        setErrorMessage('This TikTok account is already linked to another Privy user. Log out of your current session and try again with the desired account.');
+        toast.error('This account is already linked to another user', {
+          description: 'Log out of your current session and log in again with the desired account',
+          duration: 5000,
+        });
+      } else {
+        toast.error(`Failed to ${authenticated && user ? 'link' : 'login'}`, {
+          description: errorMessage || 'Please try again',
+        });
+      }
+      setLoading(null);
+    }
+  };
+
+  const handleTikTokUnlink = async () => {
+    try {
+      setLoading('unlink-tiktok');
+
+      if (!user) {
+        toast.error('User not found');
+        setLoading(null);
+        return;
+      }
+
+      if (!hasTikTok) {
+        toast.error('TikTok account not connected');
+        setLoading(null);
+        return;
+      }
+
+      if (linkedAccountsCount <= 1) {
+        toast.error('Cannot unlink the last account');
+        setLoading(null);
+        return;
+      }
+
+      onClose();
+
+      const privyAny = privy as any;
+      const tiktokAccount = (user as any).tiktok;
+
+      if (tiktokAccount?.subject) {
+        if (privyAny.unlinkTiktok) {
+          await privyAny.unlinkTiktok(tiktokAccount.subject);
+          toast.success('TikTok account unlinked successfully');
+        } else if (privyAny.unlinkOAuth) {
+          await privyAny.unlinkOAuth({ provider: 'tiktok', subject: tiktokAccount.subject });
+          toast.success('TikTok account unlinked successfully');
+        } else {
+          toast.error('TikTok unlinking is not available in this Privy SDK version');
+        }
+      } else {
+        toast.error('TikTok account information not found');
+      }
+    } catch (error) {
+      console.error('Failed to unlink TikTok:', error);
+      toast.error('Failed to unlink TikTok account');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const getTikTokUsername = () => {
+    if (!hasTikTok) return 'TikTok';
+    const tiktokAccount = (user as any).tiktok;
+    const username =
+      tiktokAccount?.username ||
+      tiktokAccount?.handle ||
+      tiktokAccount?.display_name ||
+      tiktokAccount?.email ||
+      '';
+    if (!username) {
+      return 'TikTok';
+    }
+    return username.startsWith('@') ? username : `@${username}`;
+  };
+
   const getTelegramDisplayName = () => {
     if (!hasTelegram) return 'Telegram';
     return (
@@ -573,6 +690,58 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
                         className="pointer-events-none"
                       >
                         {loading === 'instagram' ? 'Connecting...' : 'Connect'}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Oops! This feature is taking a short break. Come back soon!
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center overflow-hidden">
+                  <img 
+                    src="https://cdn.brandfetch.io/id-0D6OFrq/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1740370965265" 
+                    alt="TikTok logo" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <div className="font-medium">TikTok</div>
+                  {hasTikTok && (
+                    <div className="text-sm text-muted-foreground">
+                      {getTikTokUsername()}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {hasTikTok ? (
+                canUnlink ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTikTokUnlink}
+                    disabled={loading !== null}
+                  >
+                    {loading === 'unlink-tiktok' ? 'Disconnecting...' : 'Disconnect'}
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Last account</span>
+                )
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        onClick={handleTikTokLogin}
+                        disabled
+                        size="sm"
+                        className="pointer-events-none"
+                      >
+                        {loading === 'tiktok' ? 'Connecting...' : 'Connect'}
                       </Button>
                     </span>
                   </TooltipTrigger>

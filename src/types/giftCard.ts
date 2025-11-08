@@ -4,7 +4,7 @@ export interface GiftCardRecord {
   sender_address: string;
   recipient_address?: string | null;
   recipient_username?: string | null;
-  recipient_type: 'address' | 'twitter' | 'twitch' | 'tiktok' | 'instagram';
+  recipient_type: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
   amount: string;
   currency: 'USDC' | 'EURC';
   message: string;
@@ -21,7 +21,7 @@ export interface GiftCardInsert {
   sender_address: string;
   recipient_address?: string | null;
   recipient_username?: string | null;
-  recipient_type: 'address' | 'twitter' | 'twitch' | 'tiktok' | 'instagram';
+  recipient_type: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
   amount: string;
   currency: 'USDC' | 'EURC';
   message: string;

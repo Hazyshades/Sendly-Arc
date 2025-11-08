@@ -1137,16 +1137,25 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                 </Button>
               )}
               {hasTelegram && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSyncTelegram}
-                  disabled={syncingTelegram || !authenticated}
-                  className="h-8"
-                >
-                  {syncingTelegram ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                  Sync Telegram
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSyncTelegram}
+                        disabled
+                        className="h-8 pointer-events-none"
+                      >
+                        {syncingTelegram ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                        Sync Telegram
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Oops! This feature is taking a short break. Come back soon!
+                  </TooltipContent>
+                </Tooltip>
               )}
               {hasTwitter && (
                 <Tooltip>

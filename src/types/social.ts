@@ -86,3 +86,48 @@ export interface TwitchCardMapping {
   realOwner: string | null;
 }
 
+export interface TelegramCardMapping {
+  tokenId: string;
+  username: string;
+  temporaryOwner: string;
+  senderAddress: string;
+  amount: string;
+  currency: string;
+  message: string;
+  metadataUri: string;
+  status: 'pending' | 'claimed';
+  createdAt: string;
+  claimedAt: string | null;
+  realOwner: string | null;
+}
+
+export interface TikTokCardMapping {
+  tokenId: string;
+  username: string;
+  temporaryOwner: string;
+  senderAddress: string;
+  amount: string;
+  currency: string;
+  message: string;
+  metadataUri: string;
+  status: 'pending' | 'claimed';
+  createdAt: string;
+  claimedAt: string | null;
+  realOwner: string | null;
+}
+
+export interface InstagramCardMapping {
+  tokenId: string;
+  username: string;
+  temporaryOwner: string;
+  senderAddress: string;
+  amount: string;
+  currency: string;
+  message: string;
+  metadataUri: string;
+  status: 'pending' | 'claimed';
+  createdAt: string;
+  claimedAt: string | null;
+  realOwner: string | null;
+}
+

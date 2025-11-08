@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Gift, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Gift, Clock, CheckCircle, AlertCircle, Send, Music, Instagram as InstagramIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -14,10 +14,13 @@ import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
 import { getTwitterCardMapping, type TwitterCardMapping } from '../utils/twitter';
 import { getTwitchCardMapping, type TwitchCardMapping } from '../utils/twitch';
+import { getTelegramCardMapping, type TelegramCardMapping } from '../utils/telegram';
+import { getTikTokCardMapping, type TikTokCardMapping } from '../utils/tiktok';
+import { getInstagramCardMapping, type InstagramCardMapping } from '../utils/instagram';
 import { PrivyAuthModal } from './PrivyAuthModal';
 
-type PendingCard = (TwitterCardMapping | TwitchCardMapping) & {
-  cardType: 'twitter' | 'twitch';
+type PendingCard = (TwitterCardMapping | TwitchCardMapping | TelegramCardMapping | TikTokCardMapping | InstagramCardMapping) & {
+  cardType: 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
 };
 
 interface ClaimCardsProps {
@@ -33,10 +36,15 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
   const [loading, setLoading] = useState(true);
   const [claimingTokenId, setClaimingTokenId] = useState<string | null>(null);
   const [isPrivyModalOpen, setIsPrivyModalOpen] = useState(false);
+  const telegramAccount = (user as any)?.telegram;
+  const telegramIdentifier = telegramAccount?.username || telegramAccount?.telegramUserId || telegramAccount?.id;
 
   const fetchPendingCards = useCallback(async () => {
     const hasTwitter = authenticated && user?.twitter?.username;
     const hasTwitch = authenticated && user?.twitch?.username;
+    const hasTelegram = authenticated && Boolean(telegramIdentifier);
+    const hasTikTok = authenticated && user?.tiktok?.username;
+    const hasInstagram = authenticated && user?.instagram?.username;
 
     try {
       setLoading(true);
@@ -116,6 +124,119 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         allCards.push(...twitchCards);
       }
       
+      if (hasTelegram && telegramIdentifier) {
+        const normalizedTelegramUsername = telegramIdentifier.toString().replace(/^@/, '').trim();
+        if (!normalizedTelegramUsername) {
+          console.warn('[ClaimCards] Telegram username not found');
+        } else {
+          console.log('[ClaimCards] Fetching pending Telegram cards for username:', normalizedTelegramUsername);
+          
+          const tokenIds = await web3Service.getPendingTelegramCards(normalizedTelegramUsername);
+          console.log('[ClaimCards] Received Telegram token IDs from Vault:', tokenIds);
+          
+          const telegramCards = await Promise.all(
+            tokenIds.map(async (tokenId) => {
+              const metadata = await getTelegramCardMapping(tokenId);
+              if (metadata) {
+                return { ...metadata, cardType: 'telegram' as const };
+              }
+              return {
+                tokenId,
+                username: normalizedTelegramUsername,
+                temporaryOwner: '',
+                senderAddress: '',
+                amount: '0',
+                currency: 'USDC',
+                message: '',
+                metadataUri: '',
+                status: 'pending' as const,
+                createdAt: new Date().toISOString(),
+                claimedAt: null,
+                realOwner: null,
+                cardType: 'telegram' as const
+              };
+            })
+          );
+          allCards.push(...telegramCards);
+        }
+      }
+
+      if (hasTikTok) {
+        const tiktokUsername = user!.tiktok!.username;
+        if (!tiktokUsername) {
+          console.warn('[ClaimCards] TikTok username not found');
+        } else {
+          const normalizedTikTokUsername = tiktokUsername.replace(/^@/, '').trim();
+          console.log('[ClaimCards] Fetching pending TikTok cards for username:', normalizedTikTokUsername);
+
+          const tokenIds = await web3Service.getPendingTikTokCards(normalizedTikTokUsername);
+          console.log('[ClaimCards] Received TikTok token IDs from Vault:', tokenIds);
+
+          const tiktokCards = await Promise.all(
+            tokenIds.map(async (tokenId) => {
+              const metadata = await getTikTokCardMapping(tokenId);
+              if (metadata) {
+                return { ...metadata, cardType: 'tiktok' as const };
+              }
+              return {
+                tokenId,
+                username: normalizedTikTokUsername,
+                temporaryOwner: '',
+                senderAddress: '',
+                amount: '0',
+                currency: 'USDC',
+                message: '',
+                metadataUri: '',
+                status: 'pending' as const,
+                createdAt: new Date().toISOString(),
+                claimedAt: null,
+                realOwner: null,
+                cardType: 'tiktok' as const
+              };
+            })
+          );
+          allCards.push(...tiktokCards);
+        }
+      }
+
+      if (hasInstagram) {
+        const instagramUsername = user!.instagram!.username;
+        if (!instagramUsername) {
+          console.warn('[ClaimCards] Instagram username not found');
+        } else {
+          const normalizedInstagramUsername = instagramUsername.replace(/^@/, '').trim();
+          console.log('[ClaimCards] Fetching pending Instagram cards for username:', normalizedInstagramUsername);
+
+          const tokenIds = await web3Service.getPendingInstagramCards(normalizedInstagramUsername);
+          console.log('[ClaimCards] Received Instagram token IDs from Vault:', tokenIds);
+
+          const instagramCards = await Promise.all(
+            tokenIds.map(async (tokenId) => {
+              const metadata = await getInstagramCardMapping(tokenId);
+              if (metadata) {
+                return { ...metadata, cardType: 'instagram' as const };
+              }
+              return {
+                tokenId,
+                username: normalizedInstagramUsername,
+                temporaryOwner: '',
+                senderAddress: '',
+                amount: '0',
+                currency: 'USDC',
+                message: '',
+                metadataUri: '',
+                status: 'pending' as const,
+                createdAt: new Date().toISOString(),
+                claimedAt: null,
+                realOwner: null,
+                cardType: 'instagram' as const
+              };
+            })
+          );
+          allCards.push(...instagramCards);
+        }
+      }
+      
       setPendingCards(allCards);
       if (onPendingCountChange) {
         onPendingCountChange(allCards.length);
@@ -129,13 +250,16 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
     } finally {
       setLoading(false);
     }
-  }, [authenticated, user?.twitter?.username, user?.twitch?.username, onPendingCountChange]);
+  }, [authenticated, user?.twitter?.username, user?.twitch?.username, telegramIdentifier, user?.tiktok?.username, user?.instagram?.username, onPendingCountChange]);
 
   useEffect(() => {
     const hasTwitter = authenticated && user?.twitter?.username;
     const hasTwitch = authenticated && user?.twitch?.username;
+    const hasTelegram = authenticated && Boolean(telegramIdentifier);
+    const hasTikTok = authenticated && user?.tiktok?.username;
+    const hasInstagram = authenticated && user?.instagram?.username;
 
-    if (authenticated && (hasTwitter || hasTwitch)) {
+    if (authenticated && (hasTwitter || hasTwitch || hasTelegram || hasTikTok || hasInstagram)) {
       fetchPendingCards();
     } else {
       setPendingCards([]);
@@ -144,22 +268,33 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         onPendingCountChange(0);
       }
     }
-  }, [authenticated, user?.twitter?.username, user?.twitch?.username, fetchPendingCards, onPendingCountChange]);
+  }, [authenticated, user?.twitter?.username, user?.twitch?.username, telegramIdentifier, user?.tiktok?.username, user?.instagram?.username, fetchPendingCards, onPendingCountChange]);
 
   useEffect(() => {
     if (autoLoad && authenticated) {
       const hasTwitter = user?.twitter?.username;
       const hasTwitch = user?.twitch?.username;
-      if (hasTwitter || hasTwitch) {
+      const hasTelegram = Boolean(telegramIdentifier);
+      const hasTikTok = user?.tiktok?.username;
+      const hasInstagram = user?.instagram?.username;
+      if (hasTwitter || hasTwitch || hasTelegram || hasTikTok || hasInstagram) {
         fetchPendingCards();
       }
     }
-  }, [autoLoad, authenticated, user?.twitter?.username, user?.twitch?.username, fetchPendingCards]);
+  }, [autoLoad, authenticated, user?.twitter?.username, user?.twitch?.username, telegramIdentifier, user?.tiktok?.username, user?.instagram?.username, fetchPendingCards]);
 
   const handleClaim = async (card: PendingCard) => {
     if (!authenticated) {
       setIsPrivyModalOpen(true);
-      toast.info(`Please login with ${card.cardType === 'twitter' ? 'Twitter' : 'Twitch'} via Privy to claim this card`);
+      const providerLabelMap = {
+        twitter: 'Twitter',
+        twitch: 'Twitch',
+        telegram: 'Telegram',
+        tiktok: 'TikTok',
+        instagram: 'Instagram',
+      } as const;
+      const providerLabel = providerLabelMap[card.cardType] || 'Social';
+      toast.info(`Please login with ${providerLabel} via Privy to claim this card`);
       return;
     }
 
@@ -204,7 +339,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         );
 
         toast.success(`Card claimed successfully! TX: ${txHash.slice(0, 10)}...`);
-      } else {
+      } else if (card.cardType === 'twitch') {
         if (!user?.twitch) {
           setIsPrivyModalOpen(true);
           toast.info('Please login with Twitch via Privy to claim this card');
@@ -237,6 +372,102 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         );
 
         toast.success(`Card claimed successfully! TX: ${txHash.slice(0, 10)}...`);
+      } else if (card.cardType === 'telegram') {
+        if (!telegramIdentifier) {
+          setIsPrivyModalOpen(true);
+          toast.info('Please login with Telegram via Privy to claim this card');
+          return;
+        }
+
+        const telegramUsername = telegramIdentifier.toString();
+        const normalizedLoggedIn = telegramUsername.toLowerCase().replace(/^@/, '').trim();
+        const normalizedCard = card.username.toLowerCase().replace(/^@/, '').trim();
+
+        if (normalizedLoggedIn !== normalizedCard) {
+          throw new Error('This card is not for your Telegram account');
+        }
+
+        const walletClient = createWalletClient({
+          chain: arcTestnet,
+          transport: custom(window.ethereum)
+        });
+
+        await web3Service.initialize(walletClient, address);
+
+        toast.info('Claiming card from vault...');
+
+        const txHash = await web3Service.claimTelegramCard(
+          card.tokenId,
+          normalizedLoggedIn
+        );
+
+        toast.success(`Card claimed successfully! TX: ${txHash.slice(0, 10)}...`);
+      } else if (card.cardType === 'tiktok') {
+        if (!user?.tiktok) {
+          setIsPrivyModalOpen(true);
+          toast.info('Please login with TikTok via Privy to claim this card');
+          return;
+        }
+
+        const tiktokUsername = user.tiktok.username;
+        if (!tiktokUsername) {
+          throw new Error('TikTok username not found');
+        }
+        const normalizedLoggedIn = tiktokUsername.toLowerCase().replace(/^@/, '').trim();
+        const normalizedCard = card.username.toLowerCase().replace(/^@/, '').trim();
+
+        if (normalizedLoggedIn !== normalizedCard) {
+          throw new Error('This card is not for your TikTok account');
+        }
+
+        const walletClient = createWalletClient({
+          chain: arcTestnet,
+          transport: custom(window.ethereum)
+        });
+
+        await web3Service.initialize(walletClient, address);
+
+        toast.info('Claiming card from vault...');
+
+        const txHash = await web3Service.claimTikTokCard(
+          card.tokenId,
+          normalizedLoggedIn
+        );
+
+        toast.success(`Card claimed successfully! TX: ${txHash.slice(0, 10)}...`);
+      } else if (card.cardType === 'instagram') {
+        if (!user?.instagram) {
+          setIsPrivyModalOpen(true);
+          toast.info('Please login with Instagram via Privy to claim this card');
+          return;
+        }
+
+        const instagramUsername = user.instagram.username;
+        if (!instagramUsername) {
+          throw new Error('Instagram username not found');
+        }
+        const normalizedLoggedIn = instagramUsername.toLowerCase().replace(/^@/, '').trim();
+        const normalizedCard = card.username.toLowerCase().replace(/^@/, '').trim();
+
+        if (normalizedLoggedIn !== normalizedCard) {
+          throw new Error('This card is not for your Instagram account');
+        }
+
+        const walletClient = createWalletClient({
+          chain: arcTestnet,
+          transport: custom(window.ethereum)
+        });
+
+        await web3Service.initialize(walletClient, address);
+
+        toast.info('Claiming card from vault...');
+
+        const txHash = await web3Service.claimInstagramCard(
+          card.tokenId,
+          normalizedLoggedIn
+        );
+
+        toast.success(`Card claimed successfully! TX: ${txHash.slice(0, 10)}...`);
       }
       
       await fetchPendingCards();
@@ -255,14 +486,17 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
   const hasTwitter = authenticated && user?.twitter?.username;
   const hasTwitch = authenticated && user?.twitch?.username;
+  const hasTelegramDisplay = authenticated && Boolean(telegramIdentifier);
+  const hasTikTokDisplay = authenticated && user?.tiktok?.username;
+  const hasInstagramDisplay = authenticated && user?.instagram?.username;
 
-  if (!authenticated || (!hasTwitter && !hasTwitch)) {
+  if (!authenticated || (!hasTwitter && !hasTwitch && !hasTelegramDisplay && !hasTikTokDisplay && !hasInstagramDisplay)) {
     return (
       <div className="p-6">
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Please login with Twitter or Twitch via Privy to see and claim gift cards sent to your username.
+            Please login with Twitter, Twitch, Telegram, TikTok or Instagram via Privy to see and claim gift cards sent to your username.
           </AlertDescription>
         </Alert>
         <div className="mt-4">
@@ -307,7 +541,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
   const usernames = [];
   if (hasTwitter) usernames.push(`@${user!.twitter!.username}`);
-  if (hasTwitch) usernames.push(user!.twitch!.username);
+  if (hasTwitch) usernames.push(`${user!.twitch!.username} (Twitch)`);
+  if (hasTelegramDisplay && telegramIdentifier) usernames.push(`@${telegramIdentifier.toString().replace(/^@/, '')} (Telegram)`);
+  if (hasTikTokDisplay) usernames.push(`@${user!.tiktok!.username?.replace(/^@/, '')} (TikTok)`);
+  if (hasInstagramDisplay) usernames.push(`@${user!.instagram!.username?.replace(/^@/, '')} (Instagram)`);
 
   return (
     <div className="p-6 space-y-4">
@@ -331,7 +568,20 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
                       <Clock className="w-3 h-3 mr-1" />
                       Pending
                     </Badge>
-                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                    <Badge
+                      variant="outline"
+                      className={
+                        card.cardType === 'twitter'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : card.cardType === 'twitch'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                          : card.cardType === 'telegram'
+                          ? 'bg-sky-50 text-sky-700 border-sky-200'
+                          : card.cardType === 'tiktok'
+                          ? 'bg-black text-white border-black'
+                          : 'bg-pink-50 text-pink-600 border-pink-200'
+                      }
+                    >
                       {card.cardType === 'twitter' ? (
                         <>
                           <svg viewBox="0 0 24 24" fill="currentColor" className="size-3">
@@ -339,13 +589,28 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
                           </svg>
                           X.com
                         </>
-                      ) : (
+                      ) : card.cardType === 'twitch' ? (
                         //https://brandfetch.com/twitch.tv?library=default&collection=logos&asset=idkW5NfuSd
                         <>
                           <svg viewBox="0 0 24 24" fill="currentColor" className="size-3">
                             <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
                           </svg>
                           Twitch
+                        </>
+                      ) : card.cardType === 'telegram' ? (
+                        <>
+                          <Send className="w-3 h-3" />
+                          Telegram
+                        </>
+                      ) : card.cardType === 'tiktok' ? (
+                        <>
+                          <Music className="w-3 h-3" />
+                          TikTok
+                        </>
+                      ) : (
+                        <>
+                          <InstagramIcon className="w-3 h-3" />
+                          Instagram
                         </>
                       )}
                     </Badge>

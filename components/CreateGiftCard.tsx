@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Gift, QrCode, Share2, Clock, Lock, Upload, Palette, CheckCircle, AlertCircle, ExternalLink, Mail, MessageCircle, Copy } from 'lucide-react';
+import { Gift, QrCode, Share2, Clock, Lock, Upload, Palette, CheckCircle, AlertCircle, ExternalLink, Mail, MessageCircle, Copy, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
 import { toast } from 'sonner';
 import { useAccount, useWalletClient } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
@@ -23,13 +24,16 @@ import pinataService from '../utils/pinata';
 import imageGenerator from '../utils/imageGenerator';
 import { createTwitterCardMapping } from '../utils/twitter';
 import { createTwitchCardMapping } from '../utils/twitch';
+import { createTelegramCardMapping } from '../utils/telegram';
+import { createTikTokCardMapping } from '../utils/tiktok';
+import { createInstagramCardMapping } from '../utils/instagram';
 import BridgeDialog from './BridgeDialog';
 import { GiftCardsService } from '../utils/supabase/giftCards';
 import { useNavigate } from 'react-router-dom';
 import { generateBridgeUrlFromArc } from '../utils/bridge/bridgeUrlHelper';
 
 interface GiftCardData {
-  recipientType: 'address' | 'twitter' | 'twitch';
+  recipientType: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
   recipientAddress: string;
   recipientUsername: string;
   amount: string;
@@ -45,6 +49,14 @@ interface GiftCardData {
   customImage: string;
   nftCover: string;
 }
+
+const SOCIAL_RECIPIENT_OPTIONS = [
+  { value: 'twitter', label: 'Twitter username' },
+  { value: 'twitch', label: 'Twitch username' },
+  { value: 'telegram', label: 'Telegram username' },
+  { value: 'tiktok', label: 'TikTok username' },
+  { value: 'instagram', label: 'Instagram username' }
+] as const;
 
 export function CreateGiftCard() {
   const { address, isConnected } = useAccount();
@@ -74,7 +86,8 @@ export function CreateGiftCard() {
   const [error, setError] = useState('');
   const [step, setStep] = useState<'form' | 'generating' | 'uploading' | 'creating' | 'success'>('form');
   const [isBridgeDialogOpen, setIsBridgeDialogOpen] = useState(false);
-  const [highlightField, setHighlightField] = useState<'twitch' | 'twitter' | null>(null);
+  const [highlightField, setHighlightField] = useState<'twitch' | 'twitter' | 'telegram' | 'tiktok' | 'instagram' | null>(null);
+  const [isSocialsOpen, setIsSocialsOpen] = useState(formData.recipientType !== 'address');
 
   // Load selected recipient from localStorage on mount
   useEffect(() => {
@@ -107,6 +120,36 @@ export function CreateGiftCard() {
           localStorage.removeItem('selectedGiftCardRecipient');
           // Remove highlight after animation
           setTimeout(() => setHighlightField(null), 2000);
+        } else if (recipient.type === 'telegram' && recipient.username) {
+          setFormData(prev => ({
+            ...prev,
+            recipientType: 'telegram',
+            recipientUsername: recipient.username.replace(/^@/, '')
+          }));
+          setHighlightField('telegram');
+          toast.success(`Selected ${recipient.displayName || recipient.username} for gift card`);
+          localStorage.removeItem('selectedGiftCardRecipient');
+          setTimeout(() => setHighlightField(null), 2000);
+        } else if (recipient.type === 'tiktok' && recipient.username) {
+          setFormData(prev => ({
+            ...prev,
+            recipientType: 'tiktok',
+            recipientUsername: recipient.username.replace(/^@/, '')
+          }));
+          setHighlightField('tiktok');
+          toast.success(`Selected ${recipient.displayName || recipient.username} for gift card`);
+          localStorage.removeItem('selectedGiftCardRecipient');
+          setTimeout(() => setHighlightField(null), 2000);
+        } else if (recipient.type === 'instagram' && recipient.username) {
+          setFormData(prev => ({
+            ...prev,
+            recipientType: 'instagram',
+            recipientUsername: recipient.username.replace(/^@/, '')
+          }));
+          setHighlightField('instagram');
+          toast.success(`Selected ${recipient.displayName || recipient.username} for gift card`);
+          localStorage.removeItem('selectedGiftCardRecipient');
+          setTimeout(() => setHighlightField(null), 2000);
         } else if (recipient.type === 'address' && recipient.address) {
           setFormData(prev => ({
             ...prev,
@@ -126,6 +169,10 @@ export function CreateGiftCard() {
   const updateFormData = (field: keyof GiftCardData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+    setIsSocialsOpen(formData.recipientType !== 'address');
+  }, [formData.recipientType]);
 
   const handleCreateCard = async () => {
     if (!isConnected || !address) {
@@ -147,6 +194,21 @@ export function CreateGiftCard() {
     } else if (formData.recipientType === 'twitch') {
       if (!formData.recipientUsername || formData.recipientUsername.trim() === '') {
         setError('Please enter a Twitch username');
+        return;
+      }
+    } else if (formData.recipientType === 'telegram') {
+      if (!formData.recipientUsername || formData.recipientUsername.trim() === '') {
+        setError('Please enter a Telegram username');
+        return;
+      }
+    } else if (formData.recipientType === 'tiktok') {
+      if (!formData.recipientUsername || formData.recipientUsername.trim() === '') {
+        setError('Please enter a TikTok username');
+        return;
+      }
+    } else if (formData.recipientType === 'instagram') {
+      if (!formData.recipientUsername || formData.recipientUsername.trim() === '') {
+        setError('Please enter an Instagram username');
         return;
       }
     }
@@ -266,6 +328,93 @@ export function CreateGiftCard() {
         } catch (error) {
           console.error('Error saving Twitch card metadata:', error);
         }
+      } else if (formData.recipientType === 'telegram') {
+        const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
+        console.log('[CreateGiftCard] Creating Telegram card:', {
+          original: formData.recipientUsername,
+          normalized: normalizedUsername
+        });
+
+        result = await web3Service.createCardForTelegram(
+          normalizedUsername,
+          formData.amount,
+          formData.currency,
+          metadataUri,
+          formData.message
+        );
+
+        try {
+          await createTelegramCardMapping({
+            tokenId: result.tokenId,
+            username: normalizedUsername,
+            temporaryOwner: '',
+            senderAddress: address,
+            amount: formData.amount,
+            currency: formData.currency,
+            message: formData.message,
+            metadataUri: metadataUri
+          });
+        } catch (error) {
+          console.error('Error saving Telegram card metadata:', error);
+        }
+      } else if (formData.recipientType === 'tiktok') {
+        const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
+        console.log('[CreateGiftCard] Creating TikTok card:', {
+          original: formData.recipientUsername,
+          normalized: normalizedUsername
+        });
+
+        result = await web3Service.createCardForTikTok(
+          normalizedUsername,
+          formData.amount,
+          formData.currency,
+          metadataUri,
+          formData.message
+        );
+
+        try {
+          await createTikTokCardMapping({
+            tokenId: result.tokenId,
+            username: normalizedUsername,
+            temporaryOwner: '',
+            senderAddress: address,
+            amount: formData.amount,
+            currency: formData.currency,
+            message: formData.message,
+            metadataUri: metadataUri
+          });
+        } catch (error) {
+          console.error('Error saving TikTok card metadata:', error);
+        }
+      } else if (formData.recipientType === 'instagram') {
+        const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
+        console.log('[CreateGiftCard] Creating Instagram card:', {
+          original: formData.recipientUsername,
+          normalized: normalizedUsername
+        });
+
+        result = await web3Service.createCardForInstagram(
+          normalizedUsername,
+          formData.amount,
+          formData.currency,
+          metadataUri,
+          formData.message
+        );
+
+        try {
+          await createInstagramCardMapping({
+            tokenId: result.tokenId,
+            username: normalizedUsername,
+            temporaryOwner: '',
+            senderAddress: address,
+            amount: formData.amount,
+            currency: formData.currency,
+            message: formData.message,
+            metadataUri: metadataUri
+          });
+        } catch (error) {
+          console.error('Error saving Instagram card metadata:', error);
+        }
       } else {
         // Standard flow for address recipients
         result = await web3Service.createGiftCard(
@@ -307,11 +456,15 @@ export function CreateGiftCard() {
       
       // Save to Supabase for caching
       try {
+        const recipientUsernameForStorage =
+          formData.recipientType === 'address'
+            ? null
+            : formData.recipientUsername.replace(/^@/, '').trim();
         await GiftCardsService.upsertCard({
           token_id: result.tokenId,
           sender_address: address.toLowerCase(),
           recipient_address: formData.recipientType === 'address' ? formData.recipientAddress.toLowerCase() : null,
-          recipient_username: formData.recipientType !== 'address' ? formData.recipientUsername : null,
+          recipient_username: recipientUsernameForStorage,
           recipient_type: formData.recipientType,
           amount: formData.amount,
           currency: formData.currency,
@@ -434,8 +587,8 @@ export function CreateGiftCard() {
             <Label>Recipient type</Label>
             <RadioGroup
               value={formData.recipientType}
-              onValueChange={(value: 'address' | 'twitter' | 'twitch') => updateFormData('recipientType', value)}
-              className="mt-2"
+              onValueChange={(value: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram') => updateFormData('recipientType', value)}
+              className="mt-2 space-y-3"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="address" id="address" />
@@ -443,18 +596,30 @@ export function CreateGiftCard() {
                   Wallet address
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="twitter" id="twitter" />
-                <Label htmlFor="twitter" className="cursor-pointer font-normal">
-                  Twitter username
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="twitch" id="twitch" />
-                <Label htmlFor="twitch" className="cursor-pointer font-normal">
-                  Twitch username
-                </Label>
-              </div>
+              <Collapsible open={isSocialsOpen} onOpenChange={setIsSocialsOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex w-full items-center justify-between bg-muted/20"
+                  >
+                    <span>Socials</span>
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${isSocialsOpen ? 'rotate-180' : ''}`}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3 space-y-2 rounded-lg border border-dashed border-gray-200 p-3">
+                  {SOCIAL_RECIPIENT_OPTIONS.map((option) => (
+                    <div className="flex items-center space-x-2" key={option.value}>
+                      <RadioGroupItem value={option.value} id={option.value} />
+                      <Label htmlFor={option.value} className="cursor-pointer font-normal">
+                        {option.label}
+                      </Label>
+                    </div>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
             </RadioGroup>
           </div>
 
@@ -474,11 +639,10 @@ export function CreateGiftCard() {
               <Label htmlFor="username">Twitter username</Label>
               <Input
                 id="username"
-                placeholder="@username"
+                placeholder="username"
                 value={formData.recipientUsername}
                 onChange={(e) => {
                   let username = e.target.value;
-                  // Remove @ if user adds it
                   if (username.startsWith('@')) {
                     username = username.slice(1);
                   }
@@ -494,7 +658,7 @@ export function CreateGiftCard() {
                 The recipient will need to login via Privy with Twitter to claim the card.
               </p>
             </div>
-          ) : (
+          ) : formData.recipientType === 'twitch' ? (
             <div>
               <Label htmlFor="username">Twitch username</Label>
               <Input
@@ -502,7 +666,7 @@ export function CreateGiftCard() {
                 placeholder="username"
                 value={formData.recipientUsername}
                 onChange={(e) => {
-                  let username = e.target.value.trim();
+                  const username = e.target.value.trim();
                   updateFormData('recipientUsername', username);
                 }}
                 className={`mt-2 transition-all duration-500 ${
@@ -511,8 +675,80 @@ export function CreateGiftCard() {
                     : ''
                 }`}
               />
-             <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 The recipient will need to login via Privy with Twitch to claim the card.
+              </p>
+            </div>
+          ) : formData.recipientType === 'telegram' ? (
+            <div>
+              <Label htmlFor="username">Telegram username</Label>
+              <Input
+                id="username"
+                placeholder="nickname"
+                value={formData.recipientUsername}
+                onChange={(e) => {
+                  let username = e.target.value.trim();
+                  if (username.startsWith('@')) {
+                    username = username.slice(1);
+                  }
+                  updateFormData('recipientUsername', username);
+                }}
+                className={`mt-2 transition-all duration-500 ${
+                  highlightField === 'telegram'
+                    ? 'bg-sky-50 border-sky-400 ring-2 ring-sky-300 shadow-md'
+                    : ''
+                }`}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                The recipient will need to login via Privy with Telegram to claim the card.
+              </p>
+            </div>
+          ) : formData.recipientType === 'tiktok' ? (
+            <div>
+              <Label htmlFor="username">TikTok username</Label>
+              <Input
+                id="username"
+                placeholder="nickname"
+                value={formData.recipientUsername}
+                onChange={(e) => {
+                  let username = e.target.value.trim();
+                  if (username.startsWith('@')) {
+                    username = username.slice(1);
+                  }
+                  updateFormData('recipientUsername', username);
+                }}
+                className={`mt-2 transition-all duration-500 ${
+                  highlightField === 'tiktok'
+                    ? 'bg-neutral-900/10 border-black ring-2 ring-neutral-400 shadow-md'
+                    : ''
+                }`}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                The recipient will need to login via Privy with TikTok to claim the card.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="username">Instagram username</Label>
+              <Input
+                id="username"
+                placeholder="nickname"
+                value={formData.recipientUsername}
+                onChange={(e) => {
+                  let username = e.target.value.trim();
+                  if (username.startsWith('@')) {
+                    username = username.slice(1);
+                  }
+                  updateFormData('recipientUsername', username);
+                }}
+                className={`mt-2 transition-all duration-500 ${
+                  highlightField === 'instagram'
+                    ? 'bg-pink-50 border-pink-400 ring-2 ring-pink-300 shadow-md'
+                    : ''
+                }`}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                The recipient will need to login via Privy with Instagram to claim the card.
               </p>
             </div>
           )}

@@ -41,6 +41,8 @@ interface MyCardsProps {
 export function MyCards({ onSpendCard }: MyCardsProps) {
   const { address, isConnected } = useAccount();
   const { authenticated, user } = usePrivy();
+  const telegramAccount = (user as any)?.telegram;
+  const telegramUsername = ((telegramAccount?.username || telegramAccount?.telegramUserId || telegramAccount?.id || '') as string).replace(/^@/, '').trim();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCurrency, setFilterCurrency] = useState('all');
@@ -78,8 +80,9 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
 
     const hasTwitter = user?.twitter?.username;
     const hasTwitch = user?.twitch?.username;
+    const hasTelegram = telegramUsername;
 
-    if (!hasTwitter && !hasTwitch) {
+    if (!hasTwitter && !hasTwitch && !hasTelegram) {
       setPendingCount(0);
       return;
     }
@@ -117,6 +120,17 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         }
       }
 
+      if (hasTelegram) {
+        try {
+          if (telegramUsername) {
+            const tokenIds = await web3Service.getPendingTelegramCards(telegramUsername);
+            totalCount += tokenIds.length;
+          }
+        } catch (error) {
+          console.error('Error fetching Telegram pending cards count:', error);
+        }
+      }
+
       setPendingCount(totalCount);
     } catch (error) {
       console.error('Error fetching pending cards count:', error);
@@ -140,7 +154,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
     } else {
       setPendingCount(0);
     }
-  }, [authenticated, user?.twitter?.username, user?.twitch?.username, isConnected, address]);
+  }, [authenticated, user?.twitter?.username, user?.twitch?.username, telegramUsername, isConnected, address]);
 
   const fetchCards = async () => {
     if (!isConnected || !address) return;
@@ -169,20 +183,36 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         qrCode: `sendly://redeem/${card.token_id}`
       }));
 
-      const transformedSentCards: GiftCard[] = supabaseSentCards.map(card => ({
-        tokenId: card.token_id,
-        amount: card.amount,
-        currency: card.currency,
-        design: 'pink',
-        message: card.message,
-        recipient: card.recipient_address || card.recipient_username || 'Unknown',
-        sender: address,
-        status: card.redeemed ? 'redeemed' : 'active',
-        createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
-        hasTimer: false,
-        hasPassword: false,
-        qrCode: `sendly://redeem/${card.token_id}`
-      }));
+      const transformedSentCards: GiftCard[] = supabaseSentCards.map(card => {
+        const username = card.recipient_username ? card.recipient_username.replace(/^@/, '') : null;
+        const recipientDisplay = (() => {
+          switch (card.recipient_type) {
+            case 'twitter':
+              return username ? `@${username}` : 'Twitter user';
+            case 'telegram':
+              return username ? `@${username} (Telegram)` : 'Telegram user';
+            case 'twitch':
+              return username ? `${username} (Twitch)` : 'Twitch user';
+            default:
+              return card.recipient_address || 'Unknown';
+          }
+        })();
+
+        return {
+          tokenId: card.token_id,
+          amount: card.amount,
+          currency: card.currency,
+          design: 'pink',
+          message: card.message,
+          recipient: recipientDisplay,
+          sender: address,
+          status: card.redeemed ? 'redeemed' : 'active',
+          createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+          hasTimer: false,
+          hasPassword: false,
+          qrCode: `sendly://redeem/${card.token_id}`
+        };
+      });
 
       // Update UI with cached data immediately - don't wait for blockchain!
       setReceivedCards(transformedReceivedCards);
@@ -288,12 +318,37 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       
       // Add sent cards (overwrite if duplicates exist)
       sentBlockchainCards.forEach(card => {
+        const rawRecipient = card.recipient || '';
+        const lowercaseRecipient = rawRecipient.toLowerCase();
+        let recipientAddress: string | null = null;
+        let recipientUsername: string | null = null;
+        let recipientType: 'address' | 'twitter' | 'twitch' | 'telegram' = 'address';
+
+        if (lowercaseRecipient.startsWith('0x')) {
+          recipientAddress = rawRecipient.toLowerCase();
+        } else if (lowercaseRecipient.startsWith('telegram:')) {
+          recipientType = 'telegram';
+          recipientUsername = rawRecipient.slice('telegram:'.length).replace(/^@/, '').trim();
+        } else if (lowercaseRecipient.startsWith('twitter:') || rawRecipient.startsWith('@')) {
+          recipientType = 'twitter';
+          const usernamePart = lowercaseRecipient.startsWith('twitter:')
+            ? rawRecipient.slice('twitter:'.length)
+            : rawRecipient;
+          recipientUsername = usernamePart.replace(/^@/, '').trim();
+        } else if (lowercaseRecipient.length > 0) {
+          recipientType = 'twitch';
+          const usernamePart = lowercaseRecipient.startsWith('twitch:')
+            ? rawRecipient.slice('twitch:'.length)
+            : rawRecipient;
+          recipientUsername = usernamePart.replace(/^@/, '').trim();
+        }
+
         cardsMap.set(card.tokenId, {
           token_id: card.tokenId,
           sender_address: userAddress.toLowerCase(),
-          recipient_address: card.recipient.startsWith('0x') ? card.recipient.toLowerCase() : null,
-          recipient_username: card.recipient.startsWith('@') || card.recipient.startsWith('twitch') ? card.recipient : null,
-          recipient_type: (card.recipient.startsWith('@') ? 'twitter' : card.recipient.startsWith('twitch') ? 'twitch' : 'address') as 'address' | 'twitter' | 'twitch',
+          recipient_address: recipientAddress,
+          recipient_username: recipientUsername,
+          recipient_type: recipientType,
           amount: card.amount,
           currency: card.token,
           message: card.message,
@@ -350,20 +405,41 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         const existingSentMap = new Map(currentSentCards.map(card => [card.tokenId, card]));
 
         // Transform sent cards
-        const transformedSentCards: GiftCard[] = sentBlockchainCards.map(card => ({
-          tokenId: card.tokenId,
-          amount: card.amount,
-          currency: card.token,
-          design: 'pink',
-          message: card.message,
-          recipient: card.recipient,
-          sender: userAddress,
-          status: card.redeemed ? 'redeemed' : 'active',
-          createdAt: existingSentMap.get(card.tokenId)?.createdAt || new Date().toLocaleDateString(),
-          hasTimer: false,
-          hasPassword: false,
-          qrCode: `sendly://redeem/${card.tokenId}`
-        }));
+        const transformedSentCards: GiftCard[] = sentBlockchainCards.map(card => {
+          const rawRecipient = card.recipient || '';
+          const lowercaseRecipient = rawRecipient.toLowerCase();
+          let recipientDisplay = rawRecipient;
+
+          if (lowercaseRecipient.startsWith('telegram:')) {
+            const username = rawRecipient.slice('telegram:'.length).replace(/^@/, '').trim();
+            recipientDisplay = username ? `@${username} (Telegram)` : 'Telegram user';
+          } else if (lowercaseRecipient.startsWith('twitter:')) {
+            const username = rawRecipient.slice('twitter:'.length).replace(/^@/, '').trim();
+            recipientDisplay = username ? `@${username}` : 'Twitter user';
+          } else if (rawRecipient.startsWith('@')) {
+            recipientDisplay = rawRecipient;
+          } else if (lowercaseRecipient.startsWith('twitch:')) {
+            const username = rawRecipient.slice('twitch:'.length).trim();
+            recipientDisplay = username ? `${username} (Twitch)` : 'Twitch user';
+          } else if (!lowercaseRecipient.startsWith('0x') && lowercaseRecipient.length > 0) {
+            recipientDisplay = `${rawRecipient} (Twitch)`;
+          }
+
+          return {
+            tokenId: card.tokenId,
+            amount: card.amount,
+            currency: card.token,
+            design: 'pink',
+            message: card.message,
+            recipient: recipientDisplay,
+            sender: userAddress,
+            status: card.redeemed ? 'redeemed' : 'active',
+            createdAt: existingSentMap.get(card.tokenId)?.createdAt || new Date().toLocaleDateString(),
+            hasTimer: false,
+            hasPassword: false,
+            qrCode: `sendly://redeem/${card.tokenId}`
+          };
+        });
 
         // Update only if there are changes (new cards or status changed)
         const sentChanged = currentSentCards.length !== transformedSentCards.length ||

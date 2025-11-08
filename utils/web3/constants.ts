@@ -23,17 +23,37 @@ export const EURC_ADDRESS =
 
 export const VAULT_CONTRACT_ADDRESS =
   import.meta.env.VITE_ARC_VAULT_CONTRACT_ADDRESS ||
-  "0x0000000000000000000000000000000000000000";
+  "0xF8A0870530bb7CD1D658742A079f85E91dFC8E3C";
 
 export const TWITCH_VAULT_CONTRACT_ADDRESS =
   import.meta.env.VITE_ARC_TWITCH_VAULT_CONTRACT_ADDRESS ||
-  "0x4E133afd632745A7aF712eD43c81F56EF2E88944";
+  import.meta.env.VITE_ARC_TWITCH_VAULT_ADDRESS ||
+  "0xA27E6Cef4e9d794EE0356461fe65437Bb5f7cbE3";
+
+export const TELEGRAM_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_ARC_TELEGRAM_VAULT_CONTRACT_ADDRESS ||
+  import.meta.env.VITE_ARC_TELEGRAM_VAULT_ADDRESS ||
+  "0x619A49213860A0448736880c4f456bCDfB96D938";
+
+export const TIKTOK_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_ARC_TIKTOK_VAULT_CONTRACT_ADDRESS ||
+  import.meta.env.VITE_ARC_TIKTOK_VAULT_ADDRESS ||
+  "0xA4A44F97B8778B4Da8b9562d56A94BfCc0fB9893";
+
+export const INSTAGRAM_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_ARC_INSTAGRAM_VAULT_CONTRACT_ADDRESS ||
+  import.meta.env.VITE_ARC_INSTAGRAM_VAULT_ADDRESS ||
+  "0x3332dEf130Ea17C69B9dFe8F06be1162526873df";
 
 console.log('=== Resolved Addresses ===');
 console.log('CONTRACT_ADDRESS:', CONTRACT_ADDRESS);
 console.log('USDC_ADDRESS:', USDC_ADDRESS);
 console.log('EURC_ADDRESS:', EURC_ADDRESS);
 console.log('VAULT_CONTRACT_ADDRESS:', VAULT_CONTRACT_ADDRESS);
+console.log('TWITCH_VAULT_CONTRACT_ADDRESS:', TWITCH_VAULT_CONTRACT_ADDRESS);
+console.log('TELEGRAM_VAULT_CONTRACT_ADDRESS:', TELEGRAM_VAULT_CONTRACT_ADDRESS);
+console.log('TIKTOK_VAULT_CONTRACT_ADDRESS:', TIKTOK_VAULT_CONTRACT_ADDRESS);
+console.log('INSTAGRAM_VAULT_CONTRACT_ADDRESS:', INSTAGRAM_VAULT_CONTRACT_ADDRESS);
 console.log('Expected USDC_ADDRESS:', '0x3600000000000000000000000000000000000000');
 if (USDC_ADDRESS !== '0x3600000000000000000000000000000000000000') {
   console.error('⚠️ WARNING: Using fallback USDC address! VITE_ARC_USDC_ADDRESS may not be loaded from .env');
@@ -308,6 +328,153 @@ export const GiftCardABI = [
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "uri",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "message",
+        "type": "string"
+      }
+    ],
+    "name": "GiftCardCreatedForTelegram",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "uri",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "message",
+        "type": "string"
+      }
+    ],
+    "name": "GiftCardCreatedForTikTok",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "uri",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "message",
+        "type": "string"
+      }
+    ],
+    "name": "GiftCardCreatedForInstagram",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "address",
         "name": "previousOwner",
@@ -363,6 +530,84 @@ export const GiftCardABI = [
     ],
     "name": "approve",
     "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_username",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "_metadataURI",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_message",
+        "type": "string"
+      }
+    ],
+    "name": "createGiftCardForTikTok",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_username",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "_metadataURI",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_message",
+        "type": "string"
+      }
+    ],
+    "name": "createGiftCardForInstagram",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -872,6 +1117,19 @@ export const GiftCardABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "telegramVaultContract",
+    "outputs": [
+      {
+        "internalType": "contract TelegramCardVault",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -965,12 +1223,90 @@ export const GiftCardABI = [
   {
     "inputs": [
       {
+        "internalType": "string",
+        "name": "_username",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "_metadataURI",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_message",
+        "type": "string"
+      }
+    ],
+    "name": "createGiftCardForTelegram",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "_vaultAddress",
         "type": "address"
       }
     ],
     "name": "setTwitchVaultContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_vaultAddress",
+        "type": "address"
+      }
+    ],
+    "name": "setTelegramVaultContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_vaultAddress",
+        "type": "address"
+      }
+    ],
+    "name": "setTikTokVaultContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_vaultAddress",
+        "type": "address"
+      }
+    ],
+    "name": "setInstagramVaultContract",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1524,6 +1860,283 @@ export const TwitchCardVaultABI = [
     "type": "function"
   }
 ];
+
+// TelegramCardVault ABI (identical to TwitchCardVault)
+export const TelegramCardVaultABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_giftCardAddress",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "CardDeposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "claimer",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      }
+    ],
+    "name": "CardClaimed",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimedTokens",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "giftCardContract",
+    "outputs": [
+      {
+        "internalType": "contract GiftCard",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "tokenToUsername",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "usernameToTokens",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "depositCardForUsername",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "claimer",
+        "type": "address"
+      }
+    ],
+    "name": "claimCard",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      }
+    ],
+    "name": "getPendingCardsForUsername",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isCardClaimed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getUsernameForToken",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_giftCardAddress",
+        "type": "address"
+      }
+    ],
+    "name": "setGiftCardContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "emergencyRecover",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
+
+export const TikTokCardVaultABI = TwitchCardVaultABI;
+export const InstagramCardVaultABI = TwitchCardVaultABI;
 
 // ERC20 ABI for USDC/USDT
 export const ERC20ABI = [
