@@ -1,5 +1,9 @@
 # Sendly App
 
+Backend repo: https://github.com/Hazyshades/Sendly-backend-agent
+
+Site: [sendly.digital](https://www.sendly.digital)
+
 Sendly makes it easy to unlock stablecoins for any person, even if they don't have a critical wallet yet. 
 
 The main idea is to send tokens via the username of the most popular social networks: X, Telegram, Instagram, Tiktok, etc.
