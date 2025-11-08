@@ -28,7 +28,7 @@ export function AgentSchedulesPanel() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen && isCreateOpen) {

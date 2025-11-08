@@ -1124,7 +1124,7 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {hasTwitch && (
+              {isOpen && hasTwitch && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -1136,7 +1136,7 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                   Sync Twitch
                 </Button>
               )}
-              {hasTelegram && (
+              {isOpen && hasTelegram && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="inline-flex">
@@ -1157,7 +1157,7 @@ export function ContactsManager({ contacts, onContactsChange }: ContactsManagerP
                   </TooltipContent>
                 </Tooltip>
               )}
-              {hasTwitter && (
+              {isOpen && hasTwitter && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="inline-flex">
