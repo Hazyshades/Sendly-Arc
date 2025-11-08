@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { CalendarIcon, Clock, FileSpreadsheet, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { useAccount } from 'wagmi';
+import { CalendarIcon, Clock, FileSpreadsheet, Loader2, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -9,8 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Switch } from '../ui/switch';
 import { Separator } from '../ui/separator';
+import { Checkbox } from '../ui/checkbox';
+import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '../ui/utils';
 import type { ScheduleInput, ScheduleFrequency, ScheduleSkipStrategy, ScheduleSourceType } from '../../src/types/agentSchedules';
+import { getPersonalContacts, type Contact as PersonalContact } from '../../utils/supabase/contacts';
 
 interface ScheduleWizardProps {
   onSubmit: (input: ScheduleInput) => Promise<void> | void;
@@ -18,7 +23,7 @@ interface ScheduleWizardProps {
   isSubmitting?: boolean;
 }
 
-type PersonalMode = 'all' | 'favorites' | 'tag';
+type PersonalMode = 'all' | 'favorites' | 'tag' | 'selected';
 
 const WEEK_DAYS: Array<{ value: number; label: string }> = [
   { value: 1, label: 'Monday' },
@@ -73,6 +78,9 @@ function toDateTimeLocalString(date: Date) {
 }
 
 export function ScheduleWizard({ onSubmit, onCancel, isSubmitting }: ScheduleWizardProps) {
+  const { address } = useAccount();
+  const normalizedUserId = useMemo(() => (address ? address.toLowerCase() : null), [address]);
+
   const defaultStart = useMemo(() => {
     const date = new Date();
     date.setMinutes(date.getMinutes() + 10);
@@ -87,6 +95,7 @@ export function ScheduleWizard({ onSubmit, onCancel, isSubmitting }: ScheduleWiz
     sourceType: 'personal_contacts' as ScheduleSourceType,
     personalMode: 'all' as PersonalMode,
     personalTag: '',
+    personalSelected: [] as string[],
     twitchSheetUrl: '',
     twitchWalletColumn: 'wallet',
     twitchAmountColumn: 'payout',
@@ -111,6 +120,39 @@ export function ScheduleWizard({ onSubmit, onCancel, isSubmitting }: ScheduleWiz
     setErrors(null);
   };
 
+  const handlePersonalModeChange = (mode: PersonalMode) => {
+    setForm((prev) => ({
+      ...prev,
+      personalMode: mode,
+      personalSelected: mode === 'selected' ? prev.personalSelected : [],
+    }));
+    setErrors(null);
+  };
+
+  const handleTogglePersonalContact = (wallet: string | undefined) => {
+    if (!wallet) return;
+    const normalized = wallet.toLowerCase();
+    setForm((prev) => {
+      const exists = prev.personalSelected.includes(normalized);
+      return {
+        ...prev,
+        personalSelected: exists
+          ? prev.personalSelected.filter((value) => value !== normalized)
+          : [...prev.personalSelected, normalized],
+      };
+    });
+    setErrors(null);
+  };
+
+  const personalContactsQuery = useQuery({
+    queryKey: ['personal-contacts', normalizedUserId],
+    queryFn: () => getPersonalContacts(normalizedUserId!),
+    enabled: Boolean(normalizedUserId && form.sourceType === 'personal_contacts'),
+    staleTime: 60_000,
+  });
+
+  const personalContacts = (personalContactsQuery.data ?? []) as PersonalContact[];
+
   const validate = () => {
     if (!form.name.trim()) {
       return 'Enter a schedule name';
@@ -134,6 +176,13 @@ export function ScheduleWizard({ onSubmit, onCancel, isSubmitting }: ScheduleWiz
     if (form.sourceType === 'manual' && !form.manualRecipientsNote.trim()) {
       return 'Describe where the recipient list is stored or how it is prepared';
     }
+    if (
+      form.sourceType === 'personal_contacts' &&
+      form.personalMode === 'selected' &&
+      form.personalSelected.length === 0
+    ) {
+      return 'Select at least one contact for the payout';
+    }
     return null;
   };
 
@@ -146,6 +195,7 @@ export function ScheduleWizard({ onSubmit, onCancel, isSubmitting }: ScheduleWiz
       sourceConfig = {
         mode: form.personalMode,
         tag: form.personalMode === 'tag' ? form.personalTag.trim() : undefined,
+        selectedWallets: form.personalMode === 'selected' ? form.personalSelected : undefined,
       };
     } else if (form.sourceType === 'twitch_table') {
       sourceConfig = {
@@ -287,7 +337,7 @@ export function ScheduleWizard({ onSubmit, onCancel, isSubmitting }: ScheduleWiz
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Contact subset</Label>
-                <Select value={form.personalMode} onValueChange={(value) => handleChange('personalMode', value as PersonalMode)}>
+                <Select value={form.personalMode} onValueChange={(value) => handlePersonalModeChange(value as PersonalMode)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All contacts" />
                   </SelectTrigger>
@@ -295,6 +345,7 @@ export function ScheduleWizard({ onSubmit, onCancel, isSubmitting }: ScheduleWiz
                     <SelectItem value="all">All contacts</SelectItem>
                     <SelectItem value="favorites">Favorites only</SelectItem>
                     <SelectItem value="tag">By tag/label</SelectItem>
+                    <SelectItem value="selected">Custom selection</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -307,6 +358,61 @@ export function ScheduleWizard({ onSubmit, onCancel, isSubmitting }: ScheduleWiz
                     value={form.personalTag}
                     onChange={(event) => handleChange('personalTag', event.target.value)}
                   />
+                </div>
+              )}
+              {form.personalMode === 'selected' && (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Select recipients</Label>
+                  {!normalizedUserId ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                      Connect your wallet to load personal contacts.
+                    </div>
+                  ) : personalContactsQuery.isLoading ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading contacts...
+                    </div>
+                  ) : personalContactsQuery.isError ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                      Failed to load contacts. Try refreshing the page.
+                    </div>
+                  ) : personalContacts.length === 0 ? (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                      No personal contacts found. Add contacts first in the Contacts section.
+                    </div>
+                  ) : (
+                    <ScrollArea className="max-h-60 rounded-xl border border-gray-200 bg-white/80">
+                      <div className="divide-y divide-gray-100">
+                        {personalContacts.map((contact) => {
+                          const wallet = contact.wallet?.toLowerCase();
+                          if (!wallet) {
+                            return null;
+                          }
+                          const isChecked = form.personalSelected.includes(wallet);
+                          return (
+                            <label
+                              key={wallet}
+                              className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-purple-50/60 transition"
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={() => handleTogglePersonalContact(contact.wallet)}
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-medium text-gray-900">{contact.name || contact.wallet}</span>
+                                <span className="text-xs text-gray-500">{contact.wallet}</span>
+                              </div>
+                              {contact.isFavorite && (
+                                <Badge variant="outline" className="ml-auto text-xs">
+                                  Favorite
+                                </Badge>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  )}
                 </div>
               )}
             </div>
