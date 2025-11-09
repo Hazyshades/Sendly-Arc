@@ -1,8 +1,14 @@
-# Sendly App
+# Sendly
+
+**Sending funds by nickname on any social network.**
+
+Live on: [sendly.digital](https://www.sendly.digital)
 
 Backend repo: https://github.com/Hazyshades/Sendly-backend-agent
 
-Site: [sendly.digital](https://www.sendly.digital)
+---
+
+## What is Sendly?
 
 Sendly makes it easy to unlock stablecoins for any person, even if they don't have a critical wallet yet. 
 
