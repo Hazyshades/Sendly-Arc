@@ -8,6 +8,9 @@ Backend repo: https://github.com/Hazyshades/Sendly-backend-agent
 
 ---
 
+<img width="1325" height="506" alt="Screenshot_18" src="https://github.com/user-attachments/assets/7a4f9339-fd66-4792-ba4b-03a81392b6e1" />
+
+
 ## What is Sendly?
 
 Sendly makes it easy to unlock stablecoins for any person, even if they don't have a critical wallet yet. 
@@ -15,8 +18,6 @@ Sendly makes it easy to unlock stablecoins for any person, even if they don't ha
 The main idea is to send tokens via the username of the most popular social networks: X, Telegram, Instagram, Tiktok, etc.
 
 The agent part of the platform is based on the orchestration of Langraph and Telegram bot. It is possible to send funds using voice commands, create a flexible moneyflow, and plan your expenses through the planner.
-
-<img width="835" height="632" alt="image" src="https://github.com/user-attachments/assets/a569111e-e9db-470d-9237-d7470322eae6" />
 
 ## Features
 - NFT gift cards with custom messages, time locks, passwords, and AI-generated artwork.
