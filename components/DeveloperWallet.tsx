@@ -14,6 +14,7 @@ import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Loader2, Wallet, Copy, Check, ExternalLink, ArrowUpCircle, ChevronUp, ChevronDown, Info, Coins, Send } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 interface DeveloperWalletProps {
   blockchain?: string;
@@ -360,6 +361,11 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
     );
   }
 
+  const hasPrivyTelegram = Boolean((privyUser as any)?.telegram);
+
+  const hasPrivyTelegram = Boolean((privyUser as any)?.telegram);
+  const linkButtonDisabled = linkingTelegram || !hasPrivyTelegram;
+
   if (wallet) {
     return (
       <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
@@ -488,23 +494,34 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
                   <ExternalLink className="w-4 h-4 mr-2" />
                   View on Explorer
                 </Button>
-                <Button
-                  onClick={handleLinkTelegram}
-                  disabled={linkingTelegram}
-                  className="flex-1"
-                >
-                  {linkingTelegram ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Linking...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      {wallet.telegram_user_id ? 'Relink TG' : 'Link TG'}
-                    </>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex-1">
+                      <Button
+                        onClick={handleLinkTelegram}
+                        disabled={linkButtonDisabled}
+                        className="w-full"
+                      >
+                        {linkingTelegram ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Linking...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            {wallet.telegram_user_id ? 'Relink TG' : 'Link TG'}
+                          </>
+                        )}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!hasPrivyTelegram && (
+                    <TooltipContent>
+                      Connect your Telegram
+                    </TooltipContent>
                   )}
-                </Button>
+                </Tooltip>
               </div>
 
               <Separator />

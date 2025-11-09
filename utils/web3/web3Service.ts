@@ -1069,13 +1069,42 @@ export class Web3Service {
         log.args.from === '0x0000000000000000000000000000000000000000'
       );
 
-      let creator;
-      if (mintEvent && mintEvent.args) {
-        creator = mintEvent.args.to as string;
-      } else {
-        // Fallback to current owner if we can't find creator
-        creator = await this.getCardOwner(tokenId);
+      let creator: string | null = null;
+      if (mintEvent) {
+        if (mintEvent.transactionHash) {
+          try {
+            const tx = await this.safeRequest(async () => {
+              return await this.publicClient.getTransaction({ hash: mintEvent.transactionHash });
+            });
+            if (tx && tx.from) {
+              creator = tx.from;
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch mint transaction for card ${tokenId}:`, error);
+          }
+        }
+
+        if (!creator && mintEvent.args && mintEvent.args.from) {
+          // If transaction lookup failed, infer creator from event "from" topic (should be zero address for mint).
+          // Use recipient as last-resort fallback below.
+          const inferred = mintEvent.args.from as string;
+          if (inferred && inferred !== '0x0000000000000000000000000000000000000000') {
+            creator = inferred;
+          }
+        }
       }
+
+      if (!creator) {
+        // Fallback to current owner if we can't find creator
+        try {
+          creator = await this.getCardOwner(tokenId);
+        } catch (error) {
+          console.warn(`Failed to resolve creator for card ${tokenId}, defaulting to unknown:`, error);
+          creator = 'unknown';
+        }
+      }
+
+      creator = creator?.toLowerCase() ?? 'unknown';
 
       this.setCache(cacheKey, creator);
       return creator;
