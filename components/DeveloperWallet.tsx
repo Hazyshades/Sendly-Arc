@@ -362,8 +362,6 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   }
 
   const hasPrivyTelegram = Boolean((privyUser as any)?.telegram);
-
-  const hasPrivyTelegram = Boolean((privyUser as any)?.telegram);
   const linkButtonDisabled = linkingTelegram || !hasPrivyTelegram;
 
   if (wallet) {
