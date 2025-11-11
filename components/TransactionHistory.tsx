@@ -185,11 +185,10 @@ export function TransactionHistory() {
 
       const averageAmount = (cardsSent + cardsReceived) > 0 ? 
         ((totalSent + totalReceived) / (cardsSent + cardsReceived)).toFixed(2) : '0';
-      const topCurrencyEntry = Object.entries(currencyCounts).reduce(
-        (prev, current) => (current[1] > prev[1] ? current : prev),
-        ['USDC', currencyCounts.USDC] as [keyof typeof currencyCounts, number]
-      );
-      const topCurrency = topCurrencyEntry[0];
+      const currencyOrder: Array<keyof typeof currencyCounts> = ['USDC', 'EURC', 'USYC'];
+      const topCurrency = currencyOrder.reduce((prev, curr) => {
+        return currencyCounts[curr] > currencyCounts[prev] ? curr : prev;
+      }, currencyOrder[0]);
 
       const newAnalytics: Analytics = {
         totalSent: totalSent.toFixed(2),
