@@ -1,9 +1,6 @@
-<<<<<<< HEAD
-# Sendly App
-=======
 # Sendly
 
-**Sending funds by nickname on any social network.**
+**Dispatch funds by nickname on any social network.**
 
 Live on: [sendly.digital](https://www.sendly.digital)
 
@@ -11,29 +8,16 @@ Backend repo: https://github.com/Hazyshades/Sendly-backend-agent
 
 ---
 
+<img width="1325" height="506" alt="Screenshot_18" src="https://github.com/user-attachments/assets/7a4f9339-fd66-4792-ba4b-03a81392b6e1" />
+
+
 ## What is Sendly?
->>>>>>> bfc9d63d400d5a9328afa97e6bb9f797e3e6cdee
 
 Sendly makes it easy to unlock stablecoins for any person, even if they don't have a critical wallet yet. 
 
 The main idea is to send tokens via the username of the most popular social networks: X, Telegram, Instagram, Tiktok, etc.
 
-<<<<<<< HEAD
-The agent part of the platform is based on the orchestration of Langraph and Telegram bot. It is possible to send funds using voice commands, check the balance, and plan your expenses through the planner.
-
-## Features
-- NFT gift cards with custom messages, time locks, passwords, and AI-generated artwork.
-- Voice Payment Agent that converts spoken commands into on-chain gift cards using ElevenLabs and AIML API.
-- Social recipients via dedicated vaults for Twitter, Twitch, Telegram, TikTok, Instagram, or direct wallet addresses.
-- Internal wallet management backed by Circle APIs.
-- Contact manager that syncs personal and Privy-sourced social contacts, favorites, and wallet metadata.
-- Spend flow with passcode, timer, and ownership checks before redemption.
-- Transaction analytics with sent/received history, cache layer, and CSV export.
-- Circle BridgeKit integration to move USDC/EURC between Arc Testnet, Base Sepolia, Ethereum Sepolia, Polygon Amoy, and other configured chains.
-=======
 The agent part of the platform is based on the orchestration of Langraph and Telegram bot. It is possible to send funds using voice commands, create a flexible moneyflow, and plan your expenses through the planner.
-
-<img width="835" height="632" alt="image" src="https://github.com/user-attachments/assets/a569111e-e9db-470d-9237-d7470322eae6" />
 
 ## Features
 - NFT gift cards with custom messages, time locks, passwords, and AI-generated artwork.
@@ -43,7 +27,6 @@ The agent part of the platform is based on the orchestration of Langraph and Tel
 - Contact manager that syncs personal and **Privy**-sourced social contacts, favorites, and wallet metadata.
 - Transaction analytics with sent/received history, cache layer, and CSV export.
 - **Circle BridgeKit** integration to move funds between Arc Testnet and other configured chains.
->>>>>>> bfc9d63d400d5a9328afa97e6bb9f797e3e6cdee
 
 ## Tech Stack
 - React 18, TypeScript, Vite, TailwindCSS, shadcn/ui components.
@@ -52,10 +35,6 @@ The agent part of the platform is based on the orchestration of Langraph and Tel
 - Supabase for gift card records, contacts, and developer wallet metadata.
 - Circle BridgeKit and Developer-Controlled Wallet SDKs.
 - ElevenLabs speech-to-text, AIML API command parsing, Pinata IPFS uploads, custom image generator.
-<<<<<<< HEAD
-- Hardhat + OpenZeppelin for Solidity contracts (`contracts/`).
-=======
->>>>>>> bfc9d63d400d5a9328afa97e6bb9f797e3e6cdee
 
 ## Key Modules
 - `components/` – UI and logic for gift card creation, spending, history, voice agent, developer wallet, bridge dialog, and contact management.
@@ -70,8 +49,4 @@ The agent part of the platform is based on the orchestration of Langraph and Tel
 - Privy application configured for the desired social providers.
 
 ## Status
-<<<<<<< HEAD
-The application targets Arc Testnet and Circle-supported testnets. Production readiness depends on completing the infrastructure outlined in the docs and providing live API credentials.
-=======
 The application targets Arc Testnet and Circle-supported testnets. For possible integrations, I am open to suggestions and will be happy to work with you. Contact on X: Leonissx
->>>>>>> bfc9d63d400d5a9328afa97e6bb9f797e3e6cdee
