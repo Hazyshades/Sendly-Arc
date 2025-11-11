@@ -14,13 +14,13 @@ import { createWalletClient, custom } from 'viem';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
 import { GiftCardsService } from '../utils/supabase/giftCards';
-import { USDC_ADDRESS, EURC_ADDRESS } from '../utils/web3/constants';
+import { USDC_ADDRESS, EURC_ADDRESS, USYC_ADDRESS } from '../utils/web3/constants';
 import BridgeDialog from './BridgeDialog';
 
 interface RedeemableCard {
   tokenId: string;
   amount: string;
-  currency: 'USDC' | 'EURC';
+  currency: 'USDC' | 'EURC' | 'USYC';
   design: string;
   message: string;
   secretMessage?: string;
@@ -142,9 +142,11 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       
       // Determine token symbol from address
       const tokenAddress = giftCardInfo.token.toLowerCase();
-      const tokenSymbol: 'USDC' | 'EURC' = 
+      const tokenSymbol: RedeemableCard['currency'] = 
         tokenAddress === USDC_ADDRESS.toLowerCase() ? 'USDC' :
-        tokenAddress === EURC_ADDRESS.toLowerCase() ? 'EURC' : 'USDC';
+        tokenAddress === EURC_ADDRESS.toLowerCase() ? 'EURC' :
+        tokenAddress === USYC_ADDRESS.toLowerCase() ? 'USYC' :
+        'USDC';
 
       // Format creator address (show first 6 and last 4 characters)
       const formattedCreator = creator ? `${creator.slice(0, 6)}...${creator.slice(-4)}` : 'Unknown';

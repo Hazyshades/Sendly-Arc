@@ -67,7 +67,7 @@ export function generateBridgeUrl(params: BridgeUrlParams): string {
  */
 export function generateBridgeUrlFromArc(
   toChainSlug: string,
-  tokenSymbol: 'USDC' | 'EURC' = 'USDC',
+  tokenSymbol: 'USDC' | 'EURC' | 'USYC' = 'USDC',
   amount?: string
 ): string {
   return generateBridgeUrl({

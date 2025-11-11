@@ -18,7 +18,7 @@ interface Transaction {
   id: string;
   type: 'sent' | 'received' | 'redeemed';
   amount: string;
-  currency: 'USDC' | 'EURC';
+  currency: 'USDC' | 'EURC' | 'USYC';
   counterpart: string;
   message: string;
   status: 'completed' | 'pending' | 'failed';
@@ -34,7 +34,7 @@ interface Analytics {
   cardsSent: number;
   cardsReceived: number;
   averageAmount: string;
-  topCurrency: 'USDC' | 'EURC';
+  topCurrency: 'USDC' | 'EURC' | 'USYC';
 }
 
 export function TransactionHistory() {
@@ -157,11 +157,17 @@ export function TransactionHistory() {
       let cardsSent = 0;
       let cardsReceived = 0;
       let cardsRedeemed = 0;
-      const currencyCounts = { USDC: 0, EURC: 0 };
+      const currencyCounts: Record<'USDC' | 'EURC' | 'USYC', number> = {
+        USDC: 0,
+        EURC: 0,
+        USYC: 0,
+      };
 
       allCards.forEach(card => {
         const amount = parseFloat(card.amount);
-        currencyCounts[card.token]++;
+        if (card.token === 'USDC' || card.token === 'EURC' || card.token === 'USYC') {
+          currencyCounts[card.token]++;
+        }
 
         if (card.type === 'sent') {
           totalSent += amount;
@@ -179,7 +185,11 @@ export function TransactionHistory() {
 
       const averageAmount = (cardsSent + cardsReceived) > 0 ? 
         ((totalSent + totalReceived) / (cardsSent + cardsReceived)).toFixed(2) : '0';
-      const topCurrency: 'USDC' | 'EURC' = currencyCounts.USDC >= currencyCounts.EURC ? 'USDC' : 'EURC';
+      const topCurrencyEntry = Object.entries(currencyCounts).reduce(
+        (prev, current) => (current[1] > prev[1] ? current : prev),
+        ['USDC', currencyCounts.USDC] as [keyof typeof currencyCounts, number]
+      );
+      const topCurrency = topCurrencyEntry[0];
 
       const newAnalytics: Analytics = {
         totalSent: totalSent.toFixed(2),
@@ -505,6 +515,7 @@ export function TransactionHistory() {
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="USDC">USDC</SelectItem>
             <SelectItem value="EURC">EURC</SelectItem>
+            <SelectItem value="USYC">USYC</SelectItem>
           </SelectContent>
         </Select>
 

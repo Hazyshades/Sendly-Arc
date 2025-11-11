@@ -20,7 +20,7 @@ import { GiftCardsService, type GiftCardInsert } from '../utils/supabase/giftCar
 interface GiftCard {
   tokenId: string;
   amount: string;
-  currency: 'USDC' | 'EURC';
+  currency: 'USDC' | 'EURC' | 'USYC';
   design: string;
   message: string;
   recipient: string;
@@ -607,6 +607,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="USDC">USDC</SelectItem>
               <SelectItem value="EURC">EURC</SelectItem>
+              <SelectItem value="USYC">USYC</SelectItem>
             </SelectContent>
           </Select>
         </div>

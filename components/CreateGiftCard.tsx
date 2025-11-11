@@ -38,7 +38,7 @@ interface GiftCardData {
   recipientAddress: string;
   recipientUsername: string;
   amount: string;
-  currency: 'USDC' | 'EURC';
+  currency: 'USDC' | 'EURC' | 'USYC';
   design: 'pink' | 'blue' | 'green' | 'custom';
   message: string;
   secretMessage: string;
@@ -814,13 +814,17 @@ export function CreateGiftCard() {
           <div className="flex gap-4">
             <div className="flex-1">
               <Label>Currency</Label>
-              <Select value={formData.currency} onValueChange={(value: 'USDC' | 'EURC') => updateFormData('currency', value)}>
+              <Select
+                value={formData.currency}
+                onValueChange={(value: 'USDC' | 'EURC' | 'USYC') => updateFormData('currency', value)}
+              >
                 <SelectTrigger className="mt-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="USDC">USDC</SelectItem>
                   <SelectItem value="EURC">EURC</SelectItem>
+                  <SelectItem value="USYC">USYC</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -883,22 +887,26 @@ export function CreateGiftCard() {
               className="w-full"
               size="sm"
               onClick={openCircleBridge}
+              disabled={formData.currency === 'USYC'}
+              title={formData.currency === 'USYC' ? 'Bridge support for USYC is coming soon' : undefined}
             >
               <ExternalLink className="w-4 h-4 mr-2" />
               Top up {formData.currency} on Arc (Circle Bridge)
             </Button>
-                         <Button 
-               variant="outline"
-               className="w-full"
-               size="sm"
-               onClick={() => {
-                 const bridgeUrl = generateBridgeUrlFromArc('base-sepolia', formData.currency);
-                 navigate(bridgeUrl);
-               }}
-             >
-               <ExternalLink className="w-4 h-4 mr-2" />
-               Bridge {formData.currency} to Base Sepolia
-             </Button>
+            <Button 
+              variant="outline"
+              className="w-full"
+              size="sm"
+              onClick={() => {
+                const bridgeUrl = generateBridgeUrlFromArc('base-sepolia', formData.currency);
+                navigate(bridgeUrl);
+              }}
+              disabled={formData.currency === 'USYC'}
+              title={formData.currency === 'USYC' ? 'Bridge support for USYC is coming soon' : undefined}
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Bridge {formData.currency} to Base Sepolia
+            </Button>
             <Button 
               className="w-full" 
               size="lg" 

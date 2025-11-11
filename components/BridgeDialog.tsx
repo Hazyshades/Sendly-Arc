@@ -24,7 +24,7 @@ interface BridgeDialogProps {
   toChainId?: number;
   fromCurrency?: string;
   toCurrency?: string;
-  tokenSymbol?: 'USDC' | 'EURC';
+  tokenSymbol?: 'USDC' | 'EURC' | 'USYC';
 }
 
 export default function BridgeDialog({ 
@@ -43,7 +43,7 @@ export default function BridgeDialog({
   const [amount, setAmount] = useState(initialAmount || '10.00');
   const [selectedFromChainId, setSelectedFromChainId] = useState<number | undefined>(fromChainId || connectedChainId);
   const [selectedToChainId, setSelectedToChainId] = useState<number | undefined>(toChainId);
-  const [selectedTokenSymbol, setSelectedTokenSymbol] = useState<'USDC' | 'EURC'>(tokenSymbol || 'USDC');
+  const [selectedTokenSymbol, setSelectedTokenSymbol] = useState<'USDC' | 'EURC' | 'USYC'>(tokenSymbol || 'USDC');
   const [isBridging, setIsBridging] = useState(false);
   const [error, setError] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -220,7 +220,7 @@ export default function BridgeDialog({
           <div className="space-y-2">
             <label className="text-sm font-medium">Token</label>
             <div className="flex gap-2">
-              {['USDC', 'EURC'].map(symbol => {
+              {['USDC', 'EURC', 'USYC'].map(symbol => {
                 const isAvailable = availableTokens.length === 0 || 
                   availableTokens.some(t => t.symbol === symbol);
                 return (
@@ -229,7 +229,7 @@ export default function BridgeDialog({
                     variant={selectedTokenSymbol === symbol ? 'default' : 'outline'}
                     onClick={() => {
                       if (isAvailable) {
-                        setSelectedTokenSymbol(symbol as 'USDC' | 'EURC');
+                        setSelectedTokenSymbol(symbol as 'USDC' | 'EURC' | 'USYC');
                         setError('');
                       }
                     }}

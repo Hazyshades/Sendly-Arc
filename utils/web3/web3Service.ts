@@ -9,6 +9,7 @@ import {
   INSTAGRAM_VAULT_CONTRACT_ADDRESS,
   USDC_ADDRESS,
   EURC_ADDRESS,
+  USYC_ADDRESS,
   GiftCardABI,
   TwitterCardVaultABI,
   TwitchCardVaultABI,
@@ -26,6 +27,8 @@ import type { GiftCardInfo, BlockchainGiftCardInfo } from '../../src/types/web3'
 
 export type { GiftCardInfo, BlockchainGiftCardInfo };
 
+type SupportedTokenSymbol = 'USDC' | 'EURC' | 'USYC';
+
 export class Web3Service {
   private walletClient: any = null;
   private account: string | null = null;
@@ -40,14 +43,29 @@ export class Web3Service {
     this.createPublicClient();
   }
 
-  private getTokenSymbolFromAddress(tokenAddress: string): 'USDC' | 'EURC' {
+  private getTokenSymbolFromAddress(tokenAddress: string): SupportedTokenSymbol {
     const normalizedAddress = tokenAddress.toLowerCase();
     if (normalizedAddress === USDC_ADDRESS.toLowerCase()) {
       return 'USDC';
     } else if (normalizedAddress === EURC_ADDRESS.toLowerCase()) {
       return 'EURC';
+    } else if (normalizedAddress === USYC_ADDRESS.toLowerCase()) {
+      return 'USYC';
     }
     return 'USDC'; // Default fallback
+  }
+
+  private getTokenAddressFromSymbol(tokenType: SupportedTokenSymbol): string {
+    switch (tokenType) {
+      case 'USDC':
+        return USDC_ADDRESS;
+      case 'EURC':
+        return EURC_ADDRESS;
+      case 'USYC':
+        return USYC_ADDRESS;
+      default:
+        return USDC_ADDRESS;
+    }
   }
 
   private createPublicClient() {
@@ -1225,7 +1243,7 @@ export class Web3Service {
   async createGiftCard(
     recipient: string,
     amount: string,
-    tokenType: 'USDC' | 'EURC',
+    tokenType: SupportedTokenSymbol,
     metadata: string,
     message: string
   ): Promise<{ tokenId: string; txHash: string }> {
@@ -1237,7 +1255,7 @@ export class Web3Service {
     await this.ensureCorrectChain();
 
     try {
-      const tokenAddress = tokenType === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const tokenAddress = this.getTokenAddressFromSymbol(tokenType);
       const amountWei = this.parseAmount(amount);
 
       // Validate token address
@@ -1423,7 +1441,7 @@ export class Web3Service {
     }
   }
 
-  async getTokenBalance(tokenType: 'USDC' | 'EURC'): Promise<string> {
+  async getTokenBalance(tokenType: SupportedTokenSymbol): Promise<string> {
     if (!this.account) return '0';
 
     const cacheKey = `tokenBalance_${tokenType}_${this.account}`;
@@ -1433,7 +1451,7 @@ export class Web3Service {
     }
 
     try {
-      const tokenAddress = tokenType === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const tokenAddress = this.getTokenAddressFromSymbol(tokenType);
       
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
         return '0';
@@ -1465,13 +1483,13 @@ export class Web3Service {
 
   /**
    * Send tokens directly to an address
-   * @param tokenType 'USDC' or 'EURC'
+   * @param tokenType Supported token symbol
    * @param to Recipient address
    * @param amount Amount in token units (e.g., "10.5" for 10.5 USDC)
    * @returns Transaction hash
    */
   async sendToken(
-    tokenType: 'USDC' | 'EURC',
+    tokenType: SupportedTokenSymbol,
     to: string,
     amount: string
   ): Promise<string> {
@@ -1482,7 +1500,7 @@ export class Web3Service {
     await this.ensureCorrectChain();
 
     try {
-      const tokenAddress = tokenType === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const tokenAddress = this.getTokenAddressFromSymbol(tokenType);
       const amountWei = this.parseAmount(amount);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
@@ -1532,12 +1550,12 @@ export class Web3Service {
   }
 
   private parseAmount(amount: string): string {
-    // Convert amount to wei (6 decimals for USDC/USDT)
+    // Convert amount to wei (6 decimals for supported stablecoins)
     return (parseFloat(amount) * 1000000).toString();
   }
 
   private formatAmount(amountWei: bigint): string {
-    // Convert wei to amount (6 decimals for USDC/USDT)
+    // Convert wei to amount (6 decimals for supported stablecoins)
     return (Number(amountWei) / 1000000).toString();
   }
 
@@ -1550,7 +1568,7 @@ export class Web3Service {
   async createCardForTwitter(
     username: string,
     amount: string,
-    currency: 'USDC' | 'EURC',
+    currency: SupportedTokenSymbol,
     metadataUri: string,
     message: string
   ): Promise<{ tokenId: string; txHash: string }> {
@@ -1561,7 +1579,7 @@ export class Web3Service {
     await this.ensureCorrectChain();
 
     try {
-      const tokenAddress = currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const tokenAddress = this.getTokenAddressFromSymbol(currency);
       const amountWei = this.parseAmount(amount);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
@@ -1797,7 +1815,7 @@ export class Web3Service {
   async createCardForTwitch(
     username: string,
     amount: string,
-    currency: 'USDC' | 'EURC',
+    currency: SupportedTokenSymbol,
     metadataUri: string,
     message: string
   ): Promise<{ tokenId: string; txHash: string }> {
@@ -1808,7 +1826,7 @@ export class Web3Service {
     await this.ensureCorrectChain();
 
     try {
-      const tokenAddress = currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const tokenAddress = this.getTokenAddressFromSymbol(currency);
       const amountWei = this.parseAmount(amount);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
@@ -1983,7 +2001,7 @@ export class Web3Service {
   async createCardForTelegram(
     username: string,
     amount: string,
-    currency: 'USDC' | 'EURC',
+    currency: SupportedTokenSymbol,
     metadataUri: string,
     message: string
   ): Promise<{ tokenId: string; txHash: string }> {
@@ -1994,7 +2012,7 @@ export class Web3Service {
     await this.ensureCorrectChain();
 
     try {
-      const tokenAddress = currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const tokenAddress = this.getTokenAddressFromSymbol(currency);
       const amountWei = this.parseAmount(amount);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
@@ -2169,7 +2187,7 @@ export class Web3Service {
   async createCardForTikTok(
     username: string,
     amount: string,
-    currency: 'USDC' | 'EURC',
+    currency: SupportedTokenSymbol,
     metadataUri: string,
     message: string
   ): Promise<{ tokenId: string; txHash: string }> {
@@ -2180,7 +2198,7 @@ export class Web3Service {
     await this.ensureCorrectChain();
 
     try {
-      const tokenAddress = currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const tokenAddress = this.getTokenAddressFromSymbol(currency);
       const amountWei = this.parseAmount(amount);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
@@ -2355,7 +2373,7 @@ export class Web3Service {
   async createCardForInstagram(
     username: string,
     amount: string,
-    currency: 'USDC' | 'EURC',
+    currency: SupportedTokenSymbol,
     metadataUri: string,
     message: string
   ): Promise<{ tokenId: string; txHash: string }> {
@@ -2366,7 +2384,7 @@ export class Web3Service {
     await this.ensureCorrectChain();
 
     try {
-      const tokenAddress = currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
+      const tokenAddress = this.getTokenAddressFromSymbol(currency);
       const amountWei = this.parseAmount(amount);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {

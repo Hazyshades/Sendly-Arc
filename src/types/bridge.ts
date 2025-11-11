@@ -33,7 +33,7 @@ export interface BridgeUrlParams {
   toChainId?: number;
   fromCurrency?: string;
   toCurrency?: string;
-  tokenSymbol?: 'USDC' | 'EURC';
+  tokenSymbol?: 'USDC' | 'EURC' | 'USYC';
   amount?: string;
 }
 

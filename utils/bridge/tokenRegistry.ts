@@ -91,6 +91,17 @@ export const TOKENS: Record<string, TokenConfig> = {
       146, 64165,
       5042002
     ]
+  },
+  USYC: {
+    symbol: 'USYC',
+    name: 'US Yield Coin',
+    decimals: 6,
+    addresses: {
+      5042002: '0xe9185F0c5F296Ed1797AaE4238D26CCaBEadb86C'
+    },
+    supportedChainIds: [
+      5042002
+    ]
   }
 };
 

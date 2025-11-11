@@ -82,11 +82,11 @@ export function BridgeRoute() {
   const toChain = chainSlug ? getChainBySlug(chainSlug) : null;
   const fromChainId = fromChainIdParam ? Number(fromChainIdParam) : undefined;
 
-  let tokenSymbol: 'USDC' | 'EURC' | undefined = undefined;
+  let tokenSymbol: 'USDC' | 'EURC' | 'USYC' | undefined = undefined;
   if (fromCurrency && fromChainId) {
     const fromToken = getTokenByAddress(fromCurrency, fromChainId);
-    if (fromToken && (fromToken.symbol === 'USDC' || fromToken.symbol === 'EURC')) {
-      tokenSymbol = fromToken.symbol as 'USDC' | 'EURC';
+    if (fromToken && (fromToken.symbol === 'USDC' || fromToken.symbol === 'EURC' || fromToken.symbol === 'USYC')) {
+      tokenSymbol = fromToken.symbol as 'USDC' | 'EURC' | 'USYC';
     }
   }
 

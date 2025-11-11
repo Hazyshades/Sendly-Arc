@@ -29,7 +29,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [topUpToken, setTopUpToken] = useState<'USDC' | 'EURC'>('USDC');
+  const [topUpToken, setTopUpToken] = useState<'USDC' | 'EURC' | 'USYC'>('USDC');
   const [topUpAmount, setTopUpAmount] = useState('');
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -529,17 +529,18 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
                 <div>
                   <h4 className="text-sm font-semibold mb-1">Top Up Wallet</h4>
                   <p className="text-xs text-gray-500 mb-3">
-                    Fund your wallet with USDC or EURC tokens
+                    Fund your wallet with USDC, EURC, or USYC tokens
                   </p>
                   <div className="space-y-3">
                     <div className="flex gap-2">
-                      <Select value={topUpToken} onValueChange={(value) => setTopUpToken(value as 'USDC' | 'EURC')}>
+                      <Select value={topUpToken} onValueChange={(value) => setTopUpToken(value as 'USDC' | 'EURC' | 'USYC')}>
                         <SelectTrigger className="w-[130px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="USDC">USDC</SelectItem>
                           <SelectItem value="EURC">EURC</SelectItem>
+                          <SelectItem value="USYC">USYC</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input

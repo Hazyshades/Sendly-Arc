@@ -3,7 +3,7 @@ export interface GiftCardInfo {
   recipient: string;
   sender: string;
   amount: string;
-  token: 'USDC' | 'EURC';
+  token: 'USDC' | 'EURC' | 'USYC';
   message: string;
   redeemed: boolean;
   type: 'sent' | 'received';
