@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { toast } from 'sonner';
 import { useAccount, useWalletClient } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
@@ -51,11 +52,11 @@ interface GiftCardData {
 }
 
 const SOCIAL_RECIPIENT_OPTIONS = [
-  { value: 'twitter', label: 'Twitter username' },
-  { value: 'twitch', label: 'Twitch username' },
-  { value: 'telegram', label: 'Telegram username' },
-  { value: 'tiktok', label: 'TikTok username' },
-  { value: 'instagram', label: 'Instagram username' }
+  { value: 'twitter', label: 'Twitter' },
+  { value: 'twitch', label: 'Twitch' },
+  { value: 'telegram', label: 'Telegram' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'instagram', label: 'Instagram' }
 ] as const;
 
 export function CreateGiftCard() {
@@ -610,14 +611,37 @@ export function CreateGiftCard() {
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-3 space-y-2 rounded-lg border border-dashed border-gray-200 p-3">
-                  {SOCIAL_RECIPIENT_OPTIONS.map((option) => (
-                    <div className="flex items-center space-x-2" key={option.value}>
-                      <RadioGroupItem value={option.value} id={option.value} />
-                      <Label htmlFor={option.value} className="cursor-pointer font-normal">
-                        {option.label}
-                      </Label>
-                    </div>
-                  ))}
+                  {SOCIAL_RECIPIENT_OPTIONS.map((option) => {
+                    const isReceivingDisabled = option.value === 'tiktok' || option.value === 'instagram';
+                    const content = (
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value={option.value} id={option.value} />
+                        <Label htmlFor={option.value} className="cursor-pointer font-normal">
+                          {option.label}
+                        </Label>
+                      </div>
+                    );
+
+                    if (isReceivingDisabled) {
+                      return (
+                        <Tooltip key={option.value}>
+                          <TooltipTrigger asChild>{content}</TooltipTrigger>
+                          <TooltipContent className="max-w-[220px] text-center">
+                            Receiving funds is not available yet
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    }
+
+                    return (
+                      <div key={option.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={option.value} id={option.value} />
+                        <Label htmlFor={option.value} className="cursor-pointer font-normal">
+                          {option.label}
+                        </Label>
+                      </div>
+                    );
+                  })}
                 </CollapsibleContent>
               </Collapsible>
             </RadioGroup>
