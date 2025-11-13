@@ -612,11 +612,11 @@ export function CreateGiftCard() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-3 space-y-2 rounded-lg border border-dashed border-gray-200 p-3">
                   {SOCIAL_RECIPIENT_OPTIONS.map((option) => {
-                    const isReceivingDisabled = option.value === 'tiktok' || option.value === 'instagram';
+                    const isReceivingDisabled = option.value === 'twitter' || option.value === 'tiktok' || option.value === 'instagram';
                     const content = (
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value={option.value} id={option.value} />
-                        <Label htmlFor={option.value} className="cursor-pointer font-normal">
+                        <RadioGroupItem value={option.value} id={option.value} disabled={isReceivingDisabled} />
+                        <Label htmlFor={option.value} className={`cursor-pointer font-normal ${isReceivingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                           {option.label}
                         </Label>
                       </div>
