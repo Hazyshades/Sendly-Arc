@@ -47,7 +47,7 @@ function AppRouter() {
       <Route path="/history" element={<HistoryRoute />} />
       <Route path="/terms" element={<TermsRoute />} />
       <Route path="/privacy" element={<PrivacyRoute />} />
-      <Route path="/bridge/:chainSlug" element={<BridgeRoute />} />
+      <Route path="/bridge" element={<BridgeRoute />} />
       <Route path="/auth/twitch/callback" element={<TwitchCallbackRoute />} />
       <Route path="/auth/twitter/callback" element={<TwitterCallbackRoute />} />
       <Route path="/" element={<Navigate to="/agent" replace />} />

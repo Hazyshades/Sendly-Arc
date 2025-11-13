@@ -6,7 +6,7 @@ export type { BridgeUrlParams };
 /**
  * Generates URL for bridge page
  * @param params Bridge parameters
- * @returns URL string in format /bridge/:chainSlug?params
+ * @returns URL string in format /bridge?params
  */
 export function generateBridgeUrl(params: BridgeUrlParams): string {
   const { toChainSlug, fromChainId, tokenSymbol, amount } = params;
@@ -32,8 +32,11 @@ export function generateBridgeUrl(params: BridgeUrlParams): string {
   }
 
   // Build URL
-  let url = `/bridge/${toChainSlug}`;
+  let url = `/bridge`;
   const queryParams: string[] = [];
+
+  // Add toChainSlug as query parameter
+  queryParams.push(`toChainSlug=${encodeURIComponent(toChainSlug)}`);
 
   if (fromChainId) {
     queryParams.push(`fromChainId=${fromChainId}`);
