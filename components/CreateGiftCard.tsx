@@ -1014,16 +1014,26 @@ export function CreateGiftCard() {
 
         {/* Advanced Features Toggle */}
         <div className="lg:col-span-2 flex items-center space-x-2 -mt-4">
-          <Checkbox
-            id="advanced"
-            checked={showAdvanced}
-            onCheckedChange={(checked) => {
-              if (typeof checked === 'boolean') {
-                setShowAdvanced(checked);
-              }
-            }}
-          />
-          <Label htmlFor="advanced" className="cursor-pointer">Advanced features</Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="advanced"
+                  checked={showAdvanced}
+                  disabled
+                  onCheckedChange={(checked) => {
+                    if (typeof checked === 'boolean') {
+                      setShowAdvanced(checked);
+                    }
+                  }}
+                />
+                <Label htmlFor="advanced" className="cursor-not-allowed opacity-50">Advanced features</Label>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Sorry, this feature is temporarily unavailable</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
