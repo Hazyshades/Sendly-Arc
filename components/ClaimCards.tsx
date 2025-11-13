@@ -18,7 +18,6 @@ import { getTelegramCardMapping, type TelegramCardMapping } from '../utils/teleg
 import { getTikTokCardMapping, type TikTokCardMapping } from '../utils/tiktok';
 import { getInstagramCardMapping, type InstagramCardMapping } from '../utils/instagram';
 import { PrivyAuthModal } from './PrivyAuthModal';
-import { GiftCardsService } from '../utils/supabase/giftCards';
 
 type PendingCard = (TwitterCardMapping | TwitchCardMapping | TelegramCardMapping | TikTokCardMapping | InstagramCardMapping) & {
   cardType: 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
@@ -59,68 +58,18 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         }
         console.log('[ClaimCards] Fetching pending Twitter cards for username:', twitterUsername);
         
-        // First, try to get cards from blockchain (smart contract)
-        let tokenIds: string[] = [];
-        try {
-          tokenIds = await web3Service.getPendingTwitterCards(twitterUsername);
-          console.log('[ClaimCards] Received Twitter token IDs from Vault:', tokenIds);
-        } catch (error) {
-          console.warn('[ClaimCards] Failed to fetch cards from blockchain, trying database:', error);
-        }
-        
-        // Also check database for cards
-        let dbCards: any[] = [];
-        try {
-          const normalizedUsername = twitterUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[ClaimCards] Fetching Twitter cards from database for username:', normalizedUsername);
-          dbCards = await GiftCardsService.getCardsByRecipientUsername(normalizedUsername, 'twitter');
-          console.log('[ClaimCards] Received Twitter cards from database:', dbCards.length);
-          
-          // Add database cards that are not in blockchain results
-          const dbTokenIds = dbCards.map(card => card.token_id);
-          const missingTokenIds = dbTokenIds.filter(id => !tokenIds.includes(id));
-          tokenIds.push(...missingTokenIds);
-          console.log('[ClaimCards] Added missing cards from database:', missingTokenIds.length);
-        } catch (error) {
-          console.warn('[ClaimCards] Failed to fetch cards from database:', error);
-        }
+        const tokenIds = await web3Service.getPendingTwitterCards(twitterUsername);
+        console.log('[ClaimCards] Received Twitter token IDs from Vault:', tokenIds);
         
         const twitterCards = await Promise.all(
           tokenIds.map(async (tokenId) => {
-            // Try to get metadata from API/KV first
-            let metadata = await getTwitterCardMapping(tokenId);
-            
-            // If not found in KV, try to get from database
-            if (!metadata) {
-              const dbCard = dbCards.find(card => card.token_id === tokenId);
-              if (dbCard) {
-                const normalizedUsername = twitterUsername.toLowerCase().replace(/^@/, '').trim();
-                metadata = {
-                  tokenId: dbCard.token_id,
-                  username: normalizedUsername,
-                  temporaryOwner: '',
-                  senderAddress: dbCard.sender_address || '',
-                  amount: dbCard.amount || '0',
-                  currency: dbCard.currency || 'USDC',
-                  message: dbCard.message || '',
-                  metadataUri: '',
-                  status: 'pending' as const,
-                  createdAt: dbCard.created_at || new Date().toISOString(),
-                  claimedAt: null,
-                  realOwner: null
-                };
-              }
-            }
-            
+            const metadata = await getTwitterCardMapping(tokenId);
             if (metadata) {
               return { ...metadata, cardType: 'twitter' as const };
             }
-            
-            // Fallback if no metadata found
-            const normalizedUsername = twitterUsername.toLowerCase().replace(/^@/, '').trim();
             return {
               tokenId,
-              username: normalizedUsername,
+              username: twitterUsername,
               temporaryOwner: '',
               senderAddress: '',
               amount: '0',
