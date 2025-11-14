@@ -1700,14 +1700,24 @@ export class Web3Service {
       // Normalize username: remove @ and convert to lowercase
       const normalizedUsername = username.toLowerCase().replace(/^@/, '').trim();
       console.log(`[getPendingTwitterCards] Original username: "${username}", Normalized: "${normalizedUsername}"`);
+      console.log(`[getPendingTwitterCards] Using Vault address: ${VAULT_CONTRACT_ADDRESS}`);
+      console.log(`[getPendingTwitterCards] PublicClient initialized:`, !!this.publicClient);
+      console.log(`[getPendingTwitterCards] Current RPC: ${ARC_RPC_URLS[this.currentRpcIndex]}`);
 
       const result = await this.safeRequest(async () => {
-        return await this.publicClient.readContract({
+        console.log(`[getPendingTwitterCards] Calling readContract with:`, {
+          address: VAULT_CONTRACT_ADDRESS,
+          functionName: 'getPendingCardsForUsername',
+          args: [normalizedUsername]
+        });
+        const contractResult = await this.publicClient.readContract({
           address: VAULT_CONTRACT_ADDRESS as `0x${string}`,
           abi: TwitterCardVaultABI,
           functionName: 'getPendingCardsForUsername',
           args: [normalizedUsername],
         });
+        console.log(`[getPendingTwitterCards] Raw contract result:`, contractResult);
+        return contractResult;
       });
 
       const tokenIds = (result as bigint[]).map((id) => id.toString());
@@ -1716,6 +1726,12 @@ export class Web3Service {
       return tokenIds;
     } catch (error) {
       console.error('Error getting pending Twitter cards:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        vaultAddress: VAULT_CONTRACT_ADDRESS,
+        hasPublicClient: !!this.publicClient
+      });
       throw error;
     }
   }

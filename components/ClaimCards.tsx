@@ -63,9 +63,14 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         
         const twitterCards = await Promise.all(
           tokenIds.map(async (tokenId) => {
-            const metadata = await getTwitterCardMapping(tokenId);
-            if (metadata) {
-              return { ...metadata, cardType: 'twitter' as const };
+            try {
+              const metadata = await getTwitterCardMapping(tokenId);
+              if (metadata) {
+                return { ...metadata, cardType: 'twitter' as const };
+              }
+            } catch (error) {
+              console.warn(`[ClaimCards] Failed to fetch metadata for Twitter card ${tokenId}:`, error);
+              // Continue with fallback data
             }
             return {
               tokenId,
@@ -100,9 +105,14 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         
         const twitchCards = await Promise.all(
           tokenIds.map(async (tokenId) => {
-            const metadata = await getTwitchCardMapping(tokenId);
-            if (metadata) {
-              return { ...metadata, cardType: 'twitch' as const };
+            try {
+              const metadata = await getTwitchCardMapping(tokenId);
+              if (metadata) {
+                return { ...metadata, cardType: 'twitch' as const };
+              }
+            } catch (error) {
+              console.warn(`[ClaimCards] Failed to fetch metadata for Twitch card ${tokenId}:`, error);
+              // Continue with fallback data
             }
             return {
               tokenId,
@@ -136,9 +146,14 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           
           const telegramCards = await Promise.all(
             tokenIds.map(async (tokenId) => {
-              const metadata = await getTelegramCardMapping(tokenId);
-              if (metadata) {
-                return { ...metadata, cardType: 'telegram' as const };
+              try {
+                const metadata = await getTelegramCardMapping(tokenId);
+                if (metadata) {
+                  return { ...metadata, cardType: 'telegram' as const };
+                }
+              } catch (error) {
+                console.warn(`[ClaimCards] Failed to fetch metadata for Telegram card ${tokenId}:`, error);
+                // Continue with fallback data
               }
               return {
                 tokenId,
@@ -174,9 +189,14 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
           const tiktokCards = await Promise.all(
             tokenIds.map(async (tokenId) => {
-              const metadata = await getTikTokCardMapping(tokenId);
-              if (metadata) {
-                return { ...metadata, cardType: 'tiktok' as const };
+              try {
+                const metadata = await getTikTokCardMapping(tokenId);
+                if (metadata) {
+                  return { ...metadata, cardType: 'tiktok' as const };
+                }
+              } catch (error) {
+                console.warn(`[ClaimCards] Failed to fetch metadata for TikTok card ${tokenId}:`, error);
+                // Continue with fallback data
               }
               return {
                 tokenId,
@@ -212,9 +232,14 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
           const instagramCards = await Promise.all(
             tokenIds.map(async (tokenId) => {
-              const metadata = await getInstagramCardMapping(tokenId);
-              if (metadata) {
-                return { ...metadata, cardType: 'instagram' as const };
+              try {
+                const metadata = await getInstagramCardMapping(tokenId);
+                if (metadata) {
+                  return { ...metadata, cardType: 'instagram' as const };
+                }
+              } catch (error) {
+                console.warn(`[ClaimCards] Failed to fetch metadata for Instagram card ${tokenId}:`, error);
+                // Continue with fallback data
               }
               return {
                 tokenId,
