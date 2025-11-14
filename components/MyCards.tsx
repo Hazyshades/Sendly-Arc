@@ -391,13 +391,27 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           qrCode: `sendly://redeem/${card.tokenId}`
         }));
 
-        // Update only if there are changes (new cards or status changed)
+        // Always update with blockchain data if counts differ (blockchain is source of truth)
+        // Check if there are actual changes to avoid unnecessary re-renders
         const receivedChanged = currentReceivedCards.length !== transformedReceivedCards.length ||
           currentReceivedCards.some(card => {
             const newCard = transformedReceivedCards.find(c => c.tokenId === card.tokenId);
-            return newCard && newCard.status !== card.status;
+            if (!newCard) return true; // Card was removed
+            return newCard.status !== card.status || 
+                   newCard.amount !== card.amount ||
+                   newCard.currency !== card.currency ||
+                   newCard.message !== card.message;
+          }) ||
+          transformedReceivedCards.some(newCard => {
+            const existingCard = currentReceivedCards.find(c => c.tokenId === newCard.tokenId);
+            return !existingCard; // New card was added
           });
 
+        // Always return blockchain data if counts differ, otherwise only if there are changes
+        if (currentReceivedCards.length !== transformedReceivedCards.length) {
+          return transformedReceivedCards;
+        }
+        
         return receivedChanged ? transformedReceivedCards : currentReceivedCards;
       });
 
@@ -441,13 +455,28 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           };
         });
 
-        // Update only if there are changes (new cards or status changed)
+        // Always update with blockchain data (source of truth)
+        // Check if there are actual changes to avoid unnecessary re-renders
         const sentChanged = currentSentCards.length !== transformedSentCards.length ||
           currentSentCards.some(card => {
             const newCard = transformedSentCards.find(c => c.tokenId === card.tokenId);
-            return newCard && newCard.status !== card.status;
+            if (!newCard) return true; // Card was removed
+            return newCard.status !== card.status || 
+                   newCard.amount !== card.amount ||
+                   newCard.currency !== card.currency ||
+                   newCard.message !== card.message;
+          }) ||
+          transformedSentCards.some(newCard => {
+            const existingCard = currentSentCards.find(c => c.tokenId === newCard.tokenId);
+            return !existingCard; // New card was added
           });
 
+        // Always return blockchain data if there are changes, otherwise keep current to avoid flicker
+        // But if counts differ, always update (blockchain is source of truth)
+        if (currentSentCards.length !== transformedSentCards.length) {
+          return transformedSentCards;
+        }
+        
         return sentChanged ? transformedSentCards : currentSentCards;
       });
       

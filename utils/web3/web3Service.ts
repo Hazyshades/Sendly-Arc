@@ -542,7 +542,7 @@ export class Web3Service {
       
       // Use batching to query multiple 10k block ranges
       const maxBlockRange = 10000n; // Arc RPC limit is 10,000 blocks for eth_getLogs
-      const numberOfBatches = 20; // Query 20 batches = 200k blocks of history (~2 weeks on Arc testnet)
+      const numberOfBatches = 50; // Query 50 batches = 500k blocks of history (~5 weeks on Arc testnet)
       const logs: any[] = [];
       const twitterLogs: any[] = [];
       const twitchLogs: any[] = [];
@@ -583,9 +583,19 @@ export class Web3Service {
           
           console.log(`Batch ${i + 1} found ${batchLogs.length} Transfer events before sender filter`);
 
+          // Filter Transfer events where from = 0x0 (mint) and check tx.from, or where from = account (direct transfer)
+          // Also check GiftCardCreated events to catch all card creations
           const logsFromAccount = await Promise.all(
             batchLogs.map(async (log: any) => {
               if (!log.transactionHash) return null;
+              
+              // If Transfer is from 0x0 (mint), check tx.from
+              // If Transfer is from account, it's a direct transfer (shouldn't happen for sent cards, but include it)
+              const isMint = log.args?.from?.toLowerCase() === '0x0000000000000000000000000000000000000000';
+              const isFromAccount = log.args?.from?.toLowerCase() === this.account!.toLowerCase();
+              
+              if (!isMint && !isFromAccount) return null;
+              
               try {
                 const tx = await this.safeRequest(async () => {
                   return await this.publicClient.getTransaction({ hash: log.transactionHash });
@@ -629,28 +639,37 @@ export class Web3Service {
             // Get transaction sender for each GiftCardCreated event
             console.log(`Batch ${i + 1} found ${giftCardCreatedBatch.length} GiftCardCreated events`);
             
-            for (const log of giftCardCreatedBatch) {
+            // Process in parallel for better performance
+            const giftCardPromises = giftCardCreatedBatch.map(async (log: any) => {
               try {
                 // Get transaction to find the sender
-                const tx = await this.publicClient.getTransaction({ hash: log.transactionHash });
+                const tx = await this.safeRequest(async () => {
+                  return await this.publicClient.getTransaction({ hash: log.transactionHash });
+                });
                 const txFrom = tx.from.toLowerCase();
                 
                 // If this card was created by us, add it to regular logs
                 if (txFrom === this.account!.toLowerCase()) {
                   // Create a mock Transfer log for processing
-                  logs.push({
+                  return {
                     ...log,
                     args: {
                       from: '0x0000000000000000000000000000000000000000',
                       to: log.args.recipient,
                       tokenId: log.args.tokenId
                     }
-                  });
+                  };
                 }
               } catch (error) {
                 console.warn(`Failed to get transaction for GiftCardCreated event:`, error);
               }
-            }
+              return null;
+            });
+            
+            const giftCardResults = await Promise.all(giftCardPromises);
+            const validGiftCardLogs = giftCardResults.filter((log): log is NonNullable<typeof giftCardResults[number]> => log !== null);
+            logs.push(...validGiftCardLogs);
+            console.log(`Batch ${i + 1} added ${validGiftCardLogs.length} GiftCardCreated events from ${this.account}`);
           } catch (error: any) {
             console.warn(`Batch ${i + 1} failed to load GiftCardCreated events:`, error.message);
           }
@@ -767,11 +786,13 @@ export class Web3Service {
         }
       }
       
-    console.log(`Total found: ${logs.length} Transfer, ${twitterLogs.length} Twitter, ${twitchLogs.length} Twitch, ${telegramLogs.length} Telegram events`);
+      console.log(`Total found: ${logs.length} Transfer/GiftCardCreated, ${twitterLogs.length} Twitter, ${twitchLogs.length} Twitch, ${telegramLogs.length} Telegram events`);
+      console.log(`Account: ${this.account}`);
+      console.log(`Total unique events to process: ${logs.length + twitterLogs.length + twitchLogs.length + telegramLogs.length}`);
 
       const sentCards: GiftCardInfo[] = [];
       
-      console.log(`Processing ${logs.length} Transfer events for regular address cards`);
+      console.log(`Processing ${logs.length} Transfer/GiftCardCreated events for regular address cards`);
       
       // Filter out transfers to Vault contracts (these are handled by Twitter/Twitch events)
       const vaultAddresses = [
@@ -968,12 +989,18 @@ export class Web3Service {
       }
       
       console.log(`Successfully loaded ${sentCards.length} sent gift cards total`);
+      console.log(`Breakdown: ${cardPromises.length} regular promises, ${twitterCardPromises.length} Twitter, ${twitchCardPromises.length} Twitch, ${telegramCardPromises.length} Telegram`);
       
       // Remove duplicates by tokenId
       const uniqueSentCards = Array.from(
         new Map(sentCards.map(card => [card.tokenId, card])).values()
       );
-      console.log(`Removed duplicates, ${uniqueSentCards.length} unique cards remaining`);
+      console.log(`Removed duplicates, ${uniqueSentCards.length} unique cards remaining (had ${sentCards.length} before deduplication)`);
+      
+      // Log tokenIds for debugging
+      if (uniqueSentCards.length > 0) {
+        console.log(`Sample tokenIds: ${uniqueSentCards.slice(0, 10).map(c => c.tokenId).join(', ')}`);
+      }
       
       // Sort by tokenId descending (newest first - tokenId increases with each new card)
       uniqueSentCards.sort((a, b) => parseInt(b.tokenId) - parseInt(a.tokenId));
