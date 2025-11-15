@@ -1,0 +1,256 @@
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Gift, Send, Download, ArrowRight, Zap, Shield, TrendingUp, ArrowRightIcon } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+
+export function LandingRoute() {
+  const navigate = useNavigate();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleAction = (path: string) => {
+    navigate(path);
+  };
+
+  return (
+    <div className="min-h-screen circle-gradient-bg">
+      <div className="abstract-shape"></div>
+      
+      {/* Header */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          isScrolled
+            ? 'bg-white/90 backdrop-blur-md shadow-lg'
+            : 'bg-transparent'
+        }`}
+      >
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-blue-400 rounded-2xl flex items-center justify-center cursor-pointer shadow-circle-card">
+                <Gift className="w-7 h-7 text-white" />
+              </div>
+              <span className="text-gray-900 text-2xl font-semibold">Sendly</span>
+            </div>
+
+            <div className="flex items-center gap-4 md:gap-6">
+              <nav className="hidden md:flex items-center gap-6">
+                <a href="#features" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
+                  Features
+                </a>
+                <a href="#about" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
+                  About
+                </a>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="min-h-screen flex items-center justify-center pt-20 pb-12 px-6 relative z-10">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center space-y-8">
+            <div className="space-y-4">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight">
+                Send with
+                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  {' '}confidence
+                </span>
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                Discover the power of Sendly: send gifts, receive cards, and use the bridge to transfer funds between blockchains.
+              </p>
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
+              <Button
+                onClick={() => handleAction('/create')}
+                size="lg"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+              >
+                <Send className="w-5 h-5 mr-2" />
+                Send
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+
+              <Button
+                onClick={() => handleAction('/my')}
+                size="lg"
+                variant="outline"
+                className="bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white text-gray-900 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Receive
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+
+              <Button
+                onClick={() => handleAction('/bridge')}
+                size="lg"
+                variant="outline"
+                className="bg-white/90 backdrop-blur-sm border-2 border-blue-200 hover:bg-blue-50 text-blue-600 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+              >
+                <Zap className="w-5 h-5 mr-2" />
+                Bridge
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-20 px-6 relative z-10">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Why Sendly?
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Innovative tools for secure and fast transfers
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <Card className="bg-white/90 backdrop-blur-sm shadow-circle-card rounded-2xl border-0 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+              <CardContent className="p-8">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                  <Zap className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Lightning Fast</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Execute transactions in milliseconds with cutting-edge blockchain technology.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Feature 2 */}
+            <Card className="bg-white/90 backdrop-blur-sm shadow-circle-card rounded-2xl border-0 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+              <CardContent className="p-8">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                  <Shield className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Secure Trading</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Bank-level security for your assets with cryptographic protection.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Feature 3 */}
+            <Card className="bg-white/90 backdrop-blur-sm shadow-circle-card rounded-2xl border-0 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+              <CardContent className="p-8">
+                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                  <TrendingUp className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Advanced Analytics</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Real-time data and analytics tools for your operations.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 px-6 relative z-10">
+        <div className="container mx-auto max-w-4xl">
+          <Card className="bg-gradient-to-r from-blue-600 to-purple-600 shadow-xl rounded-2xl border-0 overflow-hidden">
+            <CardContent className="p-12 text-center">
+              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                Ready to Start?
+              </h2>
+              <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+                Join Sendly today and discover a new level of financial operations.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Button
+                  onClick={() => handleAction('/create')}
+                  size="lg"
+                  className="bg-white text-blue-600 hover:bg-blue-50 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                >
+                  Get Started Free
+                  <ArrowRightIcon className="w-5 h-5 ml-2" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-gray-300 py-12 px-6 relative z-10">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-blue-400 rounded-2xl flex items-center justify-center">
+                  <Gift className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-white text-xl font-semibold">Sendly</span>
+              </div>
+              <p className="text-sm text-gray-400">
+                Innovative platform for sending gifts and transfers.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Links</h4>
+              <ul className="space-y-2">
+                <li>
+                  <Link to="/privacy" className="text-sm hover:text-white transition-colors">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/terms" className="text-sm hover:text-white transition-colors">
+                    Terms of Service
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Navigation</h4>
+              <ul className="space-y-2">
+                <li>
+                  <a href="#features" className="text-sm hover:text-white transition-colors">
+                    Features
+                  </a>
+                </li>
+                <li>
+                  <a href="#about" className="text-sm hover:text-white transition-colors">
+                    About
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Contact</h4>
+              <p className="text-sm text-gray-400">
+                Support available through the app
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
+            © 2025 Sendly. All rights reserved.
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

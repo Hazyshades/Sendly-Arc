@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { SplashScreen } from '../components/SplashScreen';
 import { useState } from 'react';
+import { LandingRoute } from '../pages/LandingRoute';
 import { AgentRoute } from '../pages/AgentRoute';
 import { CreateRoute } from '../pages/CreateRoute';
 import { MyRoute } from '../pages/MyRoute';
@@ -40,6 +41,7 @@ function AppRouter() {
 
   return (
     <Routes>
+      <Route path="/" element={<LandingRoute />} />
       <Route path="/agent" element={<AgentRoute />} />
       <Route path="/create" element={<CreateRoute />} />
       <Route path="/my" element={<MyRoute />} />
@@ -50,7 +52,6 @@ function AppRouter() {
       <Route path="/bridge" element={<BridgeRoute />} />
       <Route path="/auth/twitch/callback" element={<TwitchCallbackRoute />} />
       <Route path="/auth/twitter/callback" element={<TwitterCallbackRoute />} />
-      <Route path="/" element={<Navigate to="/agent" replace />} />
     </Routes>
   );
 }
