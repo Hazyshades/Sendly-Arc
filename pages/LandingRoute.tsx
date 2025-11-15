@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Gift, Send, Download, ArrowRight, Zap, Shield, TrendingUp, ArrowRightIcon } from 'lucide-react';
+import { Gift, Send, Download, ArrowRight, Zap, Shield, TrendingUp, ArrowRightIcon, Wallet } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { BlurText } from '../components/BlurText';
@@ -191,6 +191,21 @@ export function LandingRoute() {
                   >
                     <Zap className="w-5 h-5 mr-2" />
                     Bridge
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </StarBorder>
+              </BlurText>
+
+              <BlurText delay={1500} duration={1200}>
+                <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
+                  <Button
+                    onClick={() => handleAction('/gateway')}
+                    size="lg"
+                    variant="outline"
+                    className="bg-white/90 backdrop-blur-sm border-2 border-purple-200 hover:bg-purple-50 text-purple-600 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+                  >
+                    <Wallet className="w-5 h-5 mr-2" />
+                    Gateway
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </StarBorder>

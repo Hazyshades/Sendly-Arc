@@ -12,6 +12,7 @@ import { HistoryRoute } from '../pages/HistoryRoute';
 import { TermsRoute } from '../pages/TermsRoute';
 import { PrivacyRoute } from '../pages/PrivacyRoute';
 import { BridgeRoute } from '../pages/BridgeRoute';
+import { GatewayRoute } from '../pages/GatewayRoute';
 import { TwitchCallbackRoute } from '../pages/TwitchCallbackRoute';
 import { TwitterCallbackRoute } from '../pages/TwitterCallbackRoute';
 
@@ -50,6 +51,7 @@ function AppRouter() {
       <Route path="/terms" element={<TermsRoute />} />
       <Route path="/privacy" element={<PrivacyRoute />} />
       <Route path="/bridge" element={<BridgeRoute />} />
+      <Route path="/gateway" element={<GatewayRoute />} />
       <Route path="/auth/twitch/callback" element={<TwitchCallbackRoute />} />
       <Route path="/auth/twitter/callback" element={<TwitterCallbackRoute />} />
     </Routes>
