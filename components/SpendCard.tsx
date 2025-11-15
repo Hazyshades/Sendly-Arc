@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
+import { useNavigate } from 'react-router-dom';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
 import { GiftCardsService } from '../utils/supabase/giftCards';
@@ -54,6 +55,7 @@ const SERVICE_DISPLAY_NAMES: Record<string, string> = {
 
 export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   const { address, isConnected } = useAccount();
+  const navigate = useNavigate();
   const [cardInput, setCardInput] = useState('');
   const [password, setPassword] = useState('');
   const [currentCard, setCurrentCard] = useState<RedeemableCard | null>(null);
@@ -99,10 +101,10 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
 
   // Auto-lookup when cardInput changes and is not empty
   useEffect(() => {
-    if (cardInput && cardInput.trim() !== '' && isConnected) {
+    if (cardInput && cardInput.trim() !== '' && isConnected && redeemStep === 'input') {
       handleCardLookup();
     }
-  }, [cardInput, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardInput, isConnected, redeemStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lookupCard = async (tokenId: string): Promise<RedeemableCard | null> => {
     if (!isConnected || !address) {
@@ -171,27 +173,36 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   const handleCardLookup = async () => {
     setError('');
 
+    // Don't lookup if we're not in input step (to prevent unnecessary lookups)
+    if (redeemStep !== 'input') {
+      return;
+    }
     
     try {
       const card = await lookupCard(cardInput);
       
       if (!card) {
         setError('Gift card not found. Please check the token ID and try again.');
+        setCurrentCard(null);
         return;
       }
 
       if (card.status === 'redeemed') {
         setError('This gift card has already been redeemed.');
+        setCurrentCard(card); // Set card so user can see it was redeemed
+        setRedeemStep('input'); // Stay on input step
         return;
       }
 
       if (card.status === 'expired') {
         setError('This gift card has expired.');
+        setCurrentCard(null);
         return;
       }
 
       if (card.status === 'locked' && card.hasTimer) {
         setError('This gift card is still locked. Please wait for the timer to expire.');
+        setCurrentCard(null);
         return;
       }
 
@@ -199,6 +210,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       setRedeemStep(card.hasPassword ? 'verify' : 'redeem');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error looking up gift card. Please try again.');
+      setCurrentCard(null);
     }
   };
 
@@ -241,19 +253,27 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
 
       // Check current card status before redeem
       // This prevents attempting to redeem an already used card
+      // IMPORTANT: Always check fresh blockchain data, not cached state
       const giftCardInfo = await web3Service.getGiftCardInfo(currentCard.tokenId);
       
       if (!giftCardInfo) {
         setError('Gift card not found. It may have been removed.');
+        setCurrentCard(null);
+        setRedeemStep('input');
         return;
       }
 
       // Check that the card has not been redeemed yet
+      // This is critical - always check blockchain status before attempting redeem
       if (giftCardInfo.redeemed) {
         setError('This gift card has already been redeemed and cannot be used again.');
         // Update card state to reflect current status
         setCurrentCard(prev => prev ? { ...prev, status: 'redeemed' } : null);
         setRedeemStep('input');
+        // Clear cardInput if it matches the redeemed card to prevent re-lookup
+        if (cardInput === currentCard.tokenId) {
+          setCardInput('');
+        }
         return;
       }
 
@@ -263,6 +283,10 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
         setError('You are no longer the owner of this gift card.');
         setCurrentCard(null);
         setRedeemStep('input');
+        // Clear cardInput if it matches the card user no longer owns
+        if (cardInput === currentCard.tokenId) {
+          setCardInput('');
+        }
         return;
       }
 
@@ -315,16 +339,8 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   };
 
   const resetForm = () => {
-    setCardInput('');
-    setPassword('');
-    setCurrentCard(null);
-    setSelectedService(null);
-
-    setRedeemStep('input');
-    setError('');
-    setIsBridgeDialogOpen(false);
-    setIsBridgeComplete(false);
-    setBridgeAmount('');
+    // Navigate to My Cards page and clear URL parameters
+    navigate('/my');
   };
 
   if (!isConnected) {

@@ -502,7 +502,7 @@ export class Web3Service {
     console.log('Skipping API, using direct blockchain queries');
     return [];
   }
-
+/*
   async loadSentGiftCards(useCache: boolean = false, useAPI: boolean = true): Promise<GiftCardInfo[]> {
     if (!this.account) return [];
 
@@ -1017,7 +1017,7 @@ export class Web3Service {
       return [];
     }
   }
-
+*/
   async getGiftCardInfo(tokenId: string): Promise<BlockchainGiftCardInfo | null> {
     const cacheKey = `giftCardInfo_${tokenId}`;
     const cached = this.getCache(cacheKey);
