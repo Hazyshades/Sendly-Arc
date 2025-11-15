@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { BlurText } from '../components/BlurText';
 import { StarBorder } from '../components/ui/star-border';
+import { SocialLogos } from '../components/SocialLogos';
 
 export function LandingRoute() {
   const navigate = useNavigate();
@@ -68,7 +69,7 @@ export function LandingRoute() {
       </header>
 
       {/* Hero Section */}
-      <section className="min-h-screen flex items-center justify-center pt-20 pb-12 px-6 relative z-10">
+      <section className="min-h-screen flex items-center justify-center pt-8 pb-12 px-6 relative z-10">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center space-y-8">
             <div className="space-y-4">
@@ -146,45 +147,54 @@ export function LandingRoute() {
               </p>
             </div>
 
+            {/* Social Logos */}
+            <SocialLogos />
+
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-              <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
-                <Button
-                  onClick={() => handleAction('/create')}
-                  size="lg"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
-                >
-                  <Send className="w-5 h-5 mr-2" />
-                  Send
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </StarBorder>
+              <BlurText delay={1100} duration={1200}>
+                <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
+                  <Button
+                    onClick={() => handleAction('/create')}
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+                  >
+                    <Send className="w-5 h-5 mr-2" />
+                    Send
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </StarBorder>
+              </BlurText>
 
-              <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
-                <Button
-                  onClick={() => handleAction('/my')}
-                  size="lg"
-                  variant="outline"
-                  className="bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white text-gray-900 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Receive
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </StarBorder>
+              <BlurText delay={1200} duration={1200}>
+                <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
+                  <Button
+                    onClick={() => handleAction('/my')}
+                    size="lg"
+                    variant="outline"
+                    className="bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white text-gray-900 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Receive
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </StarBorder>
+              </BlurText>
 
-              <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
-                <Button
-                  onClick={() => handleAction('/bridge')}
-                  size="lg"
-                  variant="outline"
-                  className="bg-white/90 backdrop-blur-sm border-2 border-blue-200 hover:bg-blue-50 text-blue-600 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
-                >
-                  <Zap className="w-5 h-5 mr-2" />
-                  Bridge
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </StarBorder>
+              <BlurText delay={1300} duration={1200}>
+                <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
+                  <Button
+                    onClick={() => handleAction('/bridge')}
+                    size="lg"
+                    variant="outline"
+                    className="bg-white/90 backdrop-blur-sm border-2 border-blue-200 hover:bg-blue-50 text-blue-600 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+                  >
+                    <Zap className="w-5 h-5 mr-2" />
+                    Bridge
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </StarBorder>
+              </BlurText>
             </div>
           </div>
         </div>
