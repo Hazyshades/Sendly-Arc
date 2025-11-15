@@ -4,10 +4,12 @@ import { Gift, Send, Download, ArrowRight, Zap, Shield, TrendingUp, ArrowRightIc
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { BlurText } from '../components/BlurText';
+import { StarBorder } from '../components/ui/star-border';
 
 export function LandingRoute() {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [currentTextIndex, setCurrentTextIndex] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -15,6 +17,15 @@ export function LandingRoute() {
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    // Циклическая смена текста каждые 5 секунд
+    const interval = setInterval(() => {
+      setCurrentTextIndex((prev) => (prev + 1) % 3);
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleAction = (path: string) => {
@@ -61,18 +72,71 @@ export function LandingRoute() {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center space-y-8">
             <div className="space-y-4">
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight">
-                <BlurText delay={0} duration={1200}>
-                 Tag.
-                </BlurText>
-                <BlurText delay={200} duration={1200}>
-                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    {' '}Send. 
-                  </span>
-                </BlurText>
-                <BlurText delay={0} duration={1200}>
-                 Crypto.
-                </BlurText>
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight relative min-h-[120px] md:min-h-[140px] lg:min-h-[160px]">
+                {/* Первый текст: Tag. Send. Crypto. */}
+                <div
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${
+                    currentTextIndex === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <BlurText delay={0} duration={1200}>
+                    Tag.
+                  </BlurText>
+                  <BlurText delay={200} duration={1200}>
+                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                      {' '}Send.
+                    </span>
+                  </BlurText>
+                  <BlurText delay={400} duration={1200}>
+                    {' '}Crypto.
+                  </BlurText>
+                </div>
+                
+                {/* Второй текст: Send Crypto by @. */}
+                <div
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${
+                    currentTextIndex === 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <BlurText delay={0} duration={1200}>
+                    Send
+                  </BlurText>
+                  <span className="inline-block w-3"></span>
+                  <BlurText delay={200} duration={1200}>
+                    Crypto
+                  </BlurText>
+                  <span className="inline-block w-3"></span>
+                  <BlurText delay={400} duration={1200}>
+                    by
+                  </BlurText>
+                  <span className="inline-block w-3"></span>
+                  <BlurText delay={400} duration={1200}>
+                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                      @.
+                    </span>
+                  </BlurText>
+                </div>
+
+                {/* Третий текст: No Wallet. Just @. */}
+                <div
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${
+                    currentTextIndex === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <BlurText delay={0} duration={1200}>
+                    No Wallet.
+                  </BlurText>
+                  <span className="inline-block w-3"></span>
+                  <BlurText delay={200} duration={1200}>
+                    Just
+                  </BlurText>
+                  <span className="inline-block w-3"></span>
+                  <BlurText delay={200} duration={1200}>
+                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                      @.
+                    </span>
+                  </BlurText>
+                </div>
               </h1>
               <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
                 <BlurText delay={400} duration={1200}>
@@ -84,37 +148,43 @@ export function LandingRoute() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-              <Button
-                onClick={() => handleAction('/create')}
-                size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
-              >
-                <Send className="w-5 h-5 mr-2" />
-                Send
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
+              <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
+                <Button
+                  onClick={() => handleAction('/create')}
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+                >
+                  <Send className="w-5 h-5 mr-2" />
+                  Send
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </StarBorder>
 
-              <Button
-                onClick={() => handleAction('/my')}
-                size="lg"
-                variant="outline"
-                className="bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white text-gray-900 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
-              >
-                <Download className="w-5 h-5 mr-2" />
-                Receive
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
+              <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
+                <Button
+                  onClick={() => handleAction('/my')}
+                  size="lg"
+                  variant="outline"
+                  className="bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white text-gray-900 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  Receive
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </StarBorder>
 
-              <Button
-                onClick={() => handleAction('/bridge')}
-                size="lg"
-                variant="outline"
-                className="bg-white/90 backdrop-blur-sm border-2 border-blue-200 hover:bg-blue-50 text-blue-600 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
-              >
-                <Zap className="w-5 h-5 mr-2" />
-                Bridge
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
+              <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
+                <Button
+                  onClick={() => handleAction('/bridge')}
+                  size="lg"
+                  variant="outline"
+                  className="bg-white/90 backdrop-blur-sm border-2 border-blue-200 hover:bg-blue-50 text-blue-600 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+                >
+                  <Zap className="w-5 h-5 mr-2" />
+                  Bridge
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </StarBorder>
             </div>
           </div>
         </div>
