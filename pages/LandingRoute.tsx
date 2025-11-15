@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Gift, Send, Download, ArrowRight, Zap, Shield, TrendingUp, ArrowRightIcon } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
+import { BlurText } from '../components/BlurText';
 
 export function LandingRoute() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export function LandingRoute() {
   };
 
   return (
-    <div className="min-h-screen circle-gradient-bg">
+    <div className="min-h-screen" style={{ backgroundColor: '#DADEFF' }}>
       <div className="abstract-shape"></div>
       
       {/* Header */}
@@ -61,13 +62,23 @@ export function LandingRoute() {
           <div className="text-center space-y-8">
             <div className="space-y-4">
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight">
-                Send with
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  {' '}confidence
-                </span>
+                <BlurText delay={0} duration={1200}>
+                 Tag.
+                </BlurText>
+                <BlurText delay={200} duration={1200}>
+                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    {' '}Send. 
+                  </span>
+                </BlurText>
+                <BlurText delay={0} duration={1200}>
+                 Crypto.
+                </BlurText>
               </h1>
               <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Discover the power of Sendly: send gifts, receive cards, and use the bridge to transfer funds between blockchains.
+                <BlurText delay={400} duration={1200}>
+                Dispatch funds by nickname on any social network
+
+</BlurText>
               </p>
             </div>
 
