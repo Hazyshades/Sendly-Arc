@@ -16,6 +16,7 @@ import web3Service from '../utils/web3/web3Service';
 import { ClaimCards } from './ClaimCards';
 import { usePrivy } from '@privy-io/react-auth';
 import { GiftCardsService, type GiftCardInsert } from '../utils/supabase/giftCards';
+import { DeveloperWalletService } from '../utils/circle/developerWalletService';
 
 interface GiftCard {
   tokenId: string;
@@ -139,14 +140,17 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   };
 
   useEffect(() => {
-    if (isConnected && address && !hasFetched) {
-      setHasFetched(true);
-      fetchCards();
-    } else if (!isConnected || !address) {
+    // Load cards if MetaMask is connected OR a social network with a developer wallet is available
+    if ((isConnected && address) || (authenticated && user)) {
+      if (!hasFetched) {
+        setHasFetched(true);
+        fetchCards();
+      }
+    } else {
       setLoading(false);
       setHasFetched(false);
     }
-  }, [isConnected, address, hasFetched]);
+  }, [isConnected, address, authenticated, user, hasFetched]);
 
   useEffect(() => {
     if (authenticated && isConnected && address) {
@@ -157,24 +161,86 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   }, [authenticated, user?.twitter?.username, user?.twitch?.username, telegramUsername, isConnected, address]);
 
   const fetchCards = async () => {
-    if (!isConnected || !address) return;
+    // If MetaMask is connected - use its address
+    // If there is no MetaMask but a social network is linked - check for a developer wallet
+    let recipientAddresses: string[] = [];
+    
+    if (isConnected && address) {
+      recipientAddresses.push(address.toLowerCase());
+    }
+    
+    // Check developer wallet for social networks
+    if (authenticated && user) {
+      try {
+        const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
+        const blockchain = 'ARC-TESTNET';
+        
+        for (const platform of socialPlatforms) {
+          let socialUserId: string | null = null;
+          
+          if (platform === 'twitter' && user.twitter) {
+            socialUserId = (user.twitter as any).subject;
+          } else if (platform === 'twitch' && user.twitch) {
+            socialUserId = (user.twitch as any).subject;
+          } else if (platform === 'telegram' && user.telegram) {
+            socialUserId = user.telegram.telegramUserId || (user.telegram as any).subject;
+          } else if (platform === 'tiktok' && user.tiktok) {
+            socialUserId = (user.tiktok as any).subject;
+          } else if (platform === 'instagram' && (user as any).instagram) {
+            socialUserId = ((user as any).instagram as any).subject;
+          }
+
+          if (socialUserId) {
+            const devWallet = await DeveloperWalletService.getWalletBySocial(
+              platform as 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram',
+              socialUserId,
+              blockchain
+            );
+            
+            if (devWallet && devWallet.wallet_address) {
+              const walletAddr = devWallet.wallet_address.toLowerCase();
+              if (!recipientAddresses.includes(walletAddr)) {
+                recipientAddresses.push(walletAddr);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching developer wallets:', error);
+      }
+    }
+    
+    // If neither MetaMask nor a developer wallet is available - do not load cards
+    if (recipientAddresses.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // First, try to load from Supabase cache (fast) - display immediately
-      console.log('Loading cards from Supabase cache...');
-      const [supabaseReceivedCards, supabaseSentCards] = await Promise.all([
-        GiftCardsService.getCardsByRecipientAddress(address),
-        GiftCardsService.getCardsBySender(address)
+      console.log('Loading cards from Supabase cache for addresses:', recipientAddresses);
+      
+      // Retrieve cards for all addresses (MetaMask + developer wallets)
+      const [allReceivedCards, supabaseSentCards] = await Promise.all([
+        Promise.all(recipientAddresses.map(addr => GiftCardsService.getCardsByRecipientAddress(addr))).then(
+          results => results.flat()
+        ),
+        isConnected && address ? GiftCardsService.getCardsBySender(address) : Promise.resolve([])
       ]);
 
-      // Transform Supabase data to our format
-      const transformedReceivedCards: GiftCard[] = supabaseReceivedCards.map(card => ({
+        // Transform Supabase data to our format
+        // Remove duplicates by tokenId
+      const uniqueReceivedCards = Array.from(
+        new Map(allReceivedCards.map(card => [card.token_id, card])).values()
+      );
+      
+      const transformedReceivedCards: GiftCard[] = uniqueReceivedCards.map(card => ({
         tokenId: card.token_id,
         amount: card.amount,
         currency: card.currency,
         design: 'pink',
         message: card.message,
-        recipient: address,
+        recipient: card.recipient_address || (isConnected && address ? address : ''),
         sender: card.sender_address,
         status: card.redeemed ? 'redeemed' : 'active',
         createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
@@ -249,8 +315,6 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       
       // Load sent cards
       console.log('Loading sent cards from blockchain...');
-      const sentBlockchainCards = await web3Service.loadSentGiftCards(false, true);
-      console.log(`Synced ${blockchainCards.length} received and ${sentBlockchainCards.length} sent cards from blockchain`);
       
       // Also check cards with NULL recipient_address in Supabase
       // and update their owners from blockchain
@@ -572,7 +636,9 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
     return matchesSearch && matchesStatus && matchesCurrency;
   });
 
-  if (!isConnected) {
+  // Allow viewing pending cards even without wallet connection (they can use Developer wallet)
+  // But require wallet for viewing received/sent cards
+  if (!isConnected && !authenticated) {
     return (
       <div className="p-6">
         <Empty>
@@ -582,7 +648,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
             </EmptyMedia>
             <EmptyTitle>Connect your wallet</EmptyTitle>
             <EmptyDescription>
-              Please connect your wallet to view your gift cards
+              Please connect your wallet or social account to view your gift cards
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

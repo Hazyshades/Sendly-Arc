@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useAccount, useWalletClient } from 'wagmi';
 import { toast } from 'sonner';
-import { createWalletClient, custom } from 'viem';
+import { createWalletClient, custom, createPublicClient, http } from 'viem';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import { DeveloperWalletService, DeveloperWallet } from '../utils/circle/developerWalletService';
 import web3Service from '../utils/web3/web3Service';
+import { USDC_ADDRESS, EURC_ADDRESS, ERC20ABI } from '../utils/web3/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -24,7 +25,7 @@ interface DeveloperWalletProps {
 export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletCreated }: DeveloperWalletProps) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { user: privyUser } = usePrivy();
+  const { user: privyUser, authenticated } = usePrivy();
   const [wallet, setWallet] = useState<DeveloperWallet | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -35,6 +36,8 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   const [isOpen, setIsOpen] = useState(false);
   const [requestingTokens, setRequestingTokens] = useState(false);
   const [linkingTelegram, setLinkingTelegram] = useState(false);
+  const [balances, setBalances] = useState<{ USDC: string; EURC: string } | null>(null);
+  const [loadingBalances, setLoadingBalances] = useState(false);
 
   const isValidTelegramId = (value: string | null | undefined) => {
     if (!value) return false;
@@ -83,11 +86,24 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
 
   useEffect(() => {
     if (isConnected && address) {
+      // If MetaMask is connected - check wallet by address
       checkWallet();
+    } else if (authenticated && privyUser && !isConnected) {
+      // If MetaMask is NOT connected, but a social account exists - check developer wallet for the social account
+      checkSocialWallet();
     } else {
       setChecking(false);
     }
-  }, [isConnected, address, blockchain]);
+  }, [isConnected, address, blockchain, authenticated, privyUser]);
+
+  // Load balances of the wallet
+  useEffect(() => {
+    if (wallet && wallet.wallet_address && wallet.blockchain === 'ARC-TESTNET') {
+      loadWalletBalances();
+    } else {
+      setBalances(null);
+    }
+  }, [wallet]);
 
   const checkWallet = async () => {
     if (!address) return;
@@ -105,23 +121,166 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
     }
   };
 
+  const checkSocialWallet = async () => {
+    if (!authenticated || !privyUser) {
+      console.log('[DeveloperWallet] No authenticated user or privyUser');
+      return;
+    }
+    
+    try {
+      setChecking(true);
+      console.log('[DeveloperWallet] Checking social wallet for authenticated user');
+      // Check for a developer wallet for linked social networks
+      const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
+      
+      let walletFound = false;
+      
+      for (const platform of socialPlatforms) {
+        let socialUserId: string | null = null;
+        
+        if (platform === 'twitter' && privyUser.twitter) {
+          socialUserId = (privyUser.twitter as any).subject;
+          console.log('[DeveloperWallet] Found Twitter account, subject:', socialUserId);
+        } else if (platform === 'twitch' && privyUser.twitch) {
+          socialUserId = (privyUser.twitch as any).subject;
+          console.log('[DeveloperWallet] Found Twitch account, subject:', socialUserId);
+        } else if (platform === 'telegram' && privyUser.telegram) {
+          socialUserId = privyUser.telegram.telegramUserId || (privyUser.telegram as any).subject;
+          console.log('[DeveloperWallet] Found Telegram account, userId:', socialUserId);
+        } else if (platform === 'tiktok' && privyUser.tiktok) {
+          socialUserId = (privyUser.tiktok as any).subject;
+          console.log('[DeveloperWallet] Found TikTok account, subject:', socialUserId);
+        } else if (platform === 'instagram' && (privyUser as any).instagram) {
+          socialUserId = ((privyUser as any).instagram as any).subject;
+          console.log('[DeveloperWallet] Found Instagram account, subject:', socialUserId);
+        }
+
+        if (socialUserId) {
+          console.log(`[DeveloperWallet] Checking wallet for ${platform} with userId: ${socialUserId}`);
+          const foundWallet = await DeveloperWalletService.getWalletBySocial(
+            platform as 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram',
+            socialUserId,
+            blockchain
+          );
+          
+          console.log(`[DeveloperWallet] Wallet check result for ${platform}:`, foundWallet ? 'FOUND' : 'NOT FOUND');
+          
+          if (foundWallet) {
+            console.log('[DeveloperWallet] Setting wallet:', foundWallet);
+            setWallet(foundWallet);
+            walletFound = true;
+            break;
+          }
+        }
+      }
+      
+      if (!walletFound) {
+        console.log('[DeveloperWallet] No wallet found for any social platform');
+      }
+    } catch (error) {
+      console.error('[DeveloperWallet] Error checking social wallet:', error);
+      // Do not show an error to the user; simply treat as no wallet found
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const createWallet = async () => {
-    if (!address || !isConnected) {
-      toast.error('Please connect your wallet');
+    // If MetaMask is connected - create a wallet by address
+    if (isConnected && address) {
+      try {
+        setLoading(true);
+        const response = await DeveloperWalletService.createWallet({
+          userId: address,
+          blockchain: blockchain,
+          accountType: 'EOA'
+        });
+
+        if (response.success && response.wallet) {
+          setWallet(response.wallet);
+          toast.success('Wallet created successfully!');
+          if (onWalletCreated) {
+            onWalletCreated(response.wallet);
+          }
+        } else {
+          toast.error(response.message || 'Failed to create wallet');
+        }
+      } catch (error: any) {
+        console.error('Error creating wallet:', error);
+        const errorMessage = error?.message || 'Unknown error';
+        toast.error(`Error creating wallet: ${errorMessage}`);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // If MetaMask is NOT connected, but a social account exists - create a wallet for the social account
+    if (!authenticated || !privyUser) {
+      toast.error('Please connect your wallet or social account');
       return;
     }
 
     try {
       setLoading(true);
-      const response = await DeveloperWalletService.createWallet({
-        userId: address,
-        blockchain: blockchain,
-        accountType: 'EOA'
-      });
+      
+        // Find the first connected social network
+      const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
+      let platform: string | null = null;
+      let socialUserId: string | null = null;
+      let socialUsername: string = '';
+      let privyUserId: string | undefined = getPrivyUserId();
+
+      if (!privyUserId) {
+        toast.error('Unable to identify user');
+        return;
+      }
+
+      for (const p of socialPlatforms) {
+        if (p === 'twitter' && privyUser.twitter) {
+          platform = 'twitter';
+          socialUserId = (privyUser.twitter as any).subject;
+          socialUsername = privyUser.twitter.username || 'user';
+          break;
+        } else if (p === 'twitch' && privyUser.twitch) {
+          platform = 'twitch';
+          socialUserId = (privyUser.twitch as any).subject;
+          socialUsername = (privyUser.twitch as any).username || (privyUser.twitch as any).email || 'user';
+          break;
+        } else if (p === 'telegram' && privyUser.telegram) {
+          platform = 'telegram';
+          socialUserId = privyUser.telegram.telegramUserId || (privyUser.telegram as any).subject;
+          socialUsername = privyUser.telegram.username || privyUser.telegram.firstName || 'user';
+          break;
+        } else if (p === 'tiktok' && privyUser.tiktok) {
+          platform = 'tiktok';
+          socialUserId = (privyUser.tiktok as any).subject;
+          socialUsername = privyUser.tiktok.username || 'user';
+          break;
+        } else if (p === 'instagram' && (privyUser as any).instagram) {
+          platform = 'instagram';
+          socialUserId = ((privyUser as any).instagram as any).subject;
+          socialUsername = ((privyUser as any).instagram as any).username || 'user';
+          break;
+        }
+      }
+
+      if (!platform || !socialUserId) {
+        toast.error('No social account found. Please connect a social account first.');
+        return;
+      }
+
+      const response = await DeveloperWalletService.createWalletForSocial(
+        platform,
+        socialUserId,
+        socialUsername,
+        privyUserId,
+        blockchain
+      );
 
       if (response.success && response.wallet) {
         setWallet(response.wallet);
-        toast.success('Wallet created successfully!');
+        toast.success('Internal wallet created successfully!');
         if (onWalletCreated) {
           onWalletCreated(response.wallet);
         }
@@ -129,11 +288,69 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
         toast.error(response.message || 'Failed to create wallet');
       }
     } catch (error: any) {
-      console.error('Error creating wallet:', error);
+      console.error('Error creating social wallet:', error);
       const errorMessage = error?.message || 'Unknown error';
       toast.error(`Error creating wallet: ${errorMessage}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadWalletBalances = async () => {
+    if (!wallet || !wallet.wallet_address) return;
+
+    try {
+      setLoadingBalances(true);
+      const publicClient = createPublicClient({
+        chain: arcTestnet,
+        transport: http()
+      });
+
+      const walletAddress = wallet.wallet_address as `0x${string}`;
+
+      // Get balances for all tokens in parallel
+      const balanceResults = await Promise.all([
+        publicClient.readContract({
+          address: USDC_ADDRESS as `0x${string}`,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [walletAddress]
+        }),
+        publicClient.readContract({
+          address: EURC_ADDRESS as `0x${string}`,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [walletAddress]
+        })
+      ]);
+
+      const usdcBalance = BigInt(balanceResults[0] as string | number | bigint || 0);
+      const eurcBalance = BigInt(balanceResults[1] as string | number | bigint || 0);
+
+      // Made format balances (6 decimals for USDC/EURC/USYC)
+      const formatBalance = (balance: bigint) => {
+        const decimals = 6; // USDC, EURC, use 6 decimals
+        const divisor = BigInt(10 ** decimals);
+        const whole = balance / divisor;
+        const fraction = balance % divisor;
+        const fractionStr = fraction.toString().padStart(decimals, '0');
+        // Remove trailing zeros from the fractional part
+        const trimmedFraction = fractionStr.replace(/0+$/, '');
+        // If fractional part is zero or becomes empty after trimming, return only the whole part
+        return fraction === 0n || trimmedFraction.length === 0
+          ? whole.toString()
+          : `${whole}.${trimmedFraction}`;
+      };
+
+      setBalances({
+        USDC: formatBalance(usdcBalance),
+        EURC: formatBalance(eurcBalance)
+      });
+    } catch (error) {
+      console.error('Error loading wallet balances:', error);
+      setBalances(null);
+    } finally {
+      setLoadingBalances(false);
     }
   };
 
@@ -344,9 +561,10 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
     }
   };
 
-  if (!isConnected || !address) {
-    return null;
-  }
+  // Component should always be displayed, even if there is no MetaMask (there may be a social network)
+  // if (!isConnected || !address) {
+  //   return null;
+  // }
 
   if (checking) {
     return (
@@ -362,7 +580,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   }
 
   const hasPrivyTelegram = Boolean((privyUser as any)?.telegram);
-  const linkButtonDisabled = linkingTelegram || !hasPrivyTelegram;
+  const linkButtonDisabled = linkingTelegram || !hasPrivyTelegram || !isConnected || !address;
 
   if (wallet) {
     return (
@@ -429,6 +647,38 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
 
               <Separator />
 
+              {/* Wallet Balance Section */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Balance</label>
+                {loadingBalances ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    <span className="ml-2 text-xs text-gray-500">Loading balances...</span>
+                  </div>
+                ) : balances ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-3 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-blue-700">USDC</span>
+                        <Coins className="w-3.5 h-3.5 text-blue-600" />
+                      </div>
+                      <p className="text-sm font-semibold text-blue-900">{balances.USDC}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-3 rounded-lg border border-purple-200">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-purple-700">EURC</span>
+                        <Coins className="w-3.5 h-3.5 text-purple-600" />
+                      </div>
+                      <p className="text-sm font-semibold text-purple-900">{balances.EURC}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-500 py-2">No balance data</div>
+                )}
+              </div>
+
+              <Separator />
+
               {/* Wallet Info Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -461,6 +711,27 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
                       year: 'numeric'
                     }) : '-'}
                   </p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Source</p>
+                  <Badge 
+                    variant="outline" 
+                    className="font-normal"
+                  >
+                    {wallet.social_platform 
+                      ? (() => {
+                          const platformNames: Record<string, string> = {
+                            'twitter': 'Twitter',
+                            'twitch': 'Twitch',
+                            'telegram': 'Telegram',
+                            'tiktok': 'TikTok',
+                            'instagram': 'Instagram'
+                          };
+                          return platformNames[wallet.social_platform] || wallet.social_platform;
+                        })()
+                      : (wallet.user_type === 'wallet_address' ? 'MetaMask' : 'Unknown')
+                    }
+                  </Badge>
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Telegram</p>
@@ -524,80 +795,89 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
 
               <Separator />
 
-              {/* Top Up Section */}
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-semibold mb-1">Top Up Wallet</h4>
-                  <p className="text-xs text-gray-500 mb-3">
-                    Fund your wallet with USDC, EURC, or USYC tokens
-                  </p>
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <Select value={topUpToken} onValueChange={(value) => setTopUpToken(value as 'USDC' | 'EURC' | 'USYC')}>
-                        <SelectTrigger className="w-[130px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="USDC">USDC</SelectItem>
-                          <SelectItem value="EURC">EURC</SelectItem>
-                          <SelectItem value="USYC">USYC</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        value={topUpAmount}
-                        onChange={(e) => setTopUpAmount(e.target.value)}
-                        min="0"
-                        step="0.01"
-                        className="flex-1"
-                      />
+              {/* Top Up Section - only for wallets created from MetaMask */}
+              {!wallet.social_platform && wallet.user_type === 'wallet_address' && (
+                <>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-semibold mb-1">Top Up Wallet</h4>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Fund your wallet with USDC, EURC, or USYC tokens
+                      </p>
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <Select value={topUpToken} onValueChange={(value) => setTopUpToken(value as 'USDC' | 'EURC' | 'USYC')}>
+                            <SelectTrigger className="w-[130px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="USDC">USDC</SelectItem>
+                              <SelectItem value="EURC">EURC</SelectItem>
+                              <SelectItem value="USYC">USYC</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            value={topUpAmount}
+                            onChange={(e) => setTopUpAmount(e.target.value)}
+                            min="0"
+                            step="0.01"
+                            className="flex-1"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleTopUp}
+                          disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0 || !isConnected || !address}
+                          className="w-full"
+                        >
+                          {topUpLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUpCircle className="w-4 h-4 mr-2" />
+                              Top Up Wallet
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      onClick={handleTopUp}
-                      disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0}
-                      className="w-full"
-                    >
-                      {topUpLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <ArrowUpCircle className="w-4 h-4 mr-2" />
-                          Top Up Wallet
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={handleRequestTestnetTokens}
-                      disabled={requestingTokens}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      {requestingTokens ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Requesting...
-                        </>
-                      ) : (
-                        <>
-                          <Coins className="w-4 h-4 mr-2" />
-                          Request Testnet Tokens
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
 
-                {/* Info Alert */}
-                <div className="flex gap-3 p-3 rounded-lg bg-blue-50/50 border border-blue-100">
-                  <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-blue-900 leading-relaxed">
-                    This wallet is developer-controlled. You can fund it from your EVM wallet and use it for transactions through the Telegram bot without MetaMask signing.
-                  </p>
-                </div>
+                    {/* Info Alert */}
+                    <div className="flex gap-3 p-3 rounded-lg bg-blue-50/50 border border-blue-100">
+                      <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-blue-900 leading-relaxed">
+                        This wallet is developer-controlled. You can fund it from your EVM wallet and use it for transactions through the Telegram bot without MetaMask signing.
+                      </p>
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
+              {/* Request Testnet Tokens - available for all wallets */}
+              <div className="space-y-3">
+                <Button
+                  onClick={handleRequestTestnetTokens}
+                  disabled={requestingTokens}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {requestingTokens ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Requesting...
+                    </>
+                  ) : (
+                    <>
+                      <Coins className="w-4 h-4 mr-2" />
+                      Request Testnet Tokens
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </CollapsibleContent>
@@ -605,6 +885,9 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
       </Card>
     );
   }
+
+  // need show message about connect or not connect to wallet or social account
+  const shouldShowConnectMessage = !isConnected && (!authenticated || !privyUser);
 
   return (
     <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
@@ -614,52 +897,60 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
            Internal Wallet
         </CardTitle>
         <CardDescription>
-          To use AI Agents functionality via Telegram, please create an internal wallet.
+          {shouldShowConnectMessage 
+            ? 'Please connect your wallet or social account to use AI Agents functionality.'
+            : 'To use AI Agents functionality via Telegram, please create an internal wallet.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-900 mb-2">Why is this needed?</h4>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Send transactions through the Telegram bot</li>
-            <li>• No need to sign each transaction</li>
-            <li>• Design a flexible flow for your funds</li>
-            <li>• Assign tasks to the agent with</li>
-          </ul>
-        </div>
+        {shouldShowConnectMessage ? null : (
+          <>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-medium text-blue-900 mb-2">Why is this needed?</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Send transactions through the Telegram bot</li>
+                <li>• No need to sign each transaction</li>
+                <li>• Design a flexible flow for your funds</li>
+                <li>• Assign tasks to the agent with</li>
+              </ul>
+            </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Blockchain:</span>
-            <span className="font-medium">{getBlockchainName(blockchain)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Account type:</span>
-            <span className="font-medium">EOA (Externally Owned Account)</span>
-          </div>
-        </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Blockchain:</span>
+                <span className="font-medium">{getBlockchainName(blockchain)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Account type:</span>
+                <span className="font-medium">EOA (Externally Owned Account)</span>
+              </div>
+            </div>
 
-        <Button
-          onClick={createWallet}
-          disabled={loading}
-          className="w-full"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Creating wallet...
-            </>
-          ) : (
-            <>
-              <Wallet className="w-4 h-4 mr-2" />
-              Create wallet
-            </>
-          )}
-        </Button>
+            <Button
+              onClick={createWallet}
+              disabled={loading}
+              className="w-full"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating wallet...
+                </>
+              ) : (
+                <>
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Create wallet
+                </>
+              )}
+            </Button>
 
-        <p className="text-xs text-gray-500 text-center">
-          The wallet will be created on {getBlockchainName(blockchain)} blockchain and linked to your EVM address and Telegram
-        </p>
+            <p className="text-xs text-gray-500 text-center">
+              {isConnected 
+                ? `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your EVM address and Telegram`
+                : `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your social account`}
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redeem Gift Card to USD (Demo)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-text">This is an examples platform</div>
+        </header>
+
+        <main class="main-content">
+            <div class="content-left">
+                <div class="section-label">GIFT CARD</div>
+                <h1 class="main-heading">Redeem on-chain Gift Card and cash out to USD</h1>
+                <p class="description">
+                    This demo calls the Gift Card smart contract on Arc Testnet to redeem
+                    a card, then simulates USD off-ramp via Circle Mint Playground.
+                    Use a funded test card and an Arc Developer/EVM wallet.
+                </p>
+                <p class="description" style="margin-top:12px">
+                    Contract: <a href="https://testnet.arcscan.app/address/0x5743fd9c6372bE37B2CE8884EA9e8bF291132677" target="_blank" rel="noopener">
+                    0x5743fd9c6372bE37B2CE8884EA9e8bF291132677</a>
+                </p>
+            </div>
+
+            <div class="content-right">
+                <div class="trade-card">
+                    <h2 class="trade-title">Redeem Gift Card</h2>
+
+                    <div class="form-group">
+                        <label class="form-label">Wallet</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="walletAddress" class="form-input" placeholder="Not connected" readonly>
+                            <button id="connectBtn" class="btn-confirm" style="max-width:180px">Connect</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Gift Card Code / Token Id</label>
+                        <input type="text" id="giftCode" class="form-input" placeholder="Enter gift card code or token id">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Contract Address</label>
+                        <input type="text" id="contractAddress" class="form-input" value="0x5743fd9c6372bE37B2CE8884EA9e8bF291132677">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Payout Amount (USD)</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="redeemAmount" class="form-input" placeholder="0.00" step="0.01" min="0">
+                            <div class="currency-select-wrapper">
+                                <select class="currency-select" disabled>
+                                    <option>USD</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Bank Account</label>
+                        <select id="bankAccount" class="form-select">
+                            <option value="">Select bank account</option>
+                        </select>
+                    </div>
+
+                    <button id="redeemBtn" class="btn-confirm">Redeem & Cash Out (Demo)</button>
+
+                    <div id="statusMessage" class="status-message"></div>
+                </div>
+            </div>
+        </main>
+
+        <div class="decorative-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+            <div class="shape shape-4"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="giftcard.js"></script>
+</body>
+</html>
+
+
+

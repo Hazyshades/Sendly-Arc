@@ -18,18 +18,23 @@ import imageGenerator from '../utils/imageGenerator';
 import elevenLabsService from '../utils/elevenlabs';
 import aimlapiService, { ParsedPaymentCommand } from '../utils/aimlapiService';
 import { ContactsManager, Contact } from './ContactsManager';
+import { usePrivy } from '@privy-io/react-auth';
+import { DeveloperWalletService } from '../utils/circle/developerWalletService';
 
 type RecordingState = 'idle' | 'recording' | 'processing' | 'confirming' | 'creating';
 
 export function VoicePaymentAgent() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const { authenticated, user: privyUser } = usePrivy();
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [transcribedText, setTranscribedText] = useState('');
   const [parsedCommand, setParsedCommand] = useState<ParsedPaymentCommand | null>(null);
   const [error, setError] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [hasDeveloperWallet, setHasDeveloperWallet] = useState(false);
+  const [checkingWallet, setCheckingWallet] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -243,6 +248,68 @@ export function VoicePaymentAgent() {
     setRecordingState('idle');
   };
 
+  // Checking for a Developer wallet for social networks
+  useEffect(() => {
+    const checkSocialWallet = async () => {
+      // If MetaMask is connected - no need to check a social wallet
+      if (isConnected) {
+        setHasDeveloperWallet(false);
+        setCheckingWallet(false);
+        return;
+      }
+
+      // If no social network is linked - do not check
+      if (!authenticated || !privyUser) {
+        setHasDeveloperWallet(false);
+        setCheckingWallet(false);
+        return;
+      }
+
+      try {
+        setCheckingWallet(true);
+        // Check for a developer wallet for linked social networks
+        const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
+        const blockchain = 'ARC-TESTNET';
+        
+        for (const platform of socialPlatforms) {
+          let socialUserId: string | null = null;
+          
+          if (platform === 'twitter' && privyUser.twitter) {
+            socialUserId = (privyUser.twitter as any).subject;
+          } else if (platform === 'twitch' && privyUser.twitch) {
+            socialUserId = (privyUser.twitch as any).subject;
+          } else if (platform === 'telegram' && privyUser.telegram) {
+            socialUserId = privyUser.telegram.telegramUserId || (privyUser.telegram as any).subject;
+          } else if (platform === 'tiktok' && privyUser.tiktok) {
+            socialUserId = (privyUser.tiktok as any).subject;
+          } else if (platform === 'instagram' && (privyUser as any).instagram) {
+            socialUserId = ((privyUser as any).instagram as any).subject;
+          }
+
+          if (socialUserId) {
+            const foundWallet = await DeveloperWalletService.getWalletBySocial(
+              platform as 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram',
+              socialUserId,
+              blockchain
+            );
+            
+            if (foundWallet) {
+              setHasDeveloperWallet(true);
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking social wallet:', error);
+        setHasDeveloperWallet(false);
+      } finally {
+        setCheckingWallet(false);
+      }
+    };
+
+    checkSocialWallet();
+  }, [isConnected, authenticated, privyUser]);
+
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -251,15 +318,20 @@ export function VoicePaymentAgent() {
     };
   }, []);
 
-  if (!isConnected) {
+  // Show the message only if there is neither MetaMask nor a social Developer wallet
+  if (!isConnected && !hasDeveloperWallet) {
+    if (checkingWallet) {
+      return (
+        <div className="p-6 text-center">
+          <Spinner className="w-6 h-6 mx-auto mb-2" />
+          <p className="text-sm text-gray-600">Checking wallet...</p>
+        </div>
+      );
+    }
+
     return (
       <div className="p-6 text-center">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Please connect your wallet to use the voice agent
-          </AlertDescription>
-        </Alert>
+        
       </div>
     );
   }

@@ -15,6 +15,7 @@ import { BridgeRoute } from '../pages/BridgeRoute';
 import { GatewayRoute } from '../pages/GatewayRoute';
 import { TwitchCallbackRoute } from '../pages/TwitchCallbackRoute';
 import { TwitterCallbackRoute } from '../pages/TwitterCallbackRoute';
+import { CircleMintRoute } from '../pages/CircleMintRoute';
 
 function AppRouter() {
   const [isLoading, setIsLoading] = useState(true);
@@ -54,6 +55,7 @@ function AppRouter() {
       <Route path="/gateway" element={<GatewayRoute />} />
       <Route path="/auth/twitch/callback" element={<TwitchCallbackRoute />} />
       <Route path="/auth/twitter/callback" element={<TwitterCallbackRoute />} />
+      <Route path="/Circle-Mint" element={<CircleMintRoute />} />
     </Routes>
   );
 }

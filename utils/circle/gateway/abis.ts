@@ -1,5 +1,5 @@
-// Gateway Wallet ABI (для депозитов)
-// Источник: https://github.com/circlefin/evm-gateway-contracts
+// Gateway Wallet ABI
+// src: https://github.com/circlefin/evm-gateway-contracts
 export const gatewayWalletAbi = [
   {
     type: "function",
@@ -34,7 +34,7 @@ export const gatewayWalletAbi = [
   },
 ] as const;
 
-// Gateway Minter ABI (для минтинга)
+// Gateway Minter ABI
 export const gatewayMinterAbi = [
   {
     type: "function",

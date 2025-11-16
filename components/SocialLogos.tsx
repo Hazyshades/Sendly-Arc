@@ -107,13 +107,13 @@ const SocialLogos = ({
   const [canStartCarousel, setCanStartCarousel] = useState(false)
 
   useEffect(() => {
-    // Вычисляем время завершения всех BlurText анимаций
-    // Текст "Dispatch funds...": delay={400}, duration={1200} → 400 + 1200 = 1600ms
-    // Последний логотип (index 4): delay={600 + 4 * 100} = 1000, duration={1200} → 1000 + 1200 = 2200ms
-    // Ждем завершения последней анимации + небольшой запас
-    const maxDelay = 600 + (logos.length - 1) * 100 // последний delay
+    // Compute the time to finish all BlurText animations
+    // Text "Dispatch funds...": delay={400}, duration={1200} → 400 + 1200 = 1600ms
+    // The last logo (index 4): delay={600 + 4 * 100} = 1000, duration={1200} → 1000 + 1200 = 2200ms
+    // Wait for the last animation to finish + a small buffer
+    const maxDelay = 600 + (logos.length - 1) * 100 // last delay
     const duration = 1200
-    const totalTime = maxDelay + duration + 100 // добавляем небольшой запас
+    const totalTime = maxDelay + duration + 100 // add a small buffer
 
     const timer = setTimeout(() => {
       setCanStartCarousel(true)
@@ -122,7 +122,7 @@ const SocialLogos = ({
     return () => clearTimeout(timer)
   }, [logos.length])
 
-  // Создаем плагин только когда можно запускать карусель
+  // Create the plugin only when the carousel can start
   const autoScrollPlugin = useMemo(() => {
     if (!canStartCarousel) return undefined
     return AutoScroll({ 
@@ -146,7 +146,7 @@ const SocialLogos = ({
       )}
       <div className="pt-4 md:pt-6 w-full overflow-hidden flex justify-center">
         <div className="relative w-full max-w-3xl px-1">
-          {/* Видимая область с градиентами - показывает только 3 иконки */}
+          {/* Visible area with gradients - shows only 3 icons */}
           <div className="relative overflow-hidden">
             <Carousel
               opts={{ 
@@ -181,7 +181,7 @@ const SocialLogos = ({
                 ))}
               </CarouselContent>
             </Carousel>
-            {/* Градиентные границы для видимой области */}
+            {/* Gradient borders for the visible area */}
             <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#DADEFF] to-transparent pointer-events-none z-10"></div>
             <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-[#DADEFF] to-transparent pointer-events-none z-10"></div>
           </div>

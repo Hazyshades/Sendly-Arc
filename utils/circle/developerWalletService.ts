@@ -13,6 +13,11 @@ export interface DeveloperWallet {
   created_at?: string;
   updated_at?: string;
   telegram_user_id?: string | null;
+  user_type?: 'wallet_address' | 'twitch_id' | 'twitter_id' | 'telegram_id' | 'privy_id';
+  social_platform?: 'twitch' | 'twitter' | 'telegram' | 'tiktok' | 'instagram' | null;
+  social_user_id?: string | null;
+  social_username?: string | null;
+  privy_user_id?: string | null;
 }
 
 export interface CreateWalletRequest {
@@ -165,6 +170,124 @@ export class DeveloperWalletService {
     } catch (error) {
       console.error('Error linking Telegram ID:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Create wallet for social account
+   */
+  static async createWalletForSocial(
+    platform: string,
+    socialUserId: string,
+    socialUsername: string,
+    privyUserId: string,
+    blockchain: string = 'ARC-TESTNET'
+  ): Promise<CreateWalletResponse> {
+    try {
+      const response = await apiCall('/wallets/create-for-social', {
+        method: 'POST',
+        body: JSON.stringify({
+          platform,
+          socialUserId,
+          socialUsername,
+          privyUserId,
+          blockchain
+        })
+      });
+
+      return response as CreateWalletResponse;
+    } catch (error) {
+      console.error('Error creating social wallet:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get wallet by social account
+   */
+  static async getWalletBySocial(
+    platform: string,
+    socialUserId: string,
+    blockchain: string = 'ARC-TESTNET'
+  ): Promise<DeveloperWallet | null> {
+    try {
+      const response = await apiCall(
+        `/wallets/get-by-social?platform=${encodeURIComponent(platform)}&socialUserId=${encodeURIComponent(socialUserId)}&blockchain=${encodeURIComponent(blockchain)}`,
+        {
+          method: 'GET'
+        }
+      ) as { success: boolean; wallet: DeveloperWallet | null };
+
+      return response.wallet || null;
+    } catch (error) {
+      console.error('Error fetching wallet by social:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if user has a wallet for social account
+   */
+  static async hasSocialWallet(
+    platform: string,
+    socialUserId: string,
+    blockchain: string = 'ARC-TESTNET'
+  ): Promise<boolean> {
+    try {
+      const wallet = await this.getWalletBySocial(platform, socialUserId, blockchain);
+      return wallet !== null;
+    } catch (error) {
+      console.error('Error checking social wallet existence:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send transaction via Developer wallet
+   */
+  static async sendTransaction(params: {
+    walletId: string;
+    walletAddress: string;
+    contractAddress: string;
+    functionName: string;
+    args: any[];
+    blockchain: string;
+    privyUserId?: string;
+    socialPlatform?: string;
+    socialUserId?: string;
+  }): Promise<{ success: boolean; txHash?: string; transactionId?: string; transactionState?: string; error?: string; transaction?: any }> {
+    try {
+      // Convert BigInt values to strings for JSON serialization
+      const serializedArgs = params.args.map(arg => {
+        if (typeof arg === 'bigint') {
+          return arg.toString();
+        }
+        return arg;
+      });
+
+      const response = await apiCall('/wallets/send-transaction', {
+        method: 'POST',
+        body: JSON.stringify({
+          walletId: params.walletId,
+          walletAddress: params.walletAddress,
+          contractAddress: params.contractAddress,
+          functionName: params.functionName,
+          args: serializedArgs,
+          blockchain: params.blockchain,
+          privyUserId: params.privyUserId,
+          socialPlatform: params.socialPlatform,
+          socialUserId: params.socialUserId
+        })
+      });
+
+      return response as { success: boolean; txHash?: string; error?: string; transaction?: any };
+    } catch (error) {
+      console.error('Error sending transaction:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        error: errorMessage
+      };
     }
   }
 }

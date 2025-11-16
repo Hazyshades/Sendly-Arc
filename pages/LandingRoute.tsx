@@ -21,7 +21,6 @@ export function LandingRoute() {
   }, []);
 
   useEffect(() => {
-    // Циклическая смена текста каждые 5 секунд
     const interval = setInterval(() => {
       setCurrentTextIndex((prev) => (prev + 1) % 3);
     }, 5000);
@@ -74,7 +73,7 @@ export function LandingRoute() {
           <div className="text-center space-y-8">
             <div className="space-y-4">
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight relative min-h-[120px] md:min-h-[140px] lg:min-h-[160px]">
-                {/* Первый текст: Tag. Send. Crypto. */}
+                {/* First text: Tag. Send. Crypto. */}
                 <div
                   className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${
                     currentTextIndex === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -93,7 +92,7 @@ export function LandingRoute() {
                   </BlurText>
                 </div>
                 
-                {/* Второй текст: Send Crypto by @. */}
+                {/* Second text: Send Crypto by @. */}
                 <div
                   className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${
                     currentTextIndex === 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -118,7 +117,7 @@ export function LandingRoute() {
                   </BlurText>
                 </div>
 
-                {/* Третий текст: No Wallet. Just @. */}
+                {/* 3rd text: No Wallet. Just @. */}
                 <div
                   className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${
                     currentTextIndex === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -196,79 +195,13 @@ export function LandingRoute() {
                 </StarBorder>
               </BlurText>
 
-              <BlurText delay={1500} duration={1200}>
-                <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
-                  <Button
-                    onClick={() => handleAction('/gateway')}
-                    size="lg"
-                    variant="outline"
-                    className="bg-white/90 backdrop-blur-sm border-2 border-purple-200 hover:bg-purple-50 text-purple-600 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
-                  >
-                    <Wallet className="w-5 h-5 mr-2" />
-                    Gateway
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                </StarBorder>
-              </BlurText>
+              {/* Gateway button removed */}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 px-6 relative z-10">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Why Sendly?
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Innovative tools for secure and fast transfers
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <Card className="bg-white/90 backdrop-blur-sm shadow-circle-card rounded-2xl border-0 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <CardContent className="p-8">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <Zap className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Lightning Fast</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Execute transactions in milliseconds with cutting-edge blockchain technology.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 2 */}
-            <Card className="bg-white/90 backdrop-blur-sm shadow-circle-card rounded-2xl border-0 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <CardContent className="p-8">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <Shield className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Secure Trading</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Bank-level security for your assets with cryptographic protection.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 3 */}
-            <Card className="bg-white/90 backdrop-blur-sm shadow-circle-card rounded-2xl border-0 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <CardContent className="p-8">
-                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <TrendingUp className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Advanced Analytics</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Real-time data and analytics tools for your operations.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
+      {/* Features section removed */}
 
       {/* CTA Section */}
       <section className="py-20 px-6 relative z-10">
@@ -347,8 +280,7 @@ export function LandingRoute() {
             <div>
               <h4 className="text-white font-semibold mb-4">Contact</h4>
               <p className="text-sm text-gray-400">
-                Support available through the app
-              </p>
+X: Leonissx              </p>
             </div>
           </div>
 
