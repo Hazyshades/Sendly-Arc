@@ -25,14 +25,14 @@ The agent part of the platform is based on the orchestration of Langraph and Tel
 - Social recipients via dedicated vaults for Twitter, Twitch, Telegram, TikTok, Instagram, or direct wallet addresses.
 - Internal wallet management backed by **Circle SDK**.
 - Contact manager that syncs personal and **Privy**-sourced social contacts, favorites, and wallet metadata.
-- Transaction analytics with sent/received history, cache layer, and CSV export.
+- Transaction analytics with sent/received history, cache layer.
 - **Circle BridgeKit** integration to move funds between Arc Testnet and other configured chains.
 
 ## Tech Stack
 - React 18, TypeScript, Vite, TailwindCSS, shadcn/ui components.
 - wagmi, viem, and RainbowKit for wallet connectivity.
 - Privy for social OAuth (Twitter, Twitch, Telegram, etc.) and account management.
-- Supabase for gift card records, contacts, and developer wallet metadata.
+- Supabase for db daya, contacts, and developer wallet metadata.
 - Circle BridgeKit and Developer-Controlled Wallet SDKs.
 - ElevenLabs speech-to-text, AIML API command parsing, Pinata IPFS uploads, custom image generator.
 
