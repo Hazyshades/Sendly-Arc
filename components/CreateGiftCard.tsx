@@ -35,7 +35,7 @@ import { useNavigate } from 'react-router-dom';
 import { generateBridgeUrlFromArc } from '../utils/bridge/bridgeUrlHelper';
 import { usePrivy } from '@privy-io/react-auth';
 import { DeveloperWalletService } from '../utils/circle/developerWalletService';
-import { apiCall, getFunctionUrl } from '../utils/supabase/client';
+import { apiCall } from '../utils/supabase/client';
 
 interface GiftCardData {
   recipientType: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
@@ -495,12 +495,8 @@ export function CreateGiftCard() {
           for (let attempt = 0; attempt < maxAttempts; attempt++) {
             await new Promise(resolve => setTimeout(resolve, pollInterval));
             
-            try {
-              // Call back for tx status
-              // Use  Edge Function, for tx sent: smart-action
-              const functionsBaseUrl = getFunctionUrl('smart-action');
-
-              // Use common apiCall helper to set Authorization
+              try {
+                // Use common apiCall helper to set Authorization
               const statusData = await apiCall(`/wallets/transaction-status?transactionId=${encodeURIComponent(txResult.transactionId)}`, {
                 method: 'GET'
               });

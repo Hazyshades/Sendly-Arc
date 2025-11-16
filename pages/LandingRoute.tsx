@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Gift, Send, Download, ArrowRight, Zap, Shield, TrendingUp, ArrowRightIcon, Wallet } from 'lucide-react';
+import { Gift, Send, Download, ArrowRight, Zap, ArrowRightIcon } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { BlurText } from '../components/BlurText';

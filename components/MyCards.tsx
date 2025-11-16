@@ -52,6 +52,8 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
+  // Temporary flag to disable background blockchain sync on /my
+  const ENABLE_BLOCKCHAIN_SYNC = false;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -271,7 +273,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           design: 'pink',
           message: card.message,
           recipient: recipientDisplay,
-          sender: address,
+          sender: address || '',
           status: card.redeemed ? 'redeemed' : 'active',
           createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
           hasTimer: false,
@@ -286,11 +288,13 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       setLoading(false);
 
       // Then sync with blockchain in the background (slow, but non-blocking)
-      // Start sync without await to avoid blocking UI
-      console.log('Starting blockchain sync in background...');
-      syncWithBlockchain(address).catch(error => {
-        console.error('Background sync error (non-critical):', error);
-      });
+      // Temporarily disabled per request
+      if (ENABLE_BLOCKCHAIN_SYNC && address) {
+        console.log('Starting blockchain sync in background...');
+        syncWithBlockchain(address as string).catch(error => {
+          console.error('Background sync error (non-critical):', error);
+        });
+      }
     } catch (error) {
       console.error('Error fetching cards from Supabase:', error);
       // Fallback to blockchain if Supabase fails
@@ -380,45 +384,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         });
       });
       
-      // Add sent cards (overwrite if duplicates exist)
-      sentBlockchainCards.forEach(card => {
-        const rawRecipient = card.recipient || '';
-        const lowercaseRecipient = rawRecipient.toLowerCase();
-        let recipientAddress: string | null = null;
-        let recipientUsername: string | null = null;
-        let recipientType: 'address' | 'twitter' | 'twitch' | 'telegram' = 'address';
-
-        if (lowercaseRecipient.startsWith('0x')) {
-          recipientAddress = rawRecipient.toLowerCase();
-        } else if (lowercaseRecipient.startsWith('telegram:')) {
-          recipientType = 'telegram';
-          recipientUsername = rawRecipient.slice('telegram:'.length).replace(/^@/, '').trim();
-        } else if (lowercaseRecipient.startsWith('twitter:') || rawRecipient.startsWith('@')) {
-          recipientType = 'twitter';
-          const usernamePart = lowercaseRecipient.startsWith('twitter:')
-            ? rawRecipient.slice('twitter:'.length)
-            : rawRecipient;
-          recipientUsername = usernamePart.replace(/^@/, '').trim();
-        } else if (lowercaseRecipient.length > 0) {
-          recipientType = 'twitch';
-          const usernamePart = lowercaseRecipient.startsWith('twitch:')
-            ? rawRecipient.slice('twitch:'.length)
-            : rawRecipient;
-          recipientUsername = usernamePart.replace(/^@/, '').trim();
-        }
-
-        cardsMap.set(card.tokenId, {
-          token_id: card.tokenId,
-          sender_address: userAddress.toLowerCase(),
-          recipient_address: recipientAddress,
-          recipient_username: recipientUsername,
-          recipient_type: recipientType,
-          amount: card.amount,
-          currency: card.token,
-          message: card.message,
-          redeemed: card.redeemed,
-        });
-      });
+      // Skip sent cards enrichment (handled via Supabase cache earlier)
       
       // Add updated cards (overwrite if duplicates exist)
       cardsToUpdate.forEach(card => {
@@ -479,72 +445,11 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         return receivedChanged ? transformedReceivedCards : currentReceivedCards;
       });
 
-      setSentCards(currentSentCards => {
-        const existingSentMap = new Map(currentSentCards.map(card => [card.tokenId, card]));
-
-        // Transform sent cards
-        const transformedSentCards: GiftCard[] = sentBlockchainCards.map(card => {
-          const rawRecipient = card.recipient || '';
-          const lowercaseRecipient = rawRecipient.toLowerCase();
-          let recipientDisplay = rawRecipient;
-
-          if (lowercaseRecipient.startsWith('telegram:')) {
-            const username = rawRecipient.slice('telegram:'.length).replace(/^@/, '').trim();
-            recipientDisplay = username ? `@${username} (Telegram)` : 'Telegram user';
-          } else if (lowercaseRecipient.startsWith('twitter:')) {
-            const username = rawRecipient.slice('twitter:'.length).replace(/^@/, '').trim();
-            recipientDisplay = username ? `@${username}` : 'Twitter user';
-          } else if (rawRecipient.startsWith('@')) {
-            recipientDisplay = rawRecipient;
-          } else if (lowercaseRecipient.startsWith('twitch:')) {
-            const username = rawRecipient.slice('twitch:'.length).trim();
-            recipientDisplay = username ? `${username} (Twitch)` : 'Twitch user';
-          } else if (!lowercaseRecipient.startsWith('0x') && lowercaseRecipient.length > 0) {
-            recipientDisplay = `${rawRecipient} (Twitch)`;
-          }
-
-          return {
-            tokenId: card.tokenId,
-            amount: card.amount,
-            currency: card.token,
-            design: 'pink',
-            message: card.message,
-            recipient: recipientDisplay,
-            sender: userAddress,
-            status: card.redeemed ? 'redeemed' : 'active',
-            createdAt: existingSentMap.get(card.tokenId)?.createdAt || new Date().toLocaleDateString(),
-            hasTimer: false,
-            hasPassword: false,
-            qrCode: `sendly://redeem/${card.tokenId}`
-          };
-        });
-
-        // Always update with blockchain data (source of truth)
-        // Check if there are actual changes to avoid unnecessary re-renders
-        const sentChanged = currentSentCards.length !== transformedSentCards.length ||
-          currentSentCards.some(card => {
-            const newCard = transformedSentCards.find(c => c.tokenId === card.tokenId);
-            if (!newCard) return true; // Card was removed
-            return newCard.status !== card.status || 
-                   newCard.amount !== card.amount ||
-                   newCard.currency !== card.currency ||
-                   newCard.message !== card.message;
-          }) ||
-          transformedSentCards.some(newCard => {
-            const existingCard = currentSentCards.find(c => c.tokenId === newCard.tokenId);
-            return !existingCard; // New card was added
-          });
-
-        // Always return blockchain data if there are changes, otherwise keep current to avoid flicker
-        // But if counts differ, always update (blockchain is source of truth)
-        if (currentSentCards.length !== transformedSentCards.length) {
-          return transformedSentCards;
-        }
-        
-        return sentChanged ? transformedSentCards : currentSentCards;
-      });
+      // Keep existing sent cards; no blockchain update performed here
       
-      console.log('Blockchain sync completed');
+      if (ENABLE_BLOCKCHAIN_SYNC) {
+        console.log('Blockchain sync completed');
+      }
     } catch (error) {
       console.error('Error syncing with blockchain:', error);
       // Don't show error to user - they already have data from Supabase
@@ -569,10 +474,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       // Load gift cards from blockchain
       const blockchainCards = await web3Service.loadGiftCards(false, true);
       
-      // Load sent cards
-      console.log('Fetching sent gift cards...');
-      const sentBlockchainCards = await web3Service.loadSentGiftCards(false, true);
-      console.log(`Received ${sentBlockchainCards.length} sent cards from blockchain`);
+      // Sent cards sync is disabled (handled via Supabase cache)
       
       // Transform blockchain data to our format for received cards
       const transformedCards: GiftCard[] = blockchainCards.map(card => ({
@@ -590,25 +492,9 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         qrCode: `sendly://redeem/${card.tokenId}`
       }));
 
-      // Transform blockchain data to our format for sent cards
-      const transformedSentCards: GiftCard[] = sentBlockchainCards.map(card => ({
-        tokenId: card.tokenId,
-        amount: card.amount,
-        currency: card.token,
-        design: 'pink',
-        message: card.message,
-        recipient: card.recipient,
-        sender: address,
-        status: card.redeemed ? 'redeemed' : 'active',
-        createdAt: new Date().toLocaleDateString(),
-        hasTimer: false,
-        hasPassword: false,
-        qrCode: `sendly://redeem/${card.tokenId}`
-      }));
-
       // Update card state
       setReceivedCards(transformedCards);
-      setSentCards(transformedSentCards);
+      // Keep previously loaded sent cards
     } catch (error) {
       console.error('Error fetching cards:', error);
       if (!(error as Error).message?.includes('rate limit') && !(error as Error).message?.includes('429')) {

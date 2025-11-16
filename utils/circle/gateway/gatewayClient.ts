@@ -81,7 +81,7 @@ export class GatewayClient {
    * This is critical - contract addresses may change
    */
   async info(): Promise<GatewayInfo> {
-    return this.#get('/info');
+    return this.get('/info');
   }
 
   /**
@@ -104,7 +104,7 @@ export class GatewayClient {
       }));
     }
 
-    return this.#post('/balances', {
+    return this.post('/balances', {
       token,
       sources,
     });
@@ -115,10 +115,10 @@ export class GatewayClient {
    * @param request - Request with signed burn intents
    */
   async transfer(request: TransferRequest): Promise<TransferResponse> {
-    return this.#post('/transfer', request);
+    return this.post('/transfer', request);
   }
 
-  private async #get(path: string) {
+  private async get(path: string) {
     const url = this.baseUrl + path;
     const response = await fetch(url);
     if (!response.ok) {
@@ -130,7 +130,7 @@ export class GatewayClient {
     return response.json();
   }
 
-  private async #post(path: string, body: any) {
+  private async post(path: string, body: any) {
     const url = this.baseUrl + path;
     const response = await fetch(url, {
       method: 'POST',

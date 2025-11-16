@@ -213,7 +213,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
           transport: custom(window.ethereum)
         });
 
-        await web3Service.initialize(walletClient, address);
+        await web3Service.initialize(walletClient, address as string);
 
         // Get gift card info from blockchain
         giftCardInfo = await web3Service.getGiftCardInfo(tokenId);
@@ -275,10 +275,10 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
             functionName: 'getGiftCardCreator',
             args: [BigInt(tokenId)]
           }).catch(() => '0x0000000000000000000000000000000000000000')
-        ]);
+        ]) as any;
 
         // contractData is the GiftCardInfo structure: { amount, token, redeemed, message }
-        if (!contractData || contractData.redeemed) {
+        if (!contractData || (contractData as any).redeemed) {
           return null;
         }
 
@@ -295,10 +295,10 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
         // Convert contract data to giftCardInfo format
         // contractData already is structure { amount, token, redeemed, message }
         giftCardInfo = {
-          amount: contractData.amount.toString(),
-          token: contractData.token,
-          redeemed: contractData.redeemed,
-          message: contractData.message || ''
+          amount: (contractData as any).amount.toString(),
+          token: (contractData as any).token,
+          redeemed: (contractData as any).redeemed,
+          message: (contractData as any).message || ''
         };
       }
 
@@ -472,7 +472,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
           transport: custom(window.ethereum)
         });
 
-        await web3Service.initialize(walletClient, address);
+        await web3Service.initialize(walletClient, address as string);
 
         giftCardInfo = await web3Service.getGiftCardInfo(currentCard.tokenId);
         owner = await web3Service.getCardOwner(currentCard.tokenId);
