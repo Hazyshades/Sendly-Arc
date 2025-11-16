@@ -16,7 +16,7 @@ export function Layout({ children }: LayoutProps) {
   const [isPrivyModalOpen, setIsPrivyModalOpen] = useState(false);
 
   const navigationItems = [
-    { path: '/agent', label: 'AI Agent', icon: '🎤' },
+    { path: '/agent', label: 'Dashboard', icon: '🎤' },
     { path: '/create', label: 'Create', icon: '➕' },
     { path: '/my', label: 'My Cards', icon: '🎴' },
     { path: '/spend', label: 'Spend', icon: '💳' },

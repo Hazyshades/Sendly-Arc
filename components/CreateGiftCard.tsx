@@ -18,9 +18,10 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collap
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { toast } from 'sonner';
 import { useAccount, useWalletClient } from 'wagmi';
-import { createWalletClient, custom } from 'viem';
+import { createWalletClient, custom, createPublicClient, http } from 'viem';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
+import { CONTRACT_ADDRESS, USDC_ADDRESS, EURC_ADDRESS, USYC_ADDRESS, ERC20ABI, VAULT_CONTRACT_ADDRESS, TWITCH_VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS, TIKTOK_VAULT_CONTRACT_ADDRESS, INSTAGRAM_VAULT_CONTRACT_ADDRESS } from '../utils/web3/constants';
 import pinataService from '../utils/pinata';
 import imageGenerator from '../utils/imageGenerator';
 import { createTwitterCardMapping } from '../utils/twitter';
@@ -32,6 +33,9 @@ import BridgeDialog from './BridgeDialog';
 import { GiftCardsService } from '../utils/supabase/giftCards';
 import { useNavigate } from 'react-router-dom';
 import { generateBridgeUrlFromArc } from '../utils/bridge/bridgeUrlHelper';
+import { usePrivy } from '@privy-io/react-auth';
+import { DeveloperWalletService } from '../utils/circle/developerWalletService';
+import { apiCall } from '../utils/supabase/client';
 
 interface GiftCardData {
   recipientType: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
@@ -62,7 +66,11 @@ const SOCIAL_RECIPIENT_OPTIONS = [
 export function CreateGiftCard() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const { authenticated, user: privyUser } = usePrivy();
   const navigate = useNavigate();
+  const [hasDeveloperWallet, setHasDeveloperWallet] = useState(false);
+  const [developerWallet, setDeveloperWallet] = useState<any>(null);
+  const [checkingWallet, setCheckingWallet] = useState(true);
   const [formData, setFormData] = useState<GiftCardData>({
     recipientType: 'address',
     recipientAddress: '',
@@ -175,9 +183,90 @@ export function CreateGiftCard() {
     setIsSocialsOpen(formData.recipientType !== 'address');
   }, [formData.recipientType]);
 
+  // Checking for the presence of a Developer wallet for social networks
+  useEffect(() => {
+    const checkSocialWallet = async () => {
+      // If MetaMask is connected - no need to check a social wallet
+      if (isConnected) {
+        setHasDeveloperWallet(false);
+        setDeveloperWallet(null);
+        setCheckingWallet(false);
+        return;
+      }
+
+      // If no social network is linked - do not check
+      if (!authenticated || !privyUser) {
+        setHasDeveloperWallet(false);
+        setDeveloperWallet(null);
+        setCheckingWallet(false);
+        return;
+      }
+
+      try {
+        setCheckingWallet(true);
+        // Check for a developer wallet for linked social networks
+        const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
+        const blockchain = 'ARC-TESTNET';
+        
+        for (const platform of socialPlatforms) {
+          let socialUserId: string | null = null;
+          
+          if (platform === 'twitter' && privyUser.twitter) {
+            socialUserId = (privyUser.twitter as any).subject;
+          } else if (platform === 'twitch' && privyUser.twitch) {
+            socialUserId = (privyUser.twitch as any).subject;
+          } else if (platform === 'telegram' && privyUser.telegram) {
+            socialUserId = privyUser.telegram.telegramUserId || (privyUser.telegram as any).subject;
+          } else if (platform === 'tiktok' && privyUser.tiktok) {
+            socialUserId = (privyUser.tiktok as any).subject;
+          } else if (platform === 'instagram' && (privyUser as any).instagram) {
+            socialUserId = ((privyUser as any).instagram as any).subject;
+          }
+
+          if (socialUserId) {
+            const foundWallet = await DeveloperWalletService.getWalletBySocial(
+              platform as 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram',
+              socialUserId,
+              blockchain
+            );
+            
+            if (foundWallet) {
+              setHasDeveloperWallet(true);
+              setDeveloperWallet(foundWallet);
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking social wallet:', error);
+        setHasDeveloperWallet(false);
+        setDeveloperWallet(null);
+      } finally {
+        setCheckingWallet(false);
+      }
+    };
+
+    checkSocialWallet();
+  }, [isConnected, authenticated, privyUser]);
+
   const handleCreateCard = async () => {
-    if (!isConnected || !address) {
+    // Check for a wallet (MetaMask or developer wallet)
+    if (!isConnected && !hasDeveloperWallet) {
       setError('Please connect your wallet first');
+      return;
+    }
+    
+    // Determine the wallet address to create the card from
+    let createAddress: string;
+    let useDeveloperWallet = false;
+    
+    if (isConnected && address) {
+      createAddress = address;
+    } else if (hasDeveloperWallet && developerWallet) {
+      createAddress = developerWallet.wallet_address;
+      useDeveloperWallet = true;
+    } else {
+      setError('Wallet not connected');
       return;
     }
 
@@ -247,18 +336,90 @@ export function CreateGiftCard() {
         imageBlob
       );
 
-      // Step 3: Initialize web3 service
-      // Try to use wagmi walletClient first, fallback to creating one manually
-      let clientToUse = walletClient;
-      if (!clientToUse) {
-        console.log('wagmi walletClient not available, creating manual client...');
-        clientToUse = createWalletClient({
+      // Step 3: Check token balance and prepare for creation
+      const tokenAddress = formData.currency === 'USDC' ? USDC_ADDRESS : 
+                          formData.currency === 'EURC' ? EURC_ADDRESS : 
+                          USYC_ADDRESS;
+      
+      const amountWei = (parseFloat(formData.amount) * 1000000).toString(); // 6 decimals for USDC/EURC
+      
+      // Check balance for developer wallet
+      if (useDeveloperWallet) {
+        const publicClient = createPublicClient({
           chain: arcTestnet,
-          transport: custom(window.ethereum)
+          transport: http()
         });
-      }
+        
+        const balance = await publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [createAddress as `0x${string}`]
+        }) as bigint;
+        
+        if (BigInt(balance) < BigInt(amountWei)) {
+          setError(`Insufficient ${formData.currency} balance`);
+          setIsCreating(false);
+          return;
+        }
 
-      await web3Service.initialize(clientToUse, address);
+        // check allowance if need make  approve
+        const spenderAddress =
+          formData.recipientType === 'twitter' ? VAULT_CONTRACT_ADDRESS :
+          formData.recipientType === 'twitch' ? TWITCH_VAULT_CONTRACT_ADDRESS :
+          formData.recipientType === 'telegram' ? TELEGRAM_VAULT_CONTRACT_ADDRESS :
+          formData.recipientType === 'tiktok' ? TIKTOK_VAULT_CONTRACT_ADDRESS :
+          formData.recipientType === 'instagram' ? INSTAGRAM_VAULT_CONTRACT_ADDRESS :
+          CONTRACT_ADDRESS;
+
+        const currentAllowance = await publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20ABI,
+          functionName: 'allowance',
+          args: [createAddress as `0x${string}`, spenderAddress as `0x${string}`]
+        }) as bigint;
+
+        if (currentAllowance < BigInt(amountWei)) {
+          toast.info(`Approving ${formData.currency} for contract...`);
+
+          // Send approve via Developer Wallet
+          const approveTx = await DeveloperWalletService.sendTransaction({
+            walletId: developerWallet.circle_wallet_id,
+            walletAddress: developerWallet.wallet_address,
+            contractAddress: tokenAddress,
+            functionName: 'approve',
+            args: [spenderAddress, BigInt(amountWei)],
+            blockchain: 'ARC-TESTNET',
+            privyUserId: privyUser?.id,
+            socialPlatform: developerWallet.social_platform || undefined,
+            socialUserId: developerWallet.social_user_id || undefined
+          });
+
+          if (!approveTx.success) {
+            throw new Error(approveTx.error || 'Approve failed');
+          }
+
+          // Wait for approve confirmation (by transactionId)
+          if (approveTx.transactionId) {
+            const maxAttemptsApprove = 30;
+            const pollIntervalApprove = 1000;
+            for (let attempt = 0; attempt < maxAttemptsApprove; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, pollIntervalApprove));
+              try {
+                const approveStatus = await apiCall(`/wallets/transaction-status?transactionId=${encodeURIComponent(approveTx.transactionId)}`, { method: 'GET' });
+                if (approveStatus?.transactionState === 'COMPLETE') {
+                  break;
+                }
+                if (approveStatus?.transactionState === 'FAILED') {
+                  throw new Error(approveStatus?.error || approveStatus?.transaction?.errorDetails || 'Approve transaction failed');
+                }
+              } catch (pollError) {
+                console.warn('Error polling approve status:', pollError);
+              }
+            }
+          }
+        }
+      }
 
       // Step 4: Create gift card on blockchain
       setStep('creating');
@@ -266,165 +427,328 @@ export function CreateGiftCard() {
       
       let result;
       
-      // Use different methods based on recipient type
-      if (formData.recipientType === 'twitter') {
-        // Normalize username for consistency (createCardForTwitter also normalizes)
-        const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-        console.log('[CreateGiftCard] Creating Twitter card:', {
-          original: formData.recipientUsername,
-          normalized: normalizedUsername
+      // Use different methods based on wallet type and recipient type
+      if (useDeveloperWallet) {
+        // Create card via developer wallet
+        const normalizedUsername = formData.recipientType !== 'address' 
+          ? formData.recipientUsername.toLowerCase().replace(/^@/, '').trim()
+          : '';
+        
+        let functionName: string;
+        let args: any[];
+        
+        if (formData.recipientType === 'twitter') {
+          functionName = 'createGiftCardForTwitter';
+          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+        } else if (formData.recipientType === 'twitch') {
+          functionName = 'createGiftCardForTwitch';
+          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+        } else if (formData.recipientType === 'telegram') {
+          functionName = 'createGiftCardForTelegram';
+          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+        } else if (formData.recipientType === 'tiktok') {
+          functionName = 'createGiftCardForTikTok';
+          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+        } else if (formData.recipientType === 'instagram') {
+          functionName = 'createGiftCardForInstagram';
+          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+        } else {
+          // Address recipient
+          functionName = 'createGiftCard';
+          args = [formData.recipientAddress, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+        }
+        
+        // Get social platform info for transaction
+        let socialPlatform: string | undefined;
+        let socialUserId: string | undefined;
+        if (privyUser && developerWallet) {
+          socialPlatform = developerWallet.social_platform || undefined;
+          socialUserId = developerWallet.social_user_id || undefined;
+        }
+        
+        // Send transaction via developer wallet
+        const txResult = await DeveloperWalletService.sendTransaction({
+          walletId: developerWallet.circle_wallet_id,
+          walletAddress: developerWallet.wallet_address,
+          contractAddress: CONTRACT_ADDRESS,
+          functionName: functionName,
+          args: args,
+          blockchain: 'ARC-TESTNET',
+          privyUserId: privyUser?.id,
+          socialPlatform: socialPlatform,
+          socialUserId: socialUserId
         });
         
-        // Use new Vault flow for Twitter cards
-        result = await web3Service.createCardForTwitter(
-          normalizedUsername, // Using normalized username
-          formData.amount,
-          formData.currency,
-          metadataUri,
-          formData.message
-        );
+        if (!txResult.success) {
+          throw new Error(txResult.error || 'Failed to create gift card');
+        }
         
-        // Still save metadata to KV for additional info (using normalized username)
-        try {
-          await createTwitterCardMapping({
-            tokenId: result.tokenId,
-            username: normalizedUsername, // Saving normalized username
-            temporaryOwner: '', // No longer needed with Vault
-            senderAddress: address,
-            amount: formData.amount,
-            currency: formData.currency,
-            message: formData.message,
-            metadataUri: metadataUri
-          });
-        } catch (error) {
-          console.error('Error saving Twitter card metadata:', error);
-          // Non-critical error, card is already created on blockchain
+        // If txHash is not yet available, poll the transaction status until txHash is received
+        let finalTxHash = txResult.txHash;
+        if (!finalTxHash && txResult.transactionId) {
+          toast.info('Waiting for transaction to be processed...');
+          
+          // Poll transaction status via Circle API
+          const maxAttempts = 30; // Maximum 30 attempts (~30 seconds)
+          const pollInterval = 1000; // 1 second between attempts
+          
+          for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            
+              try {
+                // Use common apiCall helper to set Authorization
+              const statusData = await apiCall(`/wallets/transaction-status?transactionId=${encodeURIComponent(txResult.transactionId)}`, {
+                method: 'GET'
+              });
+              
+              if (statusData) {
+                if (statusData.txHash) {
+                  finalTxHash = statusData.txHash;
+                  break;
+                }
+                // If the transaction failed
+                if (statusData.transactionState === 'FAILED') {
+                  throw new Error(statusData.error || 'Transaction failed');
+                }
+              }
+            } catch (pollError) {
+              console.warn('Error polling transaction status:', pollError);
+              // Continue polling
+            }
+          }
+          
+          if (!finalTxHash) {
+            // If there is still no txHash, use transactionId for display
+            // and show a message to the user
+            toast.warning('Transaction is being processed. Please check status later.');
+            // Use transactionId as a temporary identifier
+            finalTxHash = txResult.transactionId || 'pending';
+          }
         }
-      } else if (formData.recipientType === 'twitch') {
-        const normalizedUsername = formData.recipientUsername.toLowerCase().trim();
-        console.log('[CreateGiftCard] Creating Twitch card:', {
-          original: formData.recipientUsername,
-          normalized: normalizedUsername
-        });
         
-        result = await web3Service.createCardForTwitch(
-          normalizedUsername,
-          formData.amount,
-          formData.currency,
-          metadataUri,
-          formData.message
-        );
+        if (!finalTxHash) {
+          throw new Error('Failed to get transaction hash');
+        }
         
-        try {
-          await createTwitchCardMapping({
-            tokenId: result.tokenId,
-            username: normalizedUsername,
-            temporaryOwner: '',
-            senderAddress: address,
-            amount: formData.amount,
-            currency: formData.currency,
-            message: formData.message,
-            metadataUri: metadataUri
+        // If txHash is not ready yet (pending), do not wait for receipt
+        if (finalTxHash === 'pending' || finalTxHash === txResult.transactionId) {
+          // Use transactionId to store the card
+          result = {
+            tokenId: 'pending', // Will be updated later
+            txHash: txResult.transactionId || 'pending'
+          };
+        } else {
+          // Wait for transaction receipt and extract tokenId
+          const publicClient = createPublicClient({
+            chain: arcTestnet,
+            transport: http()
           });
-        } catch (error) {
-          console.error('Error saving Twitch card metadata:', error);
-        }
-      } else if (formData.recipientType === 'telegram') {
-        const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-        console.log('[CreateGiftCard] Creating Telegram card:', {
-          original: formData.recipientUsername,
-          normalized: normalizedUsername
-        });
-
-        result = await web3Service.createCardForTelegram(
-          normalizedUsername,
-          formData.amount,
-          formData.currency,
-          metadataUri,
-          formData.message
-        );
-
-        try {
-          await createTelegramCardMapping({
-            tokenId: result.tokenId,
-            username: normalizedUsername,
-            temporaryOwner: '',
-            senderAddress: address,
-            amount: formData.amount,
-            currency: formData.currency,
-            message: formData.message,
-            metadataUri: metadataUri
+          
+          const receipt = await publicClient.waitForTransactionReceipt({
+            hash: finalTxHash as `0x${string}`
           });
-        } catch (error) {
-          console.error('Error saving Telegram card metadata:', error);
-        }
-      } else if (formData.recipientType === 'tiktok') {
-        const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-        console.log('[CreateGiftCard] Creating TikTok card:', {
-          original: formData.recipientUsername,
-          normalized: normalizedUsername
-        });
-
-        result = await web3Service.createCardForTikTok(
-          normalizedUsername,
-          formData.amount,
-          formData.currency,
-          metadataUri,
-          formData.message
-        );
-
-        try {
-          await createTikTokCardMapping({
-            tokenId: result.tokenId,
-            username: normalizedUsername,
-            temporaryOwner: '',
-            senderAddress: address,
-            amount: formData.amount,
-            currency: formData.currency,
-            message: formData.message,
-            metadataUri: metadataUri
-          });
-        } catch (error) {
-          console.error('Error saving TikTok card metadata:', error);
-        }
-      } else if (formData.recipientType === 'instagram') {
-        const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-        console.log('[CreateGiftCard] Creating Instagram card:', {
-          original: formData.recipientUsername,
-          normalized: normalizedUsername
-        });
-
-        result = await web3Service.createCardForInstagram(
-          normalizedUsername,
-          formData.amount,
-          formData.currency,
-          metadataUri,
-          formData.message
-        );
-
-        try {
-          await createInstagramCardMapping({
-            tokenId: result.tokenId,
-            username: normalizedUsername,
-            temporaryOwner: '',
-            senderAddress: address,
-            amount: formData.amount,
-            currency: formData.currency,
-            message: formData.message,
-            metadataUri: metadataUri
-          });
-        } catch (error) {
-          console.error('Error saving Instagram card metadata:', error);
+          
+          // Extract tokenId from Transfer event
+          const transferEventSignature = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+          const zeroAddress = '0x0000000000000000000000000000000000000000';
+          const zeroAddressTopic = '0x' + zeroAddress.slice(2).padStart(64, '0');
+          
+          let tokenId = '1'; // Default fallback
+          const transferEvent = receipt.logs.find((log: any) => 
+            log.topics[0] === transferEventSignature &&
+            log.topics[1]?.toLowerCase() === zeroAddressTopic.toLowerCase() &&
+            (log.address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase() ||
+             log.address.toLowerCase() === (formData.recipientType === 'twitter' ? VAULT_CONTRACT_ADDRESS :
+                                          formData.recipientType === 'twitch' ? TWITCH_VAULT_CONTRACT_ADDRESS :
+                                          formData.recipientType === 'telegram' ? TELEGRAM_VAULT_CONTRACT_ADDRESS :
+                                          formData.recipientType === 'tiktok' ? TIKTOK_VAULT_CONTRACT_ADDRESS :
+                                          formData.recipientType === 'instagram' ? INSTAGRAM_VAULT_CONTRACT_ADDRESS :
+                                          CONTRACT_ADDRESS).toLowerCase())
+          );
+          
+          if (transferEvent && transferEvent.topics[3]) {
+            tokenId = BigInt(transferEvent.topics[3]).toString();
+          }
+          
+          result = {
+            tokenId: tokenId,
+            txHash: finalTxHash
+          };
         }
       } else {
-        // Standard flow for address recipients
-        result = await web3Service.createGiftCard(
-          formData.recipientAddress,
-          formData.amount,
-          formData.currency,
-          metadataUri,
-          formData.message
-        );
+        // Create card via MetaMask (existing logic)
+        // Initialize web3 service
+        let clientToUse = walletClient;
+        if (!clientToUse) {
+          console.log('wagmi walletClient not available, creating manual client...');
+          clientToUse = createWalletClient({
+            chain: arcTestnet,
+            transport: custom(window.ethereum)
+          });
+        }
+
+        await web3Service.initialize(clientToUse, createAddress);
+        
+        // Use different methods based on recipient type
+        if (formData.recipientType === 'twitter') {
+          // Normalize username for consistency (createCardForTwitter also normalizes)
+          const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
+          console.log('[CreateGiftCard] Creating Twitter card:', {
+            original: formData.recipientUsername,
+            normalized: normalizedUsername
+          });
+          
+          // Use new Vault flow for Twitter cards
+          result = await web3Service.createCardForTwitter(
+            normalizedUsername, // Using normalized username
+            formData.amount,
+            formData.currency,
+            metadataUri,
+            formData.message
+          );
+          
+          // Still save metadata to KV for additional info (using normalized username)
+          try {
+            await createTwitterCardMapping({
+              tokenId: result.tokenId,
+              username: normalizedUsername, // Saving normalized username
+              temporaryOwner: '', // No longer needed with Vault
+              senderAddress: createAddress,
+              amount: formData.amount,
+              currency: formData.currency,
+              message: formData.message,
+              metadataUri: metadataUri
+            });
+          } catch (error) {
+            console.error('Error saving Twitter card metadata:', error);
+            // Non-critical error, card is already created on blockchain
+          }
+        } else if (formData.recipientType === 'twitch') {
+          const normalizedUsername = formData.recipientUsername.toLowerCase().trim();
+          console.log('[CreateGiftCard] Creating Twitch card:', {
+            original: formData.recipientUsername,
+            normalized: normalizedUsername
+          });
+          
+          result = await web3Service.createCardForTwitch(
+            normalizedUsername,
+            formData.amount,
+            formData.currency,
+            metadataUri,
+            formData.message
+          );
+          
+          try {
+            await createTwitchCardMapping({
+              tokenId: result.tokenId,
+              username: normalizedUsername,
+              temporaryOwner: '',
+              senderAddress: createAddress,
+              amount: formData.amount,
+              currency: formData.currency,
+              message: formData.message,
+              metadataUri: metadataUri
+            });
+          } catch (error) {
+            console.error('Error saving Twitch card metadata:', error);
+          }
+        } else if (formData.recipientType === 'telegram') {
+          const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
+          console.log('[CreateGiftCard] Creating Telegram card:', {
+            original: formData.recipientUsername,
+            normalized: normalizedUsername
+          });
+
+          result = await web3Service.createCardForTelegram(
+            normalizedUsername,
+            formData.amount,
+            formData.currency,
+            metadataUri,
+            formData.message
+          );
+
+          try {
+            await createTelegramCardMapping({
+              tokenId: result.tokenId,
+              username: normalizedUsername,
+              temporaryOwner: '',
+              senderAddress: createAddress,
+              amount: formData.amount,
+              currency: formData.currency,
+              message: formData.message,
+              metadataUri: metadataUri
+            });
+          } catch (error) {
+            console.error('Error saving Telegram card metadata:', error);
+          }
+        } else if (formData.recipientType === 'tiktok') {
+          const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
+          console.log('[CreateGiftCard] Creating TikTok card:', {
+            original: formData.recipientUsername,
+            normalized: normalizedUsername
+          });
+
+          result = await web3Service.createCardForTikTok(
+            normalizedUsername,
+            formData.amount,
+            formData.currency,
+            metadataUri,
+            formData.message
+          );
+
+          try {
+            await createTikTokCardMapping({
+              tokenId: result.tokenId,
+              username: normalizedUsername,
+              temporaryOwner: '',
+              senderAddress: createAddress,
+              amount: formData.amount,
+              currency: formData.currency,
+              message: formData.message,
+              metadataUri: metadataUri
+            });
+          } catch (error) {
+            console.error('Error saving TikTok card metadata:', error);
+          }
+        } else if (formData.recipientType === 'instagram') {
+          const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
+          console.log('[CreateGiftCard] Creating Instagram card:', {
+            original: formData.recipientUsername,
+            normalized: normalizedUsername
+          });
+
+          result = await web3Service.createCardForInstagram(
+            normalizedUsername,
+            formData.amount,
+            formData.currency,
+            metadataUri,
+            formData.message
+          );
+
+          try {
+            await createInstagramCardMapping({
+              tokenId: result.tokenId,
+              username: normalizedUsername,
+              temporaryOwner: '',
+              senderAddress: createAddress,
+              amount: formData.amount,
+              currency: formData.currency,
+              message: formData.message,
+              metadataUri: metadataUri
+            });
+          } catch (error) {
+            console.error('Error saving Instagram card metadata:', error);
+          }
+        } else {
+          // Standard flow for address recipients
+          result = await web3Service.createGiftCard(
+            formData.recipientAddress,
+            formData.amount,
+            formData.currency,
+            metadataUri,
+            formData.message
+          );
+        }
       }
 
       setStep('success');
@@ -463,7 +787,7 @@ export function CreateGiftCard() {
             : formData.recipientUsername.replace(/^@/, '').trim();
         await GiftCardsService.upsertCard({
           token_id: result.tokenId,
-          sender_address: address.toLowerCase(),
+          sender_address: (createAddress || '').toLowerCase(),
           recipient_address: formData.recipientType === 'address' ? formData.recipientAddress.toLowerCase() : null,
           recipient_username: recipientUsernameForStorage,
           recipient_type: formData.recipientType,
@@ -564,13 +888,25 @@ export function CreateGiftCard() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  if (!isConnected) {
+  // Show the message only if there is neither MetaMask nor a social Developer wallet
+  if (!isConnected && !hasDeveloperWallet) {
+    if (checkingWallet) {
+      return (
+        <div className="p-6 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <span className="text-sm text-gray-600">Checking wallet...</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="p-6 text-center">
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Please connect your wallet to create gift cards
+            Please connect your wallet or social account to create gift cards
           </AlertDescription>
         </Alert>
       </div>
@@ -612,7 +948,7 @@ export function CreateGiftCard() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-3 space-y-2 rounded-lg border border-dashed border-gray-200 p-3">
                   {SOCIAL_RECIPIENT_OPTIONS.map((option) => {
-                    const isReceivingDisabled = option.value === 'twitter' || option.value === 'tiktok' || option.value === 'instagram';
+                    const isReceivingDisabled = option.value === 'tiktok' || option.value === 'instagram';
                     const content = (
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value={option.value} id={option.value} disabled={isReceivingDisabled} />

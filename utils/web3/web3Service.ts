@@ -495,13 +495,12 @@ export class Web3Service {
     }
   }
 
-  // Method to get sent cards via ArcScan API
-  private async loadSentGiftCardsViaAPI(): Promise<GiftCardInfo[]> {
-    // Skip API - go directly to blockchain queries
-    // API only works for recent transfers, blockchain is more reliable
-    console.log('Skipping API, using direct blockchain queries');
-    return [];
-  }
+  // private async loadSentGiftCardsViaAPI(): Promise<GiftCardInfo[]> {
+  //   // Skip API - go directly to blockchain queries
+  //   // API only works for recent transfers, blockchain is more reliable
+  //   console.log('Skipping API, using direct blockchain queries');
+  //   return [];
+  // }
 /*
   async loadSentGiftCards(useCache: boolean = false, useAPI: boolean = true): Promise<GiftCardInfo[]> {
     if (!this.account) return [];

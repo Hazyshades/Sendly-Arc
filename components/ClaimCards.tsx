@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Gift, Clock, CheckCircle, AlertCircle, Send, Music, Instagram as InstagramIcon } from 'lucide-react';
+import { Gift, Clock, CheckCircle, AlertCircle, Send, Music, Instagram as InstagramIcon, Wallet } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -18,6 +18,9 @@ import { getTelegramCardMapping, claimTelegramCard, type TelegramCardMapping } f
 import { getTikTokCardMapping, claimTikTokCard, type TikTokCardMapping } from '../utils/tiktok';
 import { getInstagramCardMapping, claimInstagramCard, type InstagramCardMapping } from '../utils/instagram';
 import { PrivyAuthModal } from './PrivyAuthModal';
+import { DeveloperWalletService } from '../utils/circle/developerWalletService';
+import { TWITCH_VAULT_CONTRACT_ADDRESS, VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS } from '../utils/web3/constants';
+import { WalletChoiceModal } from './WalletChoiceModal';
 
 type PendingCard = (TwitterCardMapping | TwitchCardMapping | TelegramCardMapping | TikTokCardMapping | InstagramCardMapping) & {
   cardType: 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
@@ -36,6 +39,8 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
   const [loading, setLoading] = useState(true);
   const [claimingTokenId, setClaimingTokenId] = useState<string | null>(null);
   const [isPrivyModalOpen, setIsPrivyModalOpen] = useState(false);
+  const [isWalletChoiceModalOpen, setIsWalletChoiceModalOpen] = useState(false);
+  const [selectedCardForClaim, setSelectedCardForClaim] = useState<PendingCard | null>(null);
   const telegramAccount = (user as any)?.telegram;
   const telegramIdentifier = telegramAccount?.username || telegramAccount?.telegramUserId || telegramAccount?.id;
 
@@ -268,7 +273,17 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
       }
     } catch (error) {
       console.error('Error fetching pending cards:', error);
-      toast.error('Failed to load pending cards');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[ClaimCards] Error details:', errorMessage);
+      
+      // Don't show error toast if it's just that there are no cards
+      // Only show error if it's a real problem
+      if (!errorMessage.includes('No pending cards') && !errorMessage.includes('not found')) {
+        toast.error(`Failed to load pending cards: ${errorMessage}`);
+      }
+      
+      // Set empty array on error so UI shows "No Pending Cards" instead of error
+      setPendingCards([]);
       if (onPendingCountChange) {
         onPendingCountChange(0);
       }
@@ -308,7 +323,218 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
     }
   }, [autoLoad, authenticated, user?.twitter?.username, user?.twitch?.username, telegramIdentifier, user?.tiktok?.username, user?.instagram?.username, fetchPendingCards]);
 
-  const handleClaim = async (card: PendingCard) => {
+  // Helper function to get social user ID from Privy user
+  const getSocialUserId = (platform: string): string | null => {
+    if (!user?.linkedAccounts) return null;
+    
+    const account = user.linkedAccounts.find(
+      (acc: any) => 
+        acc.type === platform || 
+        acc.type === `${platform}_oauth` ||
+        acc.provider === platform
+    );
+    
+    // Safely access subject or id properties
+    if (!account) return null;
+    return (account as any)?.subject || (account as any)?.id || null;
+  };
+
+  // Handle creating Developer wallet and claiming card
+  const handleCreateWalletAndClaim = async () => {
+    if (!selectedCardForClaim) return;
+
+    try {
+      setClaimingTokenId(selectedCardForClaim.tokenId);
+      
+      const privyUserId = user?.id;
+      if (!privyUserId) {
+        toast.error('Privy user ID not found. Please ensure you are logged in.');
+        setClaimingTokenId(null);
+        return;
+      }
+
+      let platform: 'twitch' | 'twitter' | 'telegram';
+      let socialUserId: string | null;
+      let username: string;
+      let normalizedLoggedIn: string;
+      let normalizedCard: string;
+      let contractAddress: string;
+      let claimApiFunction: (tokenId: string, username: string, walletAddress: string) => Promise<any>;
+
+      // Determine platform and get user data
+      if (selectedCardForClaim.cardType === 'twitch') {
+        if (!user?.twitch) {
+          toast.error('Twitch account not found');
+          setClaimingTokenId(null);
+          return;
+        }
+        platform = 'twitch';
+        const twitchUsername = user.twitch.username;
+        if (!twitchUsername) {
+          toast.error('Twitch username not found');
+          setClaimingTokenId(null);
+          return;
+        }
+        username = twitchUsername;
+        socialUserId = getSocialUserId('twitch');
+        contractAddress = TWITCH_VAULT_CONTRACT_ADDRESS;
+        claimApiFunction = claimTwitchCard;
+      } else if (selectedCardForClaim.cardType === 'twitter') {
+        if (!user?.twitter) {
+          toast.error('Twitter account not found');
+          setClaimingTokenId(null);
+          return;
+        }
+        platform = 'twitter';
+        const twitterUsername = user.twitter.username;
+        if (!twitterUsername) {
+          toast.error('Twitter username not found');
+          setClaimingTokenId(null);
+          return;
+        }
+        username = twitterUsername;
+        socialUserId = getSocialUserId('twitter');
+        contractAddress = VAULT_CONTRACT_ADDRESS;
+        claimApiFunction = claimTwitterCard;
+      } else if (selectedCardForClaim.cardType === 'telegram') {
+        if (!telegramIdentifier) {
+          toast.error('Telegram account not found');
+          setClaimingTokenId(null);
+          return;
+        }
+        platform = 'telegram';
+        username = telegramIdentifier.toString().replace(/^@/, '');
+        socialUserId = getSocialUserId('telegram');
+        contractAddress = TELEGRAM_VAULT_CONTRACT_ADDRESS;
+        claimApiFunction = claimTelegramCard;
+      } else {
+        toast.error(`Creating internal wallet is currently only supported for Twitch, Twitter, and Telegram cards`);
+        setClaimingTokenId(null);
+        return;
+      }
+
+      if (!socialUserId) {
+        toast.error(`${platform.charAt(0).toUpperCase() + platform.slice(1)} ID not found. Please ensure you are logged in with ${platform}.`);
+        setClaimingTokenId(null);
+        return;
+      }
+
+      // Normalize usernames for comparison
+      if (platform === 'twitter') {
+        normalizedLoggedIn = username.toLowerCase().replace(/^@/, '').trim();
+        normalizedCard = selectedCardForClaim.username.toLowerCase().replace(/^@/, '').trim();
+      } else if (platform === 'telegram') {
+        normalizedLoggedIn = username.toLowerCase().replace(/^@/, '').trim();
+        normalizedCard = selectedCardForClaim.username.toLowerCase().replace(/^@/, '').trim();
+      } else {
+        normalizedLoggedIn = username.toLowerCase().trim();
+        normalizedCard = selectedCardForClaim.username.toLowerCase().trim();
+      }
+      
+      if (normalizedLoggedIn !== normalizedCard) {
+        toast.error(`This card is not for your ${platform.charAt(0).toUpperCase() + platform.slice(1)} account`);
+        setClaimingTokenId(null);
+        return;
+      }
+
+      // Check if Developer wallet exists
+      let devWallet = await DeveloperWalletService.getWalletBySocial(platform, socialUserId);
+      
+      if (!devWallet) {
+        // Create Developer wallet automatically
+        toast.info('Creating internal wallet for receiving donations...');
+        const createResult = await DeveloperWalletService.createWalletForSocial(
+          platform,
+          socialUserId,
+          normalizedLoggedIn,
+          privyUserId
+        );
+        
+        if (!createResult.success || !createResult.wallet) {
+          throw new Error('Failed to create Developer wallet');
+        }
+        
+        devWallet = createResult.wallet;
+        toast.success('Internal wallet created successfully!');
+        
+        // Request testnet tokens for the new wallet
+        try {
+          toast.info('Requesting testnet tokens for the wallet...');
+          const tokenResult = await DeveloperWalletService.requestTestnetTokens(
+            devWallet.wallet_address,
+            'ARC-TESTNET'
+          );
+          
+          if (tokenResult.success) {
+            toast.success('Testnet tokens requested successfully!');
+          } else {
+            console.warn('Failed to request testnet tokens (non-critical):', tokenResult);
+            // Do not block the process if requesting tokens fails
+          }
+        } catch (tokenError) {
+          console.warn('Error requesting testnet tokens (non-critical):', tokenError);
+          // Do not block the process if requesting tokens fails
+        }
+      }
+
+      // Claim via Developer wallet
+      toast.info('Claiming card via internal wallet...');
+      
+      const txResult = await DeveloperWalletService.sendTransaction({
+        walletId: devWallet.circle_wallet_id,
+        walletAddress: devWallet.wallet_address,
+        contractAddress: contractAddress,
+        functionName: 'claimCard',
+        args: [BigInt(selectedCardForClaim.tokenId), normalizedLoggedIn, devWallet.wallet_address],
+        blockchain: 'ARC-TESTNET',
+        privyUserId: privyUserId,
+        socialPlatform: platform,
+        socialUserId: socialUserId
+      });
+
+      if (!txResult.success) {
+        throw new Error(txResult.error || 'Failed to claim card via Developer wallet');
+      }
+
+      // Update Supabase after successful blockchain transaction
+      try {
+        if (devWallet.wallet_address) {
+          await claimApiFunction(selectedCardForClaim.tokenId, username, devWallet.wallet_address);
+          console.log('Successfully updated Supabase after claim');
+        }
+      } catch (apiError) {
+        console.error('Error updating Supabase after claim (non-critical):', apiError);
+      }
+
+      // Show the final success message
+      // If there is no txHash yet but there is a transactionId - that's normal, the transaction is queued
+      if (!txResult.txHash && txResult.transactionId) {
+        toast.info('Transaction submitted. Waiting for confirmation...');
+        // You can poll the transaction status later or simply display the transactionId
+        console.log('Transaction ID:', txResult.transactionId, 'State:', txResult.transactionState);
+        toast.success(`Card claimed successfully! Transaction ID: ${txResult.transactionId.slice(0, 8)}...`);
+      } else if (txResult.txHash) {
+        toast.success(`Card claimed successfully! TX: ${txResult.txHash.slice(0, 10)}...`);
+      } else {
+        toast.success('Card claimed successfully!');
+      }
+      await fetchPendingCards();
+      setClaimingTokenId(null);
+      setSelectedCardForClaim(null);
+      
+      if (onCardClaimed) {
+        onCardClaimed();
+      }
+    } catch (error) {
+      console.error('Error creating wallet and claiming card:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create wallet and claim card';
+      toast.error(errorMessage);
+      setClaimingTokenId(null);
+      setSelectedCardForClaim(null);
+    }
+  };
+
+  const handleClaim = async (card: PendingCard, useDeveloperWallet: boolean = false) => {
     if (!authenticated) {
       setIsPrivyModalOpen(true);
       const providerLabelMap = {
@@ -323,8 +549,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
       return;
     }
 
-    if (!isConnected || !address) {
-      toast.error('Please connect your wallet to claim the card');
+    // If no wallet and not using Developer wallet, show wallet choice modal
+    if (!useDeveloperWallet && (!isConnected || !address)) {
+      setSelectedCardForClaim(card);
+      setIsWalletChoiceModalOpen(true);
       return;
     }
 
@@ -349,6 +577,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           throw new Error('This card is not for your Twitter account');
         }
 
+        if (!address) {
+          throw new Error('No wallet address found. Please connect your wallet.');
+        }
+
         const walletClient = createWalletClient({
           chain: arcTestnet,
           transport: custom(window.ethereum)
@@ -365,8 +597,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
         // Update Supabase after successful blockchain transaction
         try {
-          await claimTwitterCard(card.tokenId, twitterUsername, address);
-          console.log('Successfully updated Supabase after claim');
+          if (address) {
+            await claimTwitterCard(card.tokenId, twitterUsername, address);
+            console.log('Successfully updated Supabase after claim');
+          }
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);
           // Don't fail the claim if API update fails - blockchain transaction already succeeded
@@ -389,6 +623,72 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         
         if (normalizedLoggedIn !== normalizedCard) {
           throw new Error('This card is not for your Twitch account');
+        }
+
+        const privyUserId = user.id;
+        const twitchUserId = getSocialUserId('twitch');
+
+        // If no MetaMask or Developer wallet is selected
+        if (useDeveloperWallet || !isConnected || !address) {
+          if (!privyUserId || !twitchUserId) {
+            throw new Error('Privy user ID or Twitch ID not found. Please ensure you are logged in with Twitch.');
+          }
+
+          // Check if Developer wallet exists
+          let devWallet = await DeveloperWalletService.getWalletBySocial('twitch', twitchUserId);
+          
+          if (!devWallet) {
+            // Create Developer wallet automatically
+            toast.info('Creating internal wallet for receiving donations...');
+            const createResult = await DeveloperWalletService.createWalletForSocial(
+              'twitch',
+              twitchUserId,
+              normalizedLoggedIn,
+              privyUserId
+            );
+            
+            if (!createResult.success || !createResult.wallet) {
+              throw new Error('Failed to create Developer wallet');
+            }
+            
+            devWallet = createResult.wallet;
+            toast.success('Internal wallet created successfully!');
+          }
+
+          // Claim via Developer wallet
+          toast.info('Claiming card via internal wallet...');
+          
+          const txResult = await DeveloperWalletService.sendTransaction({
+            walletId: devWallet.circle_wallet_id,
+            walletAddress: devWallet.wallet_address,
+            contractAddress: TWITCH_VAULT_CONTRACT_ADDRESS,
+            functionName: 'claimCard',
+            args: [BigInt(card.tokenId), normalizedLoggedIn, devWallet.wallet_address],
+            blockchain: 'ARC-TESTNET',
+            privyUserId: privyUserId,
+            socialPlatform: 'twitch',
+            socialUserId: twitchUserId
+          });
+
+          if (!txResult.success || !txResult.txHash) {
+            throw new Error(txResult.error || 'Failed to claim card via Developer wallet');
+          }
+
+          // Update Supabase after successful blockchain transaction
+          try {
+            await claimTwitchCard(card.tokenId, twitchUsername, devWallet.wallet_address);
+            console.log('Successfully updated Supabase after claim');
+          } catch (apiError) {
+            console.error('Error updating Supabase after claim (non-critical):', apiError);
+          }
+
+          toast.success(`Card claimed successfully! TX: ${txResult.txHash.slice(0, 10)}...`);
+          return;
+        }
+
+        // Use MetaMask (current logic)
+        if (!address) {
+          throw new Error('No wallet address found. Please connect your wallet.');
         }
 
         const walletClient = createWalletClient({
@@ -430,6 +730,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           throw new Error('This card is not for your Telegram account');
         }
 
+        if (!address) {
+          throw new Error('No wallet address found. Please connect your wallet.');
+        }
+
         const walletClient = createWalletClient({
           chain: arcTestnet,
           transport: custom(window.ethereum)
@@ -446,8 +750,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
         // Update Supabase after successful blockchain transaction
         try {
-          await claimTelegramCard(card.tokenId, normalizedLoggedIn, address);
-          console.log('Successfully updated Supabase after claim');
+          if (address) {
+            await claimTelegramCard(card.tokenId, normalizedLoggedIn, address);
+            console.log('Successfully updated Supabase after claim');
+          }
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);
           // Don't fail the claim if API update fails - blockchain transaction already succeeded
@@ -472,6 +778,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           throw new Error('This card is not for your TikTok account');
         }
 
+        if (!address) {
+          throw new Error('No wallet address found. Please connect your wallet.');
+        }
+
         const walletClient = createWalletClient({
           chain: arcTestnet,
           transport: custom(window.ethereum)
@@ -488,8 +798,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
         // Update Supabase after successful blockchain transaction
         try {
-          await claimTikTokCard(card.tokenId, normalizedLoggedIn, address);
-          console.log('Successfully updated Supabase after claim');
+          if (address) {
+            await claimTikTokCard(card.tokenId, normalizedLoggedIn, address);
+            console.log('Successfully updated Supabase after claim');
+          }
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);
           // Don't fail the claim if API update fails - blockchain transaction already succeeded
@@ -514,6 +826,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           throw new Error('This card is not for your Instagram account');
         }
 
+        if (!address) {
+          throw new Error('No wallet address found. Please connect your wallet.');
+        }
+
         const walletClient = createWalletClient({
           chain: arcTestnet,
           transport: custom(window.ethereum)
@@ -530,8 +846,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
         // Update Supabase after successful blockchain transaction
         try {
-          await claimInstagramCard(card.tokenId, normalizedLoggedIn, address);
-          console.log('Successfully updated Supabase after claim');
+          if (address) {
+            await claimInstagramCard(card.tokenId, normalizedLoggedIn, address);
+            console.log('Successfully updated Supabase after claim');
+          }
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);
           // Don't fail the claim if API update fails - blockchain transaction already succeeded
@@ -708,25 +1026,70 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
                 </div>
                 
                 <div className="flex flex-col items-end gap-2">
-                  <Button
-                    onClick={() => handleClaim(card)}
-                    disabled={claimingTokenId === card.tokenId || !isConnected}
-                    className="min-w-[120px]"
-                  >
-                    {claimingTokenId === card.tokenId ? (
-                      <>
-                        <Spinner className="w-4 h-4 mr-2" />
-                        Claiming...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Claim Card
-                      </>
-                    )}
-                  </Button>
+                  {isConnected && address && card.cardType === 'twitch' ? (
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        onClick={() => handleClaim(card, false)}
+                        disabled={claimingTokenId === card.tokenId}
+                        className="min-w-[120px]"
+                      >
+                        {claimingTokenId === card.tokenId ? (
+                          <>
+                            <Spinner className="w-4 h-4 mr-2" />
+                            Claiming...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Claim with MetaMask
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => handleClaim(card, true)}
+                        disabled={claimingTokenId === card.tokenId}
+                        variant="outline"
+                        className="min-w-[120px]"
+                      >
+                        <Wallet className="w-4 h-4 mr-2" />
+                        Use Internal Wallet
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => handleClaim(card, card.cardType === 'twitch' ? true : false)}
+                      disabled={claimingTokenId === card.tokenId}
+                      className="min-w-[120px]"
+                    >
+                      {claimingTokenId === card.tokenId ? (
+                        <>
+                          <Spinner className="w-4 h-4 mr-2" />
+                          Claiming...
+                        </>
+                      ) : (
+                        <>
+                          {card.cardType === 'twitch' ? (
+                            <>
+                              <Wallet className="w-4 h-4 mr-2" />
+                              Claim with Internal Wallet
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Claim Card
+                            </>
+                          )}
+                        </>
+                      )}
+                    </Button>
+                  )}
                   
-                  {!isConnected && (
+                  {!isConnected && card.cardType === 'twitch' && (
+                    <span className="text-xs text-gray-500 text-center">
+                      No MetaMask? Use internal wallet
+                    </span>
+                  )}
+                  {!isConnected && card.cardType !== 'twitch' && (
                     <span className="text-xs text-gray-500">Connect wallet</span>
                   )}
                 </div>
@@ -739,6 +1102,15 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
       <PrivyAuthModal 
         isOpen={isPrivyModalOpen} 
         onClose={() => setIsPrivyModalOpen(false)} 
+      />
+      
+      <WalletChoiceModal
+        isOpen={isWalletChoiceModalOpen}
+        onClose={() => {
+          setIsWalletChoiceModalOpen(false);
+          setSelectedCardForClaim(null);
+        }}
+        onCreateWallet={handleCreateWalletAndClaim}
       />
     </div>
   );

@@ -15,8 +15,10 @@ import { useNavigate } from 'react-router-dom';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
 import { GiftCardsService } from '../utils/supabase/giftCards';
-import { USDC_ADDRESS, EURC_ADDRESS, USYC_ADDRESS } from '../utils/web3/constants';
+import { USDC_ADDRESS, EURC_ADDRESS, USYC_ADDRESS, CONTRACT_ADDRESS, GiftCardABI } from '../utils/web3/constants';
 import BridgeDialog from './BridgeDialog';
+import { usePrivy } from '@privy-io/react-auth';
+import { DeveloperWalletService } from '../utils/circle/developerWalletService';
 
 interface RedeemableCard {
   tokenId: string;
@@ -55,7 +57,11 @@ const SERVICE_DISPLAY_NAMES: Record<string, string> = {
 
 export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   const { address, isConnected } = useAccount();
+  const { authenticated, user: privyUser } = usePrivy();
   const navigate = useNavigate();
+  const [hasDeveloperWallet, setHasDeveloperWallet] = useState(false);
+  const [developerWallet, setDeveloperWallet] = useState<any>(null);
+  const [checkingWallet, setCheckingWallet] = useState(true);
   const [cardInput, setCardInput] = useState('');
   const [password, setPassword] = useState('');
   const [currentCard, setCurrentCard] = useState<RedeemableCard | null>(null);
@@ -89,8 +95,74 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
     airbnb: "https://www.airbnb.com/giftcards",
     stripe: "https://buy.stripe.com/test_28o4ig0SY9Xq8co3cc",
     visa: "https://www.visa.com/en-us",
-    circle: "https://www.circle.com/circle-mint"
+    circle: "/Circle-Mint"
   };
+
+  // Checking for a Developer wallet for social networks
+  useEffect(() => {
+    const checkSocialWallet = async () => {
+      // If MetaMask is connected - no need to check a social wallet
+      if (isConnected) {
+        setHasDeveloperWallet(false);
+        setDeveloperWallet(null);
+        setCheckingWallet(false);
+        return;
+      }
+
+      // If no social network is linked - do not check
+      if (!authenticated || !privyUser) {
+        setHasDeveloperWallet(false);
+        setDeveloperWallet(null);
+        setCheckingWallet(false);
+        return;
+      }
+
+      try {
+        setCheckingWallet(true);
+        // Check for a developer wallet for linked social networks
+        const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
+        const blockchain = 'ARC-TESTNET';
+        
+        for (const platform of socialPlatforms) {
+          let socialUserId: string | null = null;
+          
+          if (platform === 'twitter' && privyUser.twitter) {
+            socialUserId = (privyUser.twitter as any).subject;
+          } else if (platform === 'twitch' && privyUser.twitch) {
+            socialUserId = (privyUser.twitch as any).subject;
+          } else if (platform === 'telegram' && privyUser.telegram) {
+            socialUserId = privyUser.telegram.telegramUserId || (privyUser.telegram as any).subject;
+          } else if (platform === 'tiktok' && privyUser.tiktok) {
+            socialUserId = (privyUser.tiktok as any).subject;
+          } else if (platform === 'instagram' && (privyUser as any).instagram) {
+            socialUserId = ((privyUser as any).instagram as any).subject;
+          }
+
+          if (socialUserId) {
+            const foundWallet = await DeveloperWalletService.getWalletBySocial(
+              platform as 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram',
+              socialUserId,
+              blockchain
+            );
+            
+            if (foundWallet) {
+              setHasDeveloperWallet(true);
+              setDeveloperWallet(foundWallet);
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking social wallet:', error);
+        setHasDeveloperWallet(false);
+        setDeveloperWallet(null);
+      } finally {
+        setCheckingWallet(false);
+      }
+    };
+
+    checkSocialWallet();
+  }, [isConnected, authenticated, privyUser]);
 
   // Auto-fill Token ID if provided from MyCards
   useEffect(() => {
@@ -101,44 +173,136 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
 
   // Auto-lookup when cardInput changes and is not empty
   useEffect(() => {
-    if (cardInput && cardInput.trim() !== '' && isConnected && redeemStep === 'input') {
+    // Do not perform lookup while wallet is being checked
+    if (checkingWallet) {
+      return;
+    }
+    
+    // Do not perform lookup if neither MetaMask nor developer wallet is available
+    if (!isConnected && !hasDeveloperWallet) {
+      return;
+    }
+    
+    if (cardInput && cardInput.trim() !== '' && redeemStep === 'input') {
       handleCardLookup();
     }
-  }, [cardInput, isConnected, redeemStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardInput, isConnected, hasDeveloperWallet, checkingWallet, redeemStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lookupCard = async (tokenId: string): Promise<RedeemableCard | null> => {
-    if (!isConnected || !address) {
+    // Determine address to check card ownership
+    let checkAddress: string;
+    
+    if (isConnected && address) {
+      checkAddress = address;
+    } else if (hasDeveloperWallet && developerWallet) {
+      checkAddress = developerWallet.wallet_address;
+    } else {
       throw new Error('Wallet not connected');
     }
 
-
-
     try {
-      // Initialize web3 service
-      const walletClient = createWalletClient({
-        chain: arcTestnet,
-        transport: custom(window.ethereum)
-      });
-
-      await web3Service.initialize(walletClient, address);
-
-      // Get gift card info from blockchain
-
-      const giftCardInfo = await web3Service.getGiftCardInfo(tokenId);
+      let giftCardInfo: any;
+      let owner: string;
+      let creator: string;
       
-      if (!giftCardInfo) {
-        return null;
+      // If MetaMask is connected - use web3Service
+      if (isConnected && address) {
+        // Initialize web3 service
+        const walletClient = createWalletClient({
+          chain: arcTestnet,
+          transport: custom(window.ethereum)
+        });
+
+        await web3Service.initialize(walletClient, address as string);
+
+        // Get gift card info from blockchain
+        giftCardInfo = await web3Service.getGiftCardInfo(tokenId);
+        
+        if (!giftCardInfo) {
+          return null;
+        }
+
+        // Check if user owns this card
+        owner = await web3Service.getCardOwner(tokenId);
+        if (owner.toLowerCase() !== address.toLowerCase()) {
+          throw new Error('You do not own this gift card');
+        }
+
+        // Get the original creator of the card
+        creator = await web3Service.getCardCreator(tokenId);
+      } else {
+        // For developer wallet use a public RPC for reading
+        const { createPublicClient, http } = await import('viem');
+        const publicClient = createPublicClient({
+          chain: arcTestnet,
+          transport: http()
+        });
+
+        // Read card data directly from the contract
+        // Use the correct ABI from GiftCardABI
+        const [contractData, ownerData, creatorData] = await Promise.all([
+          publicClient.readContract({
+            address: CONTRACT_ADDRESS as `0x${string}`,
+            abi: GiftCardABI,
+            functionName: 'getGiftCardInfo',
+            args: [BigInt(tokenId)]
+          }),
+          publicClient.readContract({
+            address: CONTRACT_ADDRESS as `0x${string}`,
+            abi: [
+              {
+                inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
+                name: 'ownerOf',
+                outputs: [{ internalType: 'address', name: '', type: 'address' }],
+                stateMutability: 'view',
+                type: 'function'
+              }
+            ],
+            functionName: 'ownerOf',
+            args: [BigInt(tokenId)]
+          }),
+          publicClient.readContract({
+            address: CONTRACT_ADDRESS as `0x${string}`,
+            abi: [
+              {
+                inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
+                name: 'getGiftCardCreator',
+                outputs: [{ internalType: 'address', name: '', type: 'address' }],
+                stateMutability: 'view',
+                type: 'function'
+              }
+            ],
+            functionName: 'getGiftCardCreator',
+            args: [BigInt(tokenId)]
+          }).catch(() => '0x0000000000000000000000000000000000000000')
+        ]) as any;
+
+        // contractData is the GiftCardInfo structure: { amount, token, redeemed, message }
+        if (!contractData || (contractData as any).redeemed) {
+          return null;
+        }
+
+        owner = ownerData;
+        creator = creatorData && creatorData !== '0x0000000000000000000000000000000000000000' 
+          ? creatorData 
+          : '0x0000000000000000000000000000000000000000';
+
+        // Check if user owns this card
+        if (owner.toLowerCase() !== checkAddress.toLowerCase()) {
+          throw new Error('You do not own this gift card');
+        }
+
+        // Convert contract data to giftCardInfo format
+        // contractData already is structure { amount, token, redeemed, message }
+        giftCardInfo = {
+          amount: (contractData as any).amount.toString(),
+          token: (contractData as any).token,
+          redeemed: (contractData as any).redeemed,
+          message: (contractData as any).message || ''
+        };
       }
 
-      // Check if user owns this card
-      const owner = await web3Service.getCardOwner(tokenId);
-      if (owner.toLowerCase() !== address.toLowerCase()) {
-        throw new Error('You do not own this gift card');
-      }
-
-      // Get the original creator of the card
-      const creator = await web3Service.getCardCreator(tokenId);
-
+      // Common formatting logic for both cases
       // Format amount properly 
       const formattedAmount = (Number(giftCardInfo.amount) / 1000000).toString();
       
@@ -151,14 +315,16 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
         'USDC';
 
       // Format creator address (show first 6 and last 4 characters)
-      const formattedCreator = creator ? `${creator.slice(0, 6)}...${creator.slice(-4)}` : 'Unknown';
+      const formattedCreator = creator && creator !== '0x0000000000000000000000000000000000000000' 
+        ? `${creator.slice(0, 6)}...${creator.slice(-4)}` 
+        : 'Unknown';
 
       return {
         tokenId,
         amount: formattedAmount,
         currency: tokenSymbol,
         design: 'pink', // Default design, could be extracted from metadata
-        message: giftCardInfo.message,
+        message: giftCardInfo.message || '',
         sender: formattedCreator,
         hasPassword: false, // Not implemented in current contract
         hasTimer: false, // Not implemented in current contract
@@ -230,7 +396,21 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   };
 
   const handleRedeem = async () => {
-    if (!currentCard || !isConnected || !address) return;
+    // Recognize address and type of execute tx
+    let redeemAddress: string;
+    let useDeveloperWallet = false;
+    
+    if (isConnected && address) {
+      redeemAddress = address;
+    } else if (hasDeveloperWallet && developerWallet) {
+      redeemAddress = developerWallet.wallet_address;
+      useDeveloperWallet = true;
+    } else {
+      setError('Wallet not connected');
+      return;
+    }
+    
+    if (!currentCard) return;
     
     if (!selectedService) {
       setError('Please select a service to spend your gift card on.');
@@ -243,18 +423,60 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
     }
 
     try {
-      // Initialize web3 service
-      const walletClient = createWalletClient({
-        chain: arcTestnet,
-        transport: custom(window.ethereum)
-      });
+      // Check card status before redeem
+      let giftCardInfo: any;
+      let owner: string;
+      
+      if (useDeveloperWallet) {
+        // For developer wallet use public RPC for reading
+        const { createPublicClient, http } = await import('viem');
+        const publicClient = createPublicClient({
+          chain: arcTestnet,
+          transport: http()
+        });
 
-      await web3Service.initialize(walletClient, address);
+        [giftCardInfo, owner] = await Promise.all([
+          publicClient.readContract({
+            address: CONTRACT_ADDRESS as `0x${string}`,
+            abi: GiftCardABI,
+            functionName: 'getGiftCardInfo',
+            args: [BigInt(currentCard.tokenId)]
+          }),
+          publicClient.readContract({
+            address: CONTRACT_ADDRESS as `0x${string}`,
+            abi: [
+              {
+                inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
+                name: 'ownerOf',
+                outputs: [{ internalType: 'address', name: '', type: 'address' }],
+                stateMutability: 'view',
+                type: 'function'
+              }
+            ],
+            functionName: 'ownerOf',
+            args: [BigInt(currentCard.tokenId)]
+          })
+        ]);
+        
+        // giftCardInfo is structure { amount, token, redeemed, message }
+        giftCardInfo = {
+          redeemed: giftCardInfo.redeemed,
+          amount: giftCardInfo.amount.toString(),
+          token: giftCardInfo.token,
+          message: giftCardInfo.message || ''
+        };
+      } else {
+        // For MetaMask use web3Service
+        const walletClient = createWalletClient({
+          chain: arcTestnet,
+          transport: custom(window.ethereum)
+        });
 
-      // Check current card status before redeem
-      // This prevents attempting to redeem an already used card
-      // IMPORTANT: Always check fresh blockchain data, not cached state
-      const giftCardInfo = await web3Service.getGiftCardInfo(currentCard.tokenId);
+        await web3Service.initialize(walletClient, address as string);
+
+        giftCardInfo = await web3Service.getGiftCardInfo(currentCard.tokenId);
+        owner = await web3Service.getCardOwner(currentCard.tokenId);
+      }
       
       if (!giftCardInfo) {
         setError('Gift card not found. It may have been removed.');
@@ -264,13 +486,10 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       }
 
       // Check that the card has not been redeemed yet
-      // This is critical - always check blockchain status before attempting redeem
       if (giftCardInfo.redeemed) {
         setError('This gift card has already been redeemed and cannot be used again.');
-        // Update card state to reflect current status
         setCurrentCard(prev => prev ? { ...prev, status: 'redeemed' } : null);
         setRedeemStep('input');
-        // Clear cardInput if it matches the redeemed card to prevent re-lookup
         if (cardInput === currentCard.tokenId) {
           setCardInput('');
         }
@@ -278,12 +497,10 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       }
 
       // Check that user is still the owner of the card
-      const owner = await web3Service.getCardOwner(currentCard.tokenId);
-      if (owner.toLowerCase() !== address.toLowerCase()) {
+      if (owner && owner.toLowerCase() !== redeemAddress.toLowerCase()) {
         setError('You are no longer the owner of this gift card.');
         setCurrentCard(null);
         setRedeemStep('input');
-        // Clear cardInput if it matches the card user no longer owns
         if (cardInput === currentCard.tokenId) {
           setCardInput('');
         }
@@ -291,7 +508,61 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       }
 
       // Redeem gift card on blockchain
-      await web3Service.redeemGiftCard(currentCard.tokenId);
+      if (useDeveloperWallet) {
+        // Use developer wallet to redeem
+        const privyUserId = privyUser?.id;
+        if (!privyUserId) {
+          throw new Error('Privy user ID not found');
+        }
+
+        // Determine the social network for the developer wallet
+        let socialPlatform: string | null = null;
+        let socialUserId: string | null = null;
+        
+        const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
+        for (const platform of socialPlatforms) {
+          if (platform === 'twitter' && privyUser?.twitter) {
+            socialPlatform = 'twitter';
+            socialUserId = (privyUser.twitter as any).subject;
+            break;
+          } else if (platform === 'twitch' && privyUser?.twitch) {
+            socialPlatform = 'twitch';
+            socialUserId = (privyUser.twitch as any).subject;
+            break;
+          } else if (platform === 'telegram' && privyUser?.telegram) {
+            socialPlatform = 'telegram';
+            socialUserId = privyUser.telegram.telegramUserId || (privyUser.telegram as any).subject;
+            break;
+          } else if (platform === 'tiktok' && privyUser?.tiktok) {
+            socialPlatform = 'tiktok';
+            socialUserId = (privyUser.tiktok as any).subject;
+            break;
+          } else if (platform === 'instagram' && (privyUser as any)?.instagram) {
+            socialPlatform = 'instagram';
+            socialUserId = ((privyUser as any).instagram as any).subject;
+            break;
+          }
+        }
+
+        const txResult = await DeveloperWalletService.sendTransaction({
+          walletId: developerWallet.circle_wallet_id,
+          walletAddress: developerWallet.wallet_address,
+          contractAddress: CONTRACT_ADDRESS,
+          functionName: 'redeemGiftCard',
+          args: [BigInt(currentCard.tokenId)],
+          blockchain: 'ARC-TESTNET',
+          privyUserId: privyUserId,
+          socialPlatform: socialPlatform || undefined,
+          socialUserId: socialUserId || undefined
+        });
+
+        if (!txResult.success) {
+          throw new Error(txResult.error || 'Failed to redeem gift card');
+        }
+      } else {
+        // Use MetaMask to redeem
+        await web3Service.redeemGiftCard(currentCard.tokenId);
+      }
       
       // Update Supabase cache
       try {
@@ -314,9 +585,22 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       } else {
         // For other services: standard redirect
         setTimeout(() => {
-          if (selectedService && serviceUrls[selectedService as keyof typeof serviceUrls]) {
-            window.open(serviceUrls[selectedService as keyof typeof serviceUrls], '_blank');
+          if (!selectedService) return;
+          const url = serviceUrls[selectedService as keyof typeof serviceUrls];
+          if (!url) return;
+          if (url.startsWith('/')) {
+            if (selectedService === 'circle' && currentCard) {
+              const params = new URLSearchParams({
+                tokenId: currentCard.tokenId,
+                amount: currentCard.amount,
+                autoConnect: '1'
+              }).toString();
+              navigate(`/Circle-Mint?${params}`);
+            } else {
+              navigate(url);
+            }
           }
+          else window.open(url, '_blank');
         }, 2000);
       }
       
@@ -343,13 +627,25 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
     navigate('/my');
   };
 
-  if (!isConnected) {
+  // Show the message only if there is neither MetaMask nor a social Developer wallet
+  if (!isConnected && !hasDeveloperWallet) {
+    if (checkingWallet) {
+      return (
+        <div className="p-6 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <span className="text-sm text-gray-600">Checking wallet...</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="p-6 text-center">
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Please connect your wallet to redeem gift cards
+            Please connect your wallet or social account to redeem gift cards
           </AlertDescription>
         </Alert>
       </div>
@@ -462,155 +758,158 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
                 <h4 className="text-sm font-medium text-gray-700 text-center">Choose where to spend your gift card:</h4>
 
                 <div className="flex flex-wrap justify-center gap-4">
-                  <Popover
-                    open={isTechGiantsOpen}
-                    onOpenChange={(open) => {
-                      setIsTechGiantsOpen(open);
-                      if (open) {
-                        setIsUsdWithdrawOpen(false);
-                      }
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
-                          isTechGiantsSelected ? 'scale-110' : 'hover:scale-105'
-                        }`}
-                        aria-label="Open Tech Giants options"
-                      >
-                        <div
-                          className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                            isTechGiantsSelected
-                              ? 'border-sky-500 shadow-lg'
-                              : 'border-gray-200 hover:border-sky-300'
+                  {/* Web2 (Tech Giants) hidden */}
+                  {false && (
+                    <Popover
+                      open={isTechGiantsOpen}
+                      onOpenChange={(open) => {
+                        setIsTechGiantsOpen(open);
+                        if (open) {
+                          setIsUsdWithdrawOpen(false);
+                        }
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                            isTechGiantsSelected ? 'scale-110' : 'hover:scale-105'
                           }`}
+                          aria-label="Open Tech Giants options"
                         >
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-sky-500 to-blue-600">
-                            <span className="text-xs font-semibold text-white">Tech</span>
+                          <div
+                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                              isTechGiantsSelected
+                                ? 'border-sky-500 shadow-lg'
+                                : 'border-gray-200 hover:border-sky-300'
+                            }`}
+                          >
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-sky-500 to-blue-600">
+                              <span className="text-xs font-semibold text-white">Apple</span>
+                            </div>
                           </div>
+                          <span
+                            className={`text-xs font-medium transition-colors ${
+                              isTechGiantsSelected ? 'text-sky-600' : 'text-gray-600'
+                            }`}
+                          >
+                            Web 2
+                          </span>
+                        </button>
+                      </PopoverTrigger>
+
+                      <PopoverContent className="w-80 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">Tech Giants</span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                              isTechGiantsOpen ? 'rotate-180' : ''
+                            }`}
+                          />
                         </div>
-                        <span
-                          className={`text-xs font-medium transition-colors ${
-                            isTechGiantsSelected ? 'text-sky-600' : 'text-gray-600'
-                          }`}
-                        >
-                          Web 2
-                        </span>
-                      </button>
-                    </PopoverTrigger>
+                        <div className="grid grid-cols-3 gap-4">
+                          {/* Airbnb */}
+                          <button
+                            type="button"
+                            className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                              selectedService === 'airbnb' ? 'scale-110' : 'hover:scale-105'
+                            }`}
+                            onClick={() => {
+                              setSelectedService('airbnb');
+                              setIsTechGiantsOpen(false);
+                            }}
+                          >
+                            <div
+                              className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                                selectedService === 'airbnb'
+                                  ? 'border-blue-500 shadow-lg'
+                                  : 'border-gray-200 hover:border-blue-300'
+                              }`}
+                            >
+                              <img
+                                src="/airbnb.jpg"
+                                alt="Airbnb"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <span
+                              className={`text-xs font-medium transition-colors ${
+                                selectedService === 'airbnb' ? 'text-blue-600' : 'text-gray-600'
+                              }`}
+                            >
+                              Airbnb
+                            </span>
+                          </button>
 
-                    <PopoverContent className="w-80 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Tech Giants</span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                            isTechGiantsOpen ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        {/* Airbnb */}
-                        <button
-                          type="button"
-                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
-                            selectedService === 'airbnb' ? 'scale-110' : 'hover:scale-105'
-                          }`}
-                          onClick={() => {
-                            setSelectedService('airbnb');
-                            setIsTechGiantsOpen(false);
-                          }}
-                        >
-                          <div
-                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                              selectedService === 'airbnb'
-                                ? 'border-blue-500 shadow-lg'
-                                : 'border-gray-200 hover:border-blue-300'
+                          {/* Amazon */}
+                          <button
+                            type="button"
+                            className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                              selectedService === 'amazon' ? 'scale-110' : 'hover:scale-105'
                             }`}
+                            onClick={() => {
+                              setSelectedService('amazon');
+                              setIsTechGiantsOpen(false);
+                            }}
                           >
-                            <img
-                              src="/airbnb.jpg"
-                              alt="Airbnb"
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-                          <span
-                            className={`text-xs font-medium transition-colors ${
-                              selectedService === 'airbnb' ? 'text-blue-600' : 'text-gray-600'
-                            }`}
-                          >
-                            Airbnb
-                          </span>
-                        </button>
+                            <div
+                              className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                                selectedService === 'amazon'
+                                  ? 'border-orange-500 shadow-lg'
+                                  : 'border-gray-200 hover:border-orange-300'
+                              }`}
+                            >
+                              <img
+                                src="/amazon.jpg"
+                                alt="Amazon"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <span
+                              className={`text-xs font-medium transition-colors ${
+                                selectedService === 'amazon' ? 'text-orange-600' : 'text-gray-600'
+                              }`}
+                            >
+                              Amazon
+                            </span>
+                          </button>
 
-                        {/* Amazon */}
-                        <button
-                          type="button"
-                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
-                            selectedService === 'amazon' ? 'scale-110' : 'hover:scale-105'
-                          }`}
-                          onClick={() => {
-                            setSelectedService('amazon');
-                            setIsTechGiantsOpen(false);
-                          }}
-                        >
-                          <div
-                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                              selectedService === 'amazon'
-                                ? 'border-orange-500 shadow-lg'
-                                : 'border-gray-200 hover:border-orange-300'
+                          {/* Apple */}
+                          <button
+                            type="button"
+                            className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
+                              selectedService === 'apple' ? 'scale-110' : 'hover:scale-105'
                             }`}
+                            onClick={() => {
+                              setSelectedService('apple');
+                              setIsTechGiantsOpen(false);
+                            }}
                           >
-                            <img
-                              src="/amazon.jpg"
-                              alt="Amazon"
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-                          <span
-                            className={`text-xs font-medium transition-colors ${
-                              selectedService === 'amazon' ? 'text-orange-600' : 'text-gray-600'
-                            }`}
-                          >
-                            Amazon
-                          </span>
-                        </button>
-
-                        {/* Apple */}
-                        <button
-                          type="button"
-                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
-                            selectedService === 'apple' ? 'scale-110' : 'hover:scale-105'
-                          }`}
-                          onClick={() => {
-                            setSelectedService('apple');
-                            setIsTechGiantsOpen(false);
-                          }}
-                        >
-                          <div
-                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                              selectedService === 'apple'
-                                ? 'border-gray-500 shadow-lg'
-                                : 'border-gray-200 hover:border-gray-400'
-                            }`}
-                          >
-                            <img
-                              src="/apple.jpg"
-                              alt="Apple"
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-                          <span
-                            className={`text-xs font-medium transition-colors ${
-                              selectedService === 'apple' ? 'text-gray-800' : 'text-gray-600'
-                            }`}
-                          >
-                            Apple
-                          </span>
-                        </button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                            <div
+                              className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
+                                selectedService === 'apple'
+                                  ? 'border-gray-500 shadow-lg'
+                                  : 'border-gray-200 hover:border-gray-400'
+                              }`}
+                            >
+                              <img
+                                src="/apple.jpg"
+                                alt="Apple"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <span
+                              className={`text-xs font-medium transition-colors ${
+                                selectedService === 'apple' ? 'text-gray-800' : 'text-gray-600'
+                              }`}
+                            >
+                              Apple
+                            </span>
+                          </button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
 
                   {/* USDC Withdraw */}
                   <div
@@ -738,6 +1037,16 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
                           onClick={() => {
                             setSelectedService('circle');
                             setIsUsdWithdrawOpen(false);
+                            if (currentCard) {
+                              const params = new URLSearchParams({
+                                tokenId: currentCard.tokenId,
+                                amount: currentCard.amount,
+                                autoConnect: '1'
+                              }).toString();
+                              navigate(`/Circle-Mint?${params}`);
+                            } else {
+                              navigate('/Circle-Mint');
+                            }
                           }}
                         >
                           <div

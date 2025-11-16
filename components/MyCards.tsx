@@ -16,6 +16,7 @@ import web3Service from '../utils/web3/web3Service';
 import { ClaimCards } from './ClaimCards';
 import { usePrivy } from '@privy-io/react-auth';
 import { GiftCardsService, type GiftCardInsert } from '../utils/supabase/giftCards';
+import { DeveloperWalletService } from '../utils/circle/developerWalletService';
 
 interface GiftCard {
   tokenId: string;
@@ -51,6 +52,8 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
+  // Temporary flag to disable background blockchain sync on /my
+  const ENABLE_BLOCKCHAIN_SYNC = false;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -139,14 +142,17 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   };
 
   useEffect(() => {
-    if (isConnected && address && !hasFetched) {
-      setHasFetched(true);
-      fetchCards();
-    } else if (!isConnected || !address) {
+    // Load cards if MetaMask is connected OR a social network with a developer wallet is available
+    if ((isConnected && address) || (authenticated && user)) {
+      if (!hasFetched) {
+        setHasFetched(true);
+        fetchCards();
+      }
+    } else {
       setLoading(false);
       setHasFetched(false);
     }
-  }, [isConnected, address, hasFetched]);
+  }, [isConnected, address, authenticated, user, hasFetched]);
 
   useEffect(() => {
     if (authenticated && isConnected && address) {
@@ -157,24 +163,86 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   }, [authenticated, user?.twitter?.username, user?.twitch?.username, telegramUsername, isConnected, address]);
 
   const fetchCards = async () => {
-    if (!isConnected || !address) return;
+    // If MetaMask is connected - use its address
+    // If there is no MetaMask but a social network is linked - check for a developer wallet
+    let recipientAddresses: string[] = [];
+    
+    if (isConnected && address) {
+      recipientAddresses.push(address.toLowerCase());
+    }
+    
+    // Check developer wallet for social networks
+    if (authenticated && user) {
+      try {
+        const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
+        const blockchain = 'ARC-TESTNET';
+        
+        for (const platform of socialPlatforms) {
+          let socialUserId: string | null = null;
+          
+          if (platform === 'twitter' && user.twitter) {
+            socialUserId = (user.twitter as any).subject;
+          } else if (platform === 'twitch' && user.twitch) {
+            socialUserId = (user.twitch as any).subject;
+          } else if (platform === 'telegram' && user.telegram) {
+            socialUserId = user.telegram.telegramUserId || (user.telegram as any).subject;
+          } else if (platform === 'tiktok' && user.tiktok) {
+            socialUserId = (user.tiktok as any).subject;
+          } else if (platform === 'instagram' && (user as any).instagram) {
+            socialUserId = ((user as any).instagram as any).subject;
+          }
+
+          if (socialUserId) {
+            const devWallet = await DeveloperWalletService.getWalletBySocial(
+              platform as 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram',
+              socialUserId,
+              blockchain
+            );
+            
+            if (devWallet && devWallet.wallet_address) {
+              const walletAddr = devWallet.wallet_address.toLowerCase();
+              if (!recipientAddresses.includes(walletAddr)) {
+                recipientAddresses.push(walletAddr);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching developer wallets:', error);
+      }
+    }
+    
+    // If neither MetaMask nor a developer wallet is available - do not load cards
+    if (recipientAddresses.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // First, try to load from Supabase cache (fast) - display immediately
-      console.log('Loading cards from Supabase cache...');
-      const [supabaseReceivedCards, supabaseSentCards] = await Promise.all([
-        GiftCardsService.getCardsByRecipientAddress(address),
-        GiftCardsService.getCardsBySender(address)
+      console.log('Loading cards from Supabase cache for addresses:', recipientAddresses);
+      
+      // Retrieve cards for all addresses (MetaMask + developer wallets)
+      const [allReceivedCards, supabaseSentCards] = await Promise.all([
+        Promise.all(recipientAddresses.map(addr => GiftCardsService.getCardsByRecipientAddress(addr))).then(
+          results => results.flat()
+        ),
+        isConnected && address ? GiftCardsService.getCardsBySender(address) : Promise.resolve([])
       ]);
 
-      // Transform Supabase data to our format
-      const transformedReceivedCards: GiftCard[] = supabaseReceivedCards.map(card => ({
+        // Transform Supabase data to our format
+        // Remove duplicates by tokenId
+      const uniqueReceivedCards = Array.from(
+        new Map(allReceivedCards.map(card => [card.token_id, card])).values()
+      );
+      
+      const transformedReceivedCards: GiftCard[] = uniqueReceivedCards.map(card => ({
         tokenId: card.token_id,
         amount: card.amount,
         currency: card.currency,
         design: 'pink',
         message: card.message,
-        recipient: address,
+        recipient: card.recipient_address || (isConnected && address ? address : ''),
         sender: card.sender_address,
         status: card.redeemed ? 'redeemed' : 'active',
         createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
@@ -205,7 +273,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           design: 'pink',
           message: card.message,
           recipient: recipientDisplay,
-          sender: address,
+          sender: address || '',
           status: card.redeemed ? 'redeemed' : 'active',
           createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
           hasTimer: false,
@@ -220,11 +288,13 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       setLoading(false);
 
       // Then sync with blockchain in the background (slow, but non-blocking)
-      // Start sync without await to avoid blocking UI
-      console.log('Starting blockchain sync in background...');
-      syncWithBlockchain(address).catch(error => {
-        console.error('Background sync error (non-critical):', error);
-      });
+      // Temporarily disabled per request
+      if (ENABLE_BLOCKCHAIN_SYNC && address) {
+        console.log('Starting blockchain sync in background...');
+        syncWithBlockchain(address as string).catch(error => {
+          console.error('Background sync error (non-critical):', error);
+        });
+      }
     } catch (error) {
       console.error('Error fetching cards from Supabase:', error);
       // Fallback to blockchain if Supabase fails
@@ -249,8 +319,6 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       
       // Load sent cards
       console.log('Loading sent cards from blockchain...');
-      const sentBlockchainCards = await web3Service.loadSentGiftCards(false, true);
-      console.log(`Synced ${blockchainCards.length} received and ${sentBlockchainCards.length} sent cards from blockchain`);
       
       // Also check cards with NULL recipient_address in Supabase
       // and update their owners from blockchain
@@ -316,45 +384,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         });
       });
       
-      // Add sent cards (overwrite if duplicates exist)
-      sentBlockchainCards.forEach(card => {
-        const rawRecipient = card.recipient || '';
-        const lowercaseRecipient = rawRecipient.toLowerCase();
-        let recipientAddress: string | null = null;
-        let recipientUsername: string | null = null;
-        let recipientType: 'address' | 'twitter' | 'twitch' | 'telegram' = 'address';
-
-        if (lowercaseRecipient.startsWith('0x')) {
-          recipientAddress = rawRecipient.toLowerCase();
-        } else if (lowercaseRecipient.startsWith('telegram:')) {
-          recipientType = 'telegram';
-          recipientUsername = rawRecipient.slice('telegram:'.length).replace(/^@/, '').trim();
-        } else if (lowercaseRecipient.startsWith('twitter:') || rawRecipient.startsWith('@')) {
-          recipientType = 'twitter';
-          const usernamePart = lowercaseRecipient.startsWith('twitter:')
-            ? rawRecipient.slice('twitter:'.length)
-            : rawRecipient;
-          recipientUsername = usernamePart.replace(/^@/, '').trim();
-        } else if (lowercaseRecipient.length > 0) {
-          recipientType = 'twitch';
-          const usernamePart = lowercaseRecipient.startsWith('twitch:')
-            ? rawRecipient.slice('twitch:'.length)
-            : rawRecipient;
-          recipientUsername = usernamePart.replace(/^@/, '').trim();
-        }
-
-        cardsMap.set(card.tokenId, {
-          token_id: card.tokenId,
-          sender_address: userAddress.toLowerCase(),
-          recipient_address: recipientAddress,
-          recipient_username: recipientUsername,
-          recipient_type: recipientType,
-          amount: card.amount,
-          currency: card.token,
-          message: card.message,
-          redeemed: card.redeemed,
-        });
-      });
+      // Skip sent cards enrichment (handled via Supabase cache earlier)
       
       // Add updated cards (overwrite if duplicates exist)
       cardsToUpdate.forEach(card => {
@@ -415,72 +445,11 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         return receivedChanged ? transformedReceivedCards : currentReceivedCards;
       });
 
-      setSentCards(currentSentCards => {
-        const existingSentMap = new Map(currentSentCards.map(card => [card.tokenId, card]));
-
-        // Transform sent cards
-        const transformedSentCards: GiftCard[] = sentBlockchainCards.map(card => {
-          const rawRecipient = card.recipient || '';
-          const lowercaseRecipient = rawRecipient.toLowerCase();
-          let recipientDisplay = rawRecipient;
-
-          if (lowercaseRecipient.startsWith('telegram:')) {
-            const username = rawRecipient.slice('telegram:'.length).replace(/^@/, '').trim();
-            recipientDisplay = username ? `@${username} (Telegram)` : 'Telegram user';
-          } else if (lowercaseRecipient.startsWith('twitter:')) {
-            const username = rawRecipient.slice('twitter:'.length).replace(/^@/, '').trim();
-            recipientDisplay = username ? `@${username}` : 'Twitter user';
-          } else if (rawRecipient.startsWith('@')) {
-            recipientDisplay = rawRecipient;
-          } else if (lowercaseRecipient.startsWith('twitch:')) {
-            const username = rawRecipient.slice('twitch:'.length).trim();
-            recipientDisplay = username ? `${username} (Twitch)` : 'Twitch user';
-          } else if (!lowercaseRecipient.startsWith('0x') && lowercaseRecipient.length > 0) {
-            recipientDisplay = `${rawRecipient} (Twitch)`;
-          }
-
-          return {
-            tokenId: card.tokenId,
-            amount: card.amount,
-            currency: card.token,
-            design: 'pink',
-            message: card.message,
-            recipient: recipientDisplay,
-            sender: userAddress,
-            status: card.redeemed ? 'redeemed' : 'active',
-            createdAt: existingSentMap.get(card.tokenId)?.createdAt || new Date().toLocaleDateString(),
-            hasTimer: false,
-            hasPassword: false,
-            qrCode: `sendly://redeem/${card.tokenId}`
-          };
-        });
-
-        // Always update with blockchain data (source of truth)
-        // Check if there are actual changes to avoid unnecessary re-renders
-        const sentChanged = currentSentCards.length !== transformedSentCards.length ||
-          currentSentCards.some(card => {
-            const newCard = transformedSentCards.find(c => c.tokenId === card.tokenId);
-            if (!newCard) return true; // Card was removed
-            return newCard.status !== card.status || 
-                   newCard.amount !== card.amount ||
-                   newCard.currency !== card.currency ||
-                   newCard.message !== card.message;
-          }) ||
-          transformedSentCards.some(newCard => {
-            const existingCard = currentSentCards.find(c => c.tokenId === newCard.tokenId);
-            return !existingCard; // New card was added
-          });
-
-        // Always return blockchain data if there are changes, otherwise keep current to avoid flicker
-        // But if counts differ, always update (blockchain is source of truth)
-        if (currentSentCards.length !== transformedSentCards.length) {
-          return transformedSentCards;
-        }
-        
-        return sentChanged ? transformedSentCards : currentSentCards;
-      });
+      // Keep existing sent cards; no blockchain update performed here
       
-      console.log('Blockchain sync completed');
+      if (ENABLE_BLOCKCHAIN_SYNC) {
+        console.log('Blockchain sync completed');
+      }
     } catch (error) {
       console.error('Error syncing with blockchain:', error);
       // Don't show error to user - they already have data from Supabase
@@ -505,10 +474,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       // Load gift cards from blockchain
       const blockchainCards = await web3Service.loadGiftCards(false, true);
       
-      // Load sent cards
-      console.log('Fetching sent gift cards...');
-      const sentBlockchainCards = await web3Service.loadSentGiftCards(false, true);
-      console.log(`Received ${sentBlockchainCards.length} sent cards from blockchain`);
+      // Sent cards sync is disabled (handled via Supabase cache)
       
       // Transform blockchain data to our format for received cards
       const transformedCards: GiftCard[] = blockchainCards.map(card => ({
@@ -526,25 +492,9 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         qrCode: `sendly://redeem/${card.tokenId}`
       }));
 
-      // Transform blockchain data to our format for sent cards
-      const transformedSentCards: GiftCard[] = sentBlockchainCards.map(card => ({
-        tokenId: card.tokenId,
-        amount: card.amount,
-        currency: card.token,
-        design: 'pink',
-        message: card.message,
-        recipient: card.recipient,
-        sender: address,
-        status: card.redeemed ? 'redeemed' : 'active',
-        createdAt: new Date().toLocaleDateString(),
-        hasTimer: false,
-        hasPassword: false,
-        qrCode: `sendly://redeem/${card.tokenId}`
-      }));
-
       // Update card state
       setReceivedCards(transformedCards);
-      setSentCards(transformedSentCards);
+      // Keep previously loaded sent cards
     } catch (error) {
       console.error('Error fetching cards:', error);
       if (!(error as Error).message?.includes('rate limit') && !(error as Error).message?.includes('429')) {
@@ -572,7 +522,9 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
     return matchesSearch && matchesStatus && matchesCurrency;
   });
 
-  if (!isConnected) {
+  // Allow viewing pending cards even without wallet connection (they can use Developer wallet)
+  // But require wallet for viewing received/sent cards
+  if (!isConnected && !authenticated) {
     return (
       <div className="p-6">
         <Empty>
@@ -582,7 +534,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
             </EmptyMedia>
             <EmptyTitle>Connect your wallet</EmptyTitle>
             <EmptyDescription>
-              Please connect your wallet to view your gift cards
+              Please connect your wallet or social account to view your gift cards
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

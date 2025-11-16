@@ -143,9 +143,9 @@ export function TransactionHistory() {
       console.log('Loading received gift cards...');
       const receivedCards = await web3Service.loadGiftCards(false, true);
       
-      // Load sent gift cards (can be slower due to logs)
-      console.log('Loading sent gift cards...');
-      const sentCards = await web3Service.loadSentGiftCards();
+      // Load sent gift cards (temporarily disabled; handled elsewhere)
+      console.log('Loading sent gift cards... (skipped)');
+      const sentCards: any[] = [];
       
       // Combine all cards
       const allCards = [...receivedCards, ...sentCards];
@@ -163,10 +163,11 @@ export function TransactionHistory() {
         USYC: 0,
       };
 
-      allCards.forEach(card => {
+      allCards.forEach((card: any) => {
         const amount = parseFloat(card.amount);
-        if (card.token === 'USDC' || card.token === 'EURC' || card.token === 'USYC') {
-          currencyCounts[card.token]++;
+        const symbol = card.token as 'USDC' | 'EURC' | 'USYC';
+        if (symbol === 'USDC' || symbol === 'EURC' || symbol === 'USYC') {
+          currencyCounts[symbol]++;
         }
 
         if (card.type === 'sent') {
