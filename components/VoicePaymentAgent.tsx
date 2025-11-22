@@ -23,6 +23,8 @@ import { DeveloperWalletService } from '../utils/circle/developerWalletService';
 
 type RecordingState = 'idle' | 'recording' | 'processing' | 'confirming' | 'creating';
 
+const VOICE_AGENT_ENABLED = false;
+
 export function VoicePaymentAgent() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -338,6 +340,8 @@ export function VoicePaymentAgent() {
 
   return (
     <div className="space-y-6">
+      {/* Voice AI Agent Section (disabled) */}
+      {VOICE_AGENT_ENABLED && (
       <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CardHeader className="pb-3">
@@ -371,7 +375,6 @@ export function VoicePaymentAgent() {
           
           <CollapsibleContent>
             <CardContent className="space-y-5 pt-0">
-              {/* Voice Command Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-center py-4">
                   <Tooltip>
@@ -502,6 +505,7 @@ export function VoicePaymentAgent() {
           </CollapsibleContent>
         </Collapsible>
       </Card>
+      )}
 
       <ContactsManager contacts={contacts} onContactsChange={setContacts} />
     </div>

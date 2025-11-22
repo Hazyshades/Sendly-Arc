@@ -21,6 +21,7 @@ export function Layout({ children }: LayoutProps) {
     { path: '/my', label: 'My Cards', icon: '🎴' },
     { path: '/spend', label: 'Spend', icon: '💳' },
     { path: '/history', label: 'History', icon: '📜' },
+    { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
   ];
 
   const isActive = (path: string) => location.pathname === path;

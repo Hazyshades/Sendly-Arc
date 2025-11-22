@@ -16,6 +16,7 @@ import { GatewayRoute } from '../pages/GatewayRoute';
 import { TwitchCallbackRoute } from '../pages/TwitchCallbackRoute';
 import { TwitterCallbackRoute } from '../pages/TwitterCallbackRoute';
 import { CircleMintRoute } from '../pages/CircleMintRoute';
+import { LeaderboardRoute } from '../pages/LeaderboardRoute';
 
 function AppRouter() {
   const [isLoading, setIsLoading] = useState(true);
@@ -49,6 +50,7 @@ function AppRouter() {
       <Route path="/my" element={<MyRoute />} />
       <Route path="/spend" element={<SpendRoute />} />
       <Route path="/history" element={<HistoryRoute />} />
+      <Route path="/leaderboard" element={<LeaderboardRoute />} />
       <Route path="/terms" element={<TermsRoute />} />
       <Route path="/privacy" element={<PrivacyRoute />} />
       <Route path="/bridge" element={<BridgeRoute />} />
