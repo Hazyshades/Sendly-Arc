@@ -12,6 +12,7 @@ export interface LeaderboardEntry {
   amountSentTotal: number;
   amountSentByCurrency: Record<string, number>;
   lastSentAt: string | null;
+  znsDomain: string | null;
 }
 
 interface FetchParams {
@@ -45,6 +46,33 @@ export async function recalculateLeaderboard(): Promise<{ success: boolean; entr
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to recalculate leaderboard',
+    };
+  }
+}
+
+export async function updateZNSDomains(): Promise<{ 
+  success: boolean; 
+  addresses_checked?: number;
+  domains_found?: number;
+  records_updated?: number;
+  message?: string;
+}> {
+  try {
+    const response = await apiCall('/leaderboard/update-zns-domains', {
+      method: 'POST',
+    });
+    return {
+      success: response.success ?? true,
+      addresses_checked: response.addresses_checked,
+      domains_found: response.domains_found,
+      records_updated: response.records_updated,
+      message: response.message,
+    };
+  } catch (error) {
+    console.error('Failed to update ZNS domains:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update ZNS domains',
     };
   }
 }
@@ -85,6 +113,7 @@ export async function getLeaderboardSenders(params: FetchParams = {}): Promise<L
       amountSentTotal: toNumber(entry.amountSentTotal ?? entry.amount_sent_total ?? 0),
       amountSentByCurrency,
       lastSentAt: entry.lastSentAt ?? entry.last_sent_at ?? null,
+      znsDomain: entry.znsDomain ?? entry.zns_domain ?? null,
     } satisfies LeaderboardEntry;
   });
 }

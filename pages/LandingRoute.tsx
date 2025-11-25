@@ -212,7 +212,7 @@ export function LandingRoute() {
                 Ready to Start?
               </h2>
               <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-                Join Sendly today and discover a new level of financial operations.
+              Dispatch funds by nickname on any social network.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Button
@@ -220,7 +220,7 @@ export function LandingRoute() {
                   size="lg"
                   className="bg-white text-blue-600 hover:bg-blue-50 px-8 py-6 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                 >
-                  Get Started Free
+                  It's Free
                   <ArrowRightIcon className="w-5 h-5 ml-2" />
                 </Button>
               </div>
@@ -238,15 +238,11 @@ export function LandingRoute() {
                 <div className="w-10 h-10 bg-blue-400 rounded-2xl flex items-center justify-center">
                   <Gift className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-white text-xl font-semibold">Sendly</span>
               </div>
-              <p className="text-sm text-gray-400">
-                Innovative platform for sending gifts and transfers.
-              </p>
             </div>
 
             <div>
-              <h4 className="text-white font-semibold mb-4">Links</h4>
+              <h4 className="text-white font-semibold mb-4"></h4>
               <ul className="space-y-2">
                 <li>
                   <Link to="/privacy" className="text-sm hover:text-white transition-colors">

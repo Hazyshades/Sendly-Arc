@@ -17,7 +17,7 @@ import {
   PaginationNext,
   PaginationEllipsis,
 } from './ui/pagination';
-import { getLeaderboardSenders, recalculateLeaderboard, LeaderboardEntry } from '../utils/leaderboard';
+import { getLeaderboardSenders, recalculateLeaderboard, updateZNSDomains, LeaderboardEntry } from '../utils/leaderboard';
 import { useAccount } from 'wagmi';
 import { toast } from 'sonner';
 
@@ -115,9 +115,26 @@ export function Leaderboard() {
     [entries]
   );
 
-  const handleRefresh = () => {
-    // Recalculate leaderboard when user clicks refresh
-    loadEntries({ preserveData: true, recalculate: true });
+  const handleRefresh = async () => {
+    // Update ZNS domains and recalculate leaderboard when user clicks refresh
+    setIsRefreshing(true);
+    try {
+      // Update ZNS domains for all addresses
+      console.log('Updating ZNS domains...');
+      const znsResult = await updateZNSDomains();
+      if (znsResult.success) {
+        console.log(`ZNS domains updated: ${znsResult.domains_found} domains found, ${znsResult.records_updated} records updated`);
+      } else {
+        console.warn('ZNS domains update failed:', znsResult.message);
+      }
+      
+      // Recalculate and reload leaderboard
+      loadEntries({ preserveData: true, recalculate: true });
+    } catch (error) {
+      console.error('Failed to refresh leaderboard:', error);
+      // Still try to reload even if ZNS update failed
+      loadEntries({ preserveData: true, recalculate: true });
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -278,6 +295,11 @@ export function Leaderboard() {
                           </Tooltip>
                         )}
                       </div>
+                      {entry.znsDomain && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <p className="text-xs font-medium text-[#635bff]">@{entry.znsDomain}</p>
+                        </div>
+                      )}
                       {isCurrentUser && (
                         <div className="flex items-center gap-1 mt-1">
                           <CheckCircle2 className="h-3 w-3 text-indigo-500" />
