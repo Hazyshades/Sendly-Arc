@@ -29,12 +29,15 @@ const defaultLogos: Logo[] = [
     id: "logo-twitter",
     description: "Twitter / X",
     element: (
-      <div className="w-16 h-16 bg-purple-500 rounded-xl flex items-center justify-center overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-        <img 
-          src="https://cdn.brandfetch.io/x.com/w/400/h/400/theme/dark/icon.jpeg?c=1dxbfHSJFAPEGdCLU4o5B" 
-          alt="X logo" 
-          className="w-full h-full object-cover"
-        />
+      <div className="w-16 h-16 bg-black rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
+        <svg
+          className="w-8 h-8 text-white"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
       </div>
     ),
   },
@@ -42,12 +45,15 @@ const defaultLogos: Logo[] = [
     id: "logo-twitch",
     description: "Twitch",
     element: (
-      <div className="w-16 h-16 bg-purple-700 rounded-xl flex items-center justify-center overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-        <img 
-          src="https://cdn.brandfetch.io/idIwZCwD2f/w/400/h/400/theme/dark/icon.jpeg?c=1dxbfHSJFAPEGdCLU4o5B" 
-          alt="Twitch logo" 
-          className="w-full h-full object-cover"
-        />
+      <div className="w-16 h-16 bg-purple-600 rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
+        <svg
+          className="w-8 h-8 text-white"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+        </svg>
       </div>
     ),
   },
@@ -88,12 +94,15 @@ const defaultLogos: Logo[] = [
     id: "logo-tiktok",
     description: "TikTok",
     element: (
-      <div className="w-16 h-16 bg-black rounded-xl flex items-center justify-center overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-        <img 
-          src="https://cdn.brandfetch.io/id-0D6OFrq/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1740370965265" 
-          alt="TikTok logo" 
-          className="w-full h-full object-cover"
-        />
+      <div className="w-16 h-16 bg-black rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
+        <svg
+          className="w-8 h-8 text-white"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+        </svg>
       </div>
     ),
   },

@@ -242,7 +242,7 @@ export function LandingRoute() {
             </div>
 
             <div>
-              <h4 className="text-white font-semibold mb-4"></h4>
+              <h4 className="text-white font-semibold mb-4">Legal</h4>
               <ul className="space-y-2">
                 <li>
                   <Link to="/privacy" className="text-sm hover:text-white transition-colors">
@@ -252,6 +252,22 @@ export function LandingRoute() {
                 <li>
                   <Link to="/terms" className="text-sm hover:text-white transition-colors">
                     Terms of Service
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Resources</h4>
+              <ul className="space-y-2">
+                <li>
+                  <Link to="/faq" className="text-sm hover:text-white transition-colors">
+                    FAQ
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/litepaper" className="text-sm hover:text-white transition-colors">
+                    Litepaper
                   </Link>
                 </li>
               </ul>
