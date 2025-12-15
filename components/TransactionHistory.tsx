@@ -241,7 +241,7 @@ export function TransactionHistory() {
       };
 
       // Create transactions from blockchain data
-      const blockchainTransactions: Transaction[] = allCards.map((card, index) => {
+      const blockchainTransactions: Transaction[] = allCards.map((card) => {
         // Use real txHash if available (from Supabase) and it's a full hash (66 chars with 0x)
         let txHash = (card as any).txHash;
         if (!txHash || txHash.length !== 66 || !txHash.startsWith('0x')) {
