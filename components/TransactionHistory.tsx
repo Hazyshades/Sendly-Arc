@@ -144,13 +144,23 @@ export function TransactionHistory() {
       console.log('Loading received gift cards...');
       const receivedCardsData = await web3Service.loadGiftCards(false, true);
       
-      // Mark received cards with type 'received'
-      // Note: received cards from blockchain don't have created_at, we'll need to get it from block timestamp
-      const receivedCards = receivedCardsData.map(card => ({
-        ...card,
-        type: 'received' as const,
-        createdAt: null // Will be set from block timestamp if available
-      }));
+      // Load Supabase cache for received cards to enrich with tx_hash / created_at
+      console.log('Loading received gift cards from Supabase...');
+      const supabaseReceivedCards = await GiftCardsService.getCardsByRecipientAddress(address);
+      const supabaseReceivedMap = new Map(
+        supabaseReceivedCards.map(card => [card.token_id, card])
+      );
+
+      // Mark received cards with type 'received' and enrich from Supabase when possible
+      const receivedCards = receivedCardsData.map(card => {
+        const supa = supabaseReceivedMap.get(card.tokenId);
+        return {
+          ...card,
+          type: 'received' as const,
+          txHash: supa?.tx_hash || (card as any).txHash || null,
+          createdAt: supa?.created_at || null
+        };
+      });
       
       // Load sent gift cards from Supabase cache
       console.log('Loading sent gift cards from Supabase...');
@@ -229,37 +239,20 @@ export function TransactionHistory() {
       console.log('Setting analytics:', newAnalytics);
       setAnalytics(newAnalytics);
 
-      // Helper function to generate a full 66-character transaction hash
-      const generateFullTxHash = (): string => {
-        // Generate a full 64-character hex string (32 bytes)
-        const chars = '0123456789abcdef';
-        let hash = '0x';
-        for (let i = 0; i < 64; i++) {
-          hash += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return hash;
-      };
-
       // Create transactions from blockchain data
       const blockchainTransactions: Transaction[] = allCards.map((card) => {
         // Use real txHash if available (from Supabase) and it's a full hash (66 chars with 0x)
-        let txHash = (card as any).txHash;
-        if (!txHash || txHash.length !== 66 || !txHash.startsWith('0x')) {
-          // Generate a full 66-character transaction hash if not available or invalid
-          txHash = generateFullTxHash();
-        }
+        const txHashRaw = (card as any).txHash;
+        const txHash =
+          txHashRaw && txHashRaw.length === 66 && txHashRaw.startsWith('0x')
+            ? txHashRaw
+            : null;
         
         // Use real created_at timestamp from Supabase if available, otherwise use current time as fallback
-        let timestamp: string;
         const createdAt = (card as any).createdAt;
-        if (createdAt) {
-          // Use real timestamp from Supabase
-          timestamp = new Date(createdAt).toISOString();
-        } else {
-          // Fallback: use current time (for received cards without created_at)
-          // In the future, we could fetch block timestamp from blockchain
-          timestamp = new Date().toISOString();
-        }
+        const timestamp = createdAt
+          ? new Date(createdAt).toISOString()
+          : new Date().toISOString();
         
         return {
           id: `tx_${card.tokenId}_${card.type}`,
@@ -269,8 +262,8 @@ export function TransactionHistory() {
           counterpart: card.type === 'sent' ? card.recipient : card.sender,
           message: card.message,
           status: 'completed',
-          timestamp: timestamp, // Use real timestamp from Supabase or current time
-          txHash: txHash, // Use real txHash or full mock hash
+          timestamp,
+          txHash: txHash || '0x', // keep non-empty to avoid UI break; ideally always real hash
           gasUsed: '0.002'
         };
       });
