@@ -639,7 +639,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
                       </div>
                       <div>
                         <CardTitle className="text-lg">${card.amount} {card.currency}</CardTitle>
-                        <p className="text-sm text-gray-600">To: {card.recipient.slice(0, 6)}...{card.recipient.slice(-4)}</p>
+                        <p className="text-sm text-gray-600">To: {card.recipient.startsWith('@') ? card.recipient : `${card.recipient.slice(0, 6)}...${card.recipient.slice(-4)}`}</p>
                         <p className="text-xs text-gray-500">Token ID: {card.tokenId}</p>
                       </div>
                     </div>
@@ -652,7 +652,9 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700 mb-3">"{card.message}"</p>
+                  {card.message && card.message.trim() && (
+                    <p className="text-gray-700 mb-3">"{card.message}"</p>
+                  )}
                   <div className="flex items-center justify-between text-sm text-gray-500">
                     <span>Created: {card.createdAt}</span>
                     {card.expiresAt && <span>Expires: {card.expiresAt}</span>}
@@ -702,7 +704,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
                       </div>
                       <div>
                         <CardTitle className="text-lg">${card.amount} {card.currency}</CardTitle>
-                        <p className="text-sm text-gray-600">From: {card.sender.slice(0, 6)}...{card.sender.slice(-4)}</p>
+                        <p className="text-sm text-gray-600">From: {card.sender.startsWith('@') ? card.sender : `${card.sender.slice(0, 6)}...${card.sender.slice(-4)}`}</p>
                         <p className="text-xs text-gray-500">Token ID: {card.tokenId}</p>
                       </div>
                     </div>
@@ -715,7 +717,9 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700 mb-3">"{card.message}"</p>
+                  {card.message && card.message.trim() && (
+                    <p className="text-gray-700 mb-3">"{card.message}"</p>
+                  )}
                   <div className="flex items-center justify-between text-sm text-gray-500">
                     <span>Received: {card.createdAt}</span>
                     {card.expiresAt && <span>Expires: {card.expiresAt}</span>}

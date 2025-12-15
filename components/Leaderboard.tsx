@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Trophy, RefreshCw, Users, Gift, Copy, CheckCircle2 } from 'lucide-react';
 import { CardHeader, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -51,6 +51,8 @@ export function Leaderboard() {
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const { address } = useAccount();
   const normalizedAccount = address?.toLowerCase() ?? null;
+  const userEntryRef = useRef<HTMLDivElement>(null);
+  const hasScrolledToUser = useRef(false);
 
   const loadEntries = useCallback(
     async (options?: { preserveData?: boolean; recalculate?: boolean }) => {
@@ -93,6 +95,27 @@ export function Leaderboard() {
     []
   );
 
+  const scrollToUserEntry = useCallback(() => {
+    if (userEntryRef.current) {
+      userEntryRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      hasScrolledToUser.current = true;
+    } else {
+      // Retry after a short delay if ref is not ready
+      setTimeout(() => {
+        if (userEntryRef.current) {
+          userEntryRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+          hasScrolledToUser.current = true;
+        }
+      }, 200);
+    }
+  }, []);
+
   useEffect(() => {
     // Load entries without recalculating on first load (to avoid unnecessary DB load)
     // Recalculation happens only when user clicks Refresh button
@@ -102,11 +125,88 @@ export function Leaderboard() {
     }
   }, [hasFetchedOnce, loadEntries]);
 
+  // Find user's position and scroll to it on first load
+  useEffect(() => {
+    if (!normalizedAccount || !entries.length || loading || hasScrolledToUser.current) {
+      return;
+    }
+
+    // Find user's index in the entries array
+    const userIndex = entries.findIndex(
+      (entry) => entry.senderAddress?.toLowerCase() === normalizedAccount
+    );
+
+    if (userIndex === -1) {
+      // User not found in leaderboard
+      hasScrolledToUser.current = true;
+      return;
+    }
+
+    // Calculate which page the user is on
+    const userPage = Math.floor(userIndex / ITEMS_PER_PAGE) + 1;
+
+    // Switch to user's page if not already there
+    if (currentPage !== userPage) {
+      setCurrentPage(userPage);
+      // Don't scroll yet, wait for page to change
+      return;
+    }
+
+    // We're on the correct page, scroll to user entry
+    // Use a timeout to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      scrollToUserEntry();
+    }, 200);
+
+    return () => clearTimeout(timeoutId);
+  }, [entries, normalizedAccount, loading, currentPage, scrollToUserEntry]);
+
   // Calculate pagination
   const totalPages = useMemo(() => Math.ceil(entries.length / ITEMS_PER_PAGE), [entries.length]);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const displayedEntries = useMemo(() => entries.slice(startIndex, endIndex), [entries, startIndex, endIndex]);
+
+  // Calculate pagination pages to display
+  const paginationPages = useMemo(() => {
+    const pages: (number | 'ellipsis')[] = [];
+    const showEllipsis = totalPages > 7;
+    
+    if (!showEllipsis) {
+      // Show all pages if total pages <= 7
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      if (currentPage <= 4) {
+        // Show pages 1-5, ellipsis, last
+        for (let i = 2; i <= 5; i++) {
+          pages.push(i);
+        }
+        pages.push('ellipsis');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        // Show first, ellipsis, last 5 pages
+        pages.push('ellipsis');
+        for (let i = totalPages - 4; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        // Show first, ellipsis, current-1, current, current+1, ellipsis, last
+        pages.push('ellipsis');
+        pages.push(currentPage - 1);
+        pages.push(currentPage);
+        pages.push(currentPage + 1);
+        pages.push('ellipsis');
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  }, [totalPages, currentPage]);
 
   // Calculate statistics
   const totalAddresses = useMemo(() => entries.length, [entries.length]);
@@ -118,6 +218,8 @@ export function Leaderboard() {
   const handleRefresh = async () => {
     // Update ZNS domains and recalculate leaderboard when user clicks refresh
     setIsRefreshing(true);
+    // Reset scroll flag so user position is scrolled to after refresh
+    hasScrolledToUser.current = false;
     try {
       // Update ZNS domains for all addresses
       console.log('Updating ZNS domains...');
@@ -238,6 +340,7 @@ export function Leaderboard() {
               return (
                 <div
                   key={entry.id}
+                  ref={isCurrentUser ? userEntryRef : null}
                   className={`group flex flex-col gap-4 rounded-2xl border p-4 transition hover:shadow-md md:flex-row md:items-center md:justify-between ${
                     isCurrentUser 
                       ? 'bg-[#f0f9ff] border-[#bae6fd]' 
@@ -348,44 +451,7 @@ export function Leaderboard() {
                     className={currentPage === 1 ? 'pointer-events-none opacity-50 cursor-not-allowed' : ''}
                   />
                 </PaginationItem>
-                {(() => {
-                  const pages: (number | 'ellipsis')[] = [];
-                  const showEllipsis = totalPages > 7;
-                  
-                  if (!showEllipsis) {
-                    // Show all pages if total pages <= 7
-                    for (let i = 1; i <= totalPages; i++) {
-                      pages.push(i);
-                    }
-                  } else {
-                    // Always show first page
-                    pages.push(1);
-                    
-                    if (currentPage <= 4) {
-                      // Show pages 1-5, ellipsis, last
-                      for (let i = 2; i <= 5; i++) {
-                        pages.push(i);
-                      }
-                      pages.push('ellipsis');
-                      pages.push(totalPages);
-                    } else if (currentPage >= totalPages - 3) {
-                      // Show first, ellipsis, last 5 pages
-                      pages.push('ellipsis');
-                      for (let i = totalPages - 4; i <= totalPages; i++) {
-                        pages.push(i);
-                      }
-                    } else {
-                      // Show first, ellipsis, current-1, current, current+1, ellipsis, last
-                      pages.push('ellipsis');
-                      pages.push(currentPage - 1);
-                      pages.push(currentPage);
-                      pages.push(currentPage + 1);
-                      pages.push('ellipsis');
-                      pages.push(totalPages);
-                    }
-                  }
-                  
-                  return pages.map((page, idx) => {
+                {paginationPages.map((page, idx) => {
                     if (page === 'ellipsis') {
                       return (
                         <PaginationItem key={`ellipsis-${idx}`}>
@@ -393,22 +459,23 @@ export function Leaderboard() {
                         </PaginationItem>
                       );
                     }
+                    const pageNumber = page as number;
+                    const isActive = pageNumber === currentPage;
                     return (
-                      <PaginationItem key={page}>
+                      <PaginationItem key={pageNumber}>
                         <PaginationLink
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
-                            handlePageChange(page);
+                            handlePageChange(pageNumber);
                           }}
-                          isActive={page === currentPage}
+                          isActive={isActive}
                         >
-                          {page}
+                          {pageNumber}
                         </PaginationLink>
                       </PaginationItem>
                     );
-                  });
-                })()}
+                  })}
                 <PaginationItem>
                   <PaginationNext
                     href="#"
