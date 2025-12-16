@@ -548,6 +548,11 @@ export function CreateGiftCard() {
             hash: finalTxHash as `0x${string}`
           });
           
+          // Check transaction status - if it failed, throw an error
+          if (receipt.status === 'reverted' || receipt.status === 0) {
+            throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${finalTxHash}`);
+          }
+          
           // Extract tokenId from Transfer event
           const transferEventSignature = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
           const zeroAddress = '0x0000000000000000000000000000000000000000';
@@ -830,9 +835,20 @@ export function CreateGiftCard() {
         toast.error('Error: use MetaMask or Rainbow Wallet', {
           description: 'Coinbase Wallet is not supported for Arc Testnet'
         });
+      } else if (errorMessage.includes('ERC20') || errorMessage.includes('transfer amount exceeds balance') || errorMessage.includes('Transaction failed')) {
+        // More specific error for balance/transfer issues
+        const displayMessage = errorMessage.includes('Transaction failed') 
+          ? errorMessage 
+          : `Insufficient ${formData.currency} balance. Please ensure you have enough tokens to create this gift card.`;
+        setError(displayMessage);
+        toast.error('Transaction failed', {
+          description: displayMessage
+        });
       } else {
         setError(errorMessage);
-        toast.error('Failed to create gift card');
+        toast.error('Failed to create gift card', {
+          description: errorMessage
+        });
       }
     } finally {
       setIsCreating(false);
