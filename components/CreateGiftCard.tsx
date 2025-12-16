@@ -93,6 +93,7 @@ export function CreateGiftCard() {
   const [isCreating, setIsCreating] = useState(false);
   const [createdCard, setCreatedCard] = useState<any>(null);
   const [error, setError] = useState('');
+  const [errorTxHash, setErrorTxHash] = useState<string | null>(null);
   const [step, setStep] = useState<'form' | 'generating' | 'uploading' | 'creating' | 'success'>('form');
   const [isBridgeDialogOpen, setIsBridgeDialogOpen] = useState(false);
   const [highlightField, setHighlightField] = useState<'twitch' | 'twitter' | 'telegram' | 'tiktok' | 'instagram' | null>(null);
@@ -310,6 +311,7 @@ export function CreateGiftCard() {
 
     setIsCreating(true);
     setError('');
+    setErrorTxHash(null);
 
     try {
       // Step 1: Generate image
@@ -757,6 +759,7 @@ export function CreateGiftCard() {
       }
 
       setStep('success');
+      setErrorTxHash(null); // Clear any previous error hash on success
       
       const createdCardData = {
         id: result.tokenId,
@@ -828,21 +831,32 @@ export function CreateGiftCard() {
     } catch (error) {
       console.error('Error creating gift card:', error);
       
-      // Check if it's a chain ID error with Coinbase Wallet
+      // Extract transaction hash from error message if present
       const errorMessage = error instanceof Error ? error.message : 'Failed to create gift card';
+      const txHashMatch = errorMessage.match(/0x[a-fA-F0-9]{64}/);
+      const txHash = txHashMatch ? txHashMatch[0] : null;
+      setErrorTxHash(txHash);
+      
+      // Check if it's a chain ID error with Coinbase Wallet
       if (errorMessage.includes('invalid chain ID') && typeof window !== 'undefined' && (window as any).ethereum?.isCoinbaseWallet) {
         setError('Coinbase Wallet has issues with Arc Testnet. Please use MetaMask or Rainbow Wallet to work with Arc Testnet.');
+        setErrorTxHash(null);
         toast.error('Error: use MetaMask or Rainbow Wallet', {
           description: 'Coinbase Wallet is not supported for Arc Testnet'
         });
       } else if (errorMessage.includes('ERC20') || errorMessage.includes('transfer amount exceeds balance') || errorMessage.includes('Transaction failed')) {
         // More specific error for balance/transfer issues
-        const displayMessage = errorMessage.includes('Transaction failed') 
-          ? errorMessage 
+        const baseMessage = errorMessage.includes('Transaction failed') 
+          ? 'Transaction failed'
           : `Insufficient ${formData.currency} balance. Please ensure you have enough tokens to create this gift card.`;
-        setError(displayMessage);
+        setError(baseMessage);
+        
+        // Show toast with transaction hash if available
+        const toastDescription = txHash 
+          ? `${baseMessage}\nTX: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`
+          : baseMessage;
         toast.error('Transaction failed', {
-          description: displayMessage
+          description: toastDescription
         });
       } else {
         setError(errorMessage);
@@ -1324,7 +1338,24 @@ export function CreateGiftCard() {
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="space-y-2">
+                <div>{error}</div>
+                {errorTxHash && (
+                  <div className="text-sm">
+                    TX:{' '}
+                    <button
+                      onClick={() => {
+                        const explorer = import.meta.env.VITE_ARC_BLOCK_EXPLORER_URL || 'https://testnet.arcscan.app';
+                        window.open(`${explorer}/tx/${errorTxHash}`, '_blank');
+                      }}
+                      className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                      title={`View on Arc Explorer: ${errorTxHash}`}
+                    >
+                      {errorTxHash.slice(0, 10)}...{errorTxHash.slice(-8)}
+                    </button>
+                  </div>
+                )}
+              </AlertDescription>
             </Alert>
           )}
 
