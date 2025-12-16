@@ -549,7 +549,7 @@ export function CreateGiftCard() {
           });
           
           // Check transaction status - if it failed, throw an error
-          if (receipt.status === 'reverted' || receipt.status === 0) {
+          if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
             throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${finalTxHash}`);
           }
           

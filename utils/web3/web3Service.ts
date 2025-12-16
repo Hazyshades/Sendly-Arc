@@ -1339,7 +1339,7 @@ export class Web3Service {
       });
 
       // Check transaction status - if it failed, throw an error
-      if (receipt.status === 'reverted' || receipt.status === 0) {
+      if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
         throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${hash}`);
       }
 
@@ -1686,7 +1686,7 @@ export class Web3Service {
       });
 
       // Check transaction status - if it failed, throw an error
-      if (receipt.status === 'reverted' || receipt.status === 0) {
+      if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
         throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${hash}`);
       }
 
@@ -1953,7 +1953,7 @@ export class Web3Service {
       });
 
       // Check transaction status - if it failed, throw an error
-      if (receipt.status === 'reverted' || receipt.status === 0) {
+      if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
         throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${hash}`);
       }
 
@@ -2144,7 +2144,7 @@ export class Web3Service {
       });
 
       // Check transaction status - if it failed, throw an error
-      if (receipt.status === 'reverted' || receipt.status === 0) {
+      if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
         throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${hash}`);
       }
 
@@ -2335,7 +2335,7 @@ export class Web3Service {
       });
 
       // Check transaction status - if it failed, throw an error
-      if (receipt.status === 'reverted' || receipt.status === 0) {
+      if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
         throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${hash}`);
       }
 
@@ -2526,7 +2526,7 @@ export class Web3Service {
       });
 
       // Check transaction status - if it failed, throw an error
-      if (receipt.status === 'reverted' || receipt.status === 0) {
+      if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
         throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${hash}`);
       }
 
