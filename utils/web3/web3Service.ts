@@ -70,7 +70,7 @@ export class Web3Service {
 
   private createPublicClient() {
     const rpcUrl = ARC_RPC_URLS[this.currentRpcIndex];
-    console.log(`Creating public client with RPC: ${rpcUrl}`);
+    // Creating public client
     
     this.publicClient = createPublicClient({
       chain: arcTestnet,
@@ -84,7 +84,7 @@ export class Web3Service {
 
   private async switchToNextRpc() {
     this.currentRpcIndex = (this.currentRpcIndex + 1) % ARC_RPC_URLS.length;
-    console.log(`Switching to RPC ${this.currentRpcIndex + 1}/${ARC_RPC_URLS.length}: ${ARC_RPC_URLS[this.currentRpcIndex]}`);
+      // Switching RPC endpoint
     this.createPublicClient();
   }
 
@@ -118,10 +118,10 @@ export class Web3Service {
       const targetChainId = arcTestnet.id;
 
       if (currentChain !== targetChainId) {
-        console.log(`Current chain ID: ${currentChain}, switching to Arc Testnet (${targetChainId})...`);
+        // Switching to Arc Testnet
         try {
           await this.walletClient.switchChain({ id: targetChainId });
-          console.log('Successfully switched to Arc Testnet');
+          // Successfully switched to Arc Testnet
           
           // Wait for chain switch to be fully processed
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -135,7 +135,7 @@ export class Web3Service {
           // If switchChain fails, it might be because the chain is not added
           // In that case, add the chain first
           if (error.code === 4902 || error.message?.includes('Unrecognized chain') || error.code === -32603) {
-            console.log('Chain not added, adding Arc Testnet...');
+            // Adding Arc Testnet chain
             await this.walletClient.addChain({ chain: arcTestnet });
             
             // Wait a bit before switching
@@ -240,7 +240,7 @@ export class Web3Service {
     try {
       const balancesUrl = `${ARCSCAN_API_URL}/addresses/${this.account}/token-balances`;
       
-      console.log(`Fetching NFT tokens from ArcScan API for ${this.account}...`);
+      // Fetching NFT tokens from ArcScan API
       
       let response: Response;
       let data: any;
@@ -274,7 +274,7 @@ export class Web3Service {
         return [];
       }
 
-      console.log(`Found ${nftTokens.length} NFT tokens via API`);
+      // Found NFT tokens via API
 
       // Extract tokenId from each NFT token
       const tokenIds: string[] = [];
@@ -311,7 +311,7 @@ export class Web3Service {
           // Check that current address is actually the owner
           const owner = await this.getCardOwner(tokenId);
           if (owner.toLowerCase() !== this.account!.toLowerCase()) {
-            console.warn(`Token ${tokenId} is not owned by ${this.account}, skipping`);
+            // Token not owned by account, skipping
             return null;
           }
           
@@ -336,7 +336,7 @@ export class Web3Service {
             type: 'received'
           } as GiftCardInfo;
         }).catch(error => {
-          console.warn(`Failed to load card ${tokenId} from API result:`, error);
+          // Failed to load card from API result
           return null;
         })
       );
@@ -349,7 +349,7 @@ export class Web3Service {
           const validCards = batchResults.filter(card => card !== null) as GiftCardInfo[];
           cards.push(...validCards);
         } catch (error) {
-          console.warn(`Failed to load batch of cards from API:`, error);
+          // Failed to load batch of cards from API
         }
       }
 
@@ -380,10 +380,10 @@ export class Web3Service {
       try {
         const apiCards = await this.loadGiftCardsViaAPI();
         if (apiCards.length > 0) {
-          console.log(`Loaded ${apiCards.length} cards via ArcScan API`);
+          // Loaded cards via ArcScan API
           return apiCards;
         }
-        console.log('ArcScan API returned no cards, falling back to direct blockchain queries');
+        // ArcScan API returned no cards, falling back to direct blockchain queries
       } catch (error) {
         console.warn('ArcScan API failed, falling back to direct blockchain queries:', error);
       }
@@ -520,14 +520,14 @@ export class Web3Service {
       try {
         const apiCards = await this.loadSentGiftCardsViaAPI();
         if (apiCards.length > 0) {
-          console.log(`Loaded ${apiCards.length} sent cards via ArcScan API`);
+          // Loaded sent cards via ArcScan API
           if (useCache) {
             const cacheKey = `sentGiftCards_${this.account}`;
             this.setCache(cacheKey, apiCards);
           }
           return apiCards;
         }
-        console.log('ArcScan API returned no sent cards, falling back to direct blockchain queries');
+        // ArcScan API returned no sent cards, falling back to direct blockchain queries
       } catch (error) {
         console.warn('ArcScan API failed, falling back to direct blockchain queries:', error);
       }
@@ -547,8 +547,7 @@ export class Web3Service {
       const twitchLogs: any[] = [];
       const telegramLogs: any[] = [];
       
-      console.log(`Loading sent gift cards in ${numberOfBatches} batches of ${maxBlockRange} blocks each`);
-      console.log(`Vault addresses: Twitter=${VAULT_CONTRACT_ADDRESS}, Twitch=${TWITCH_VAULT_CONTRACT_ADDRESS}, Telegram=${TELEGRAM_VAULT_CONTRACT_ADDRESS}, TikTok=${TIKTOK_VAULT_CONTRACT_ADDRESS}, Instagram=${INSTAGRAM_VAULT_CONTRACT_ADDRESS}`);
+      // Loading sent gift cards in batches
       
       // Query in batches
       for (let i = 0; i < numberOfBatches; i++) {
@@ -559,7 +558,7 @@ export class Web3Service {
           ? currentBlock 
           : currentBlock - (maxBlockRange * BigInt(i));
         
-        console.log(`Batch ${i + 1}/${numberOfBatches}: blocks ${batchFromBlock} to ${batchToBlock}`);
+        // Processing batch
         
         try {
           // Get Transfer events
@@ -580,7 +579,7 @@ export class Web3Service {
             });
           });
           
-          console.log(`Batch ${i + 1} found ${batchLogs.length} Transfer events before sender filter`);
+          // Found Transfer events before sender filter
 
           // Filter Transfer events where from = 0x0 (mint) and check tx.from, or where from = account (direct transfer)
           // Also check GiftCardCreated events to catch all card creations
@@ -610,7 +609,7 @@ export class Web3Service {
           );
           
           const filteredBySender = logsFromAccount.filter((log): log is typeof batchLogs[number] => log !== null);
-          console.log(`Batch ${i + 1} kept ${filteredBySender.length} Transfer events from ${this.account}`);
+          // Filtered Transfer events
           logs.push(...filteredBySender);
           
           // Get GiftCardCreated events for regular address cards
@@ -636,7 +635,7 @@ export class Web3Service {
             });
             
             // Get transaction sender for each GiftCardCreated event
-            console.log(`Batch ${i + 1} found ${giftCardCreatedBatch.length} GiftCardCreated events`);
+            // Found GiftCardCreated events
             
             // Process in parallel for better performance
             const giftCardPromises = giftCardCreatedBatch.map(async (log: any) => {
@@ -668,7 +667,7 @@ export class Web3Service {
             const giftCardResults = await Promise.all(giftCardPromises);
             const validGiftCardLogs = giftCardResults.filter((log): log is NonNullable<typeof giftCardResults[number]> => log !== null);
             logs.push(...validGiftCardLogs);
-            console.log(`Batch ${i + 1} added ${validGiftCardLogs.length} GiftCardCreated events from ${this.account}`);
+            // Added GiftCardCreated events
           } catch (error: any) {
             console.warn(`Batch ${i + 1} failed to load GiftCardCreated events:`, error.message);
           }
@@ -740,7 +739,7 @@ export class Web3Service {
               log.args.sender.toLowerCase() === this.account!.toLowerCase()
             );
             
-            console.log(`Batch ${i + 1} found ${twitchFiltered.length} Twitch cards (from ${twitchBatch.length} total)`);
+            // Found Twitch cards
             twitchLogs.push(...twitchFiltered);
           } catch (error: any) {
             console.warn(`Batch ${i + 1} failed to load Twitch events:`, error.message);
@@ -774,7 +773,7 @@ export class Web3Service {
             log.args.sender.toLowerCase() === this.account!.toLowerCase()
           );
 
-          console.log(`Batch ${i + 1} found ${telegramFiltered.length} Telegram cards (from ${telegramBatch.length} total)`);
+          // Found Telegram cards
           telegramLogs.push(...telegramFiltered);
         } catch (error: any) {
           console.warn(`Batch ${i + 1} failed to load Telegram events:`, error.message);
@@ -785,13 +784,11 @@ export class Web3Service {
         }
       }
       
-      console.log(`Total found: ${logs.length} Transfer/GiftCardCreated, ${twitterLogs.length} Twitter, ${twitchLogs.length} Twitch, ${telegramLogs.length} Telegram events`);
-      console.log(`Account: ${this.account}`);
-      console.log(`Total unique events to process: ${logs.length + twitterLogs.length + twitchLogs.length + telegramLogs.length}`);
+      // Processing events
 
       const sentCards: GiftCardInfo[] = [];
       
-      console.log(`Processing ${logs.length} Transfer/GiftCardCreated events for regular address cards`);
+      // Processing Transfer/GiftCardCreated events
       
       // Filter out transfers to Vault contracts (these are handled by Twitter/Twitch events)
       const vaultAddresses = [
@@ -805,7 +802,7 @@ export class Web3Service {
         return !vaultAddresses.includes(toAddress);
       });
       
-      console.log(`Filtered out ${logs.length - filteredLogs.length} Vault transfers, ${filteredLogs.length} regular transfers remaining`);
+      // Filtered Vault transfers
       
       // Increased concurrent requests to 8 for better performance
       const maxConcurrentRequests = 8;
@@ -838,7 +835,7 @@ export class Web3Service {
             type: 'sent'
           } as GiftCardInfo;
         }).catch(error => {
-          console.warn(`Failed to load sent card ${log.args?.tokenId}:`, error);
+          // Failed to load sent card
           return null;
         });
       });
@@ -878,7 +875,7 @@ export class Web3Service {
             type: 'sent'
           } as GiftCardInfo;
         }).catch(error => {
-          console.warn(`Failed to load Twitter card ${log.args?.tokenId}:`, error);
+          // Failed to load Twitter card
           return null;
         });
       });
@@ -918,7 +915,7 @@ export class Web3Service {
             type: 'sent'
           } as GiftCardInfo;
         }).catch(error => {
-          console.warn(`Failed to load Twitch card ${log.args?.tokenId}:`, error);
+          // Failed to load Twitch card
           return null;
         });
       });
@@ -959,7 +956,7 @@ export class Web3Service {
           type: 'sent'
         } as GiftCardInfo;
       }).catch(error => {
-        console.warn(`Failed to load Telegram card ${log.args?.tokenId}:`, error);
+        // Failed to load Telegram card
         return null;
       });
     });
@@ -972,7 +969,7 @@ export class Web3Service {
       ...telegramCardPromises
     ];
       
-    console.log(`Total promises to process: ${allPromises.length} (${cardPromises.length} regular, ${twitterCardPromises.length} Twitter, ${twitchCardPromises.length} Twitch, ${telegramCardPromises.length} Telegram)`);
+    // Processing card promises
       
       // execute requests in batches with increased size
       for (let i = 0; i < allPromises.length; i += maxConcurrentRequests) {
@@ -987,18 +984,17 @@ export class Web3Service {
         }
       }
       
-      console.log(`Successfully loaded ${sentCards.length} sent gift cards total`);
-      console.log(`Breakdown: ${cardPromises.length} regular promises, ${twitterCardPromises.length} Twitter, ${twitchCardPromises.length} Twitch, ${telegramCardPromises.length} Telegram`);
+      // Successfully loaded sent gift cards
       
       // Remove duplicates by tokenId
       const uniqueSentCards = Array.from(
         new Map(sentCards.map(card => [card.tokenId, card])).values()
       );
-      console.log(`Removed duplicates, ${uniqueSentCards.length} unique cards remaining (had ${sentCards.length} before deduplication)`);
+      // Removed duplicates
       
       // Log tokenIds for debugging
       if (uniqueSentCards.length > 0) {
-        console.log(`Sample tokenIds: ${uniqueSentCards.slice(0, 10).map(c => c.tokenId).join(', ')}`);
+        // Sample tokenIds logged
       }
       
       // Sort by tokenId descending (newest first - tokenId increases with each new card)
@@ -1226,8 +1222,7 @@ export class Web3Service {
       });
 
       if (BigInt(allowance) < BigInt(amountWei)) {
-        console.log(`Approving ${amountWei} tokens on chain ${targetChainId}...`);
-        console.log(`Token address: ${tokenAddress}, Spender: ${CONTRACT_ADDRESS}`);
+        // Approving tokens
         
         // Re-verify chain ID one more time right before transaction
         const finalCheck = await this.walletClient.getChainId();
@@ -1237,10 +1232,7 @@ export class Web3Service {
         
         // Use writeContract with explicit chain parameter
         // Coinbase Wallet may require explicit chain specification
-        console.log('Sending approve transaction...');
-        console.log('WalletClient chain:', await this.walletClient.getChainId());
-        console.log('ArcTestnet chain ID:', arcTestnet.id);
-        console.log('Target chain ID:', targetChainId);
+        // Sending approve transaction
         
         // Try with explicit chain parameter - this ensures chain ID is included in transaction
         const hash = await this.walletClient.writeContract({
@@ -1252,7 +1244,7 @@ export class Web3Service {
           account: this.account as `0x${string}`,
         });
         
-        console.log(`Approval transaction hash: ${hash}`);
+        // Approval transaction sent
 
         await this.safeRequest(async () => {
           return await this.publicClient.waitForTransactionReceipt({ hash });
@@ -1289,7 +1281,7 @@ export class Web3Service {
         throw new Error(`${tokenType} address is not configured. Please set VITE_ARC_${tokenType}_ADDRESS in your .env file`);
       }
       
-      console.log(`Checking ${tokenType} balance using ERC20 interface at address: ${tokenAddress}`);
+      // Checking token balance
       
       // On ARC, USDC at 0x3600000000000000000000000000000000000000 is the ERC20 interface for native USDC
       // The ERC20 interface directly affects native USDC balance movements
@@ -1359,7 +1351,7 @@ export class Web3Service {
       if (transferEvent && transferEvent.topics[3]) {
         // tokenId is in topics[3] as uint256
         tokenId = BigInt(transferEvent.topics[3]).toString();
-        console.log('Extracted tokenId from Transfer event:', tokenId);
+        // Extracted tokenId from Transfer event
       } else {
         console.warn('Transfer event not found, using default tokenId 1');
         console.log('Available logs:', receipt.logs.map((log: any) => ({
@@ -1372,7 +1364,7 @@ export class Web3Service {
       // Clear sent cards cache so new card appears immediately in list
       const cacheKey = `sentGiftCards_${this.account}`;
       this.cache.delete(cacheKey);
-      console.log('Cleared sent gift cards cache after creating new card');
+      // Cleared sent gift cards cache after creating new card
 
       return { tokenId, txHash: hash };
     } catch (error) {
@@ -1572,7 +1564,7 @@ export class Web3Service {
         return await this.publicClient.waitForTransactionReceipt({ hash });
       });
 
-      console.log(`Successfully sent ${amount} ${tokenType} to ${to}, txHash: ${hash}`);
+      // Successfully sent tokens
       return hash;
     } catch (error: any) {
       console.error(`Error sending ${tokenType}:`, error);

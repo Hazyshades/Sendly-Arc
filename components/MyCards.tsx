@@ -254,7 +254,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
 
     try {
       // First, try to load from Supabase cache (fast) - display immediately
-      console.log('Loading cards from Supabase cache for addresses:', recipientAddresses);
+      // Loading cards from Supabase cache
       
       // Retrieve cards for all addresses (MetaMask + developer wallets)
       const [allReceivedCards, supabaseSentCards] = await Promise.all([

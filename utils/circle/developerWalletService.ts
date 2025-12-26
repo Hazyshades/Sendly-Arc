@@ -81,7 +81,7 @@ export class DeveloperWalletService {
 
       return response as CreateWalletResponse;
     } catch (error) {
-      console.error('Error creating developer wallet:', error);
+      // Error creating developer wallet
       throw error;
     }
   }
@@ -97,7 +97,7 @@ export class DeveloperWalletService {
 
       return response.wallets || [];
     } catch (error) {
-      console.error('Error fetching developer wallets:', error);
+      // Error fetching developer wallets
       throw error;
     }
   }
@@ -110,7 +110,7 @@ export class DeveloperWalletService {
       const wallets = await this.getWallets(userId);
       return wallets.find(w => w.blockchain === blockchain) || null;
     } catch (error) {
-      console.error('Error fetching wallet by blockchain:', error);
+      // Error fetching wallet by blockchain
       throw error;
     }
   }
@@ -123,7 +123,7 @@ export class DeveloperWalletService {
       const wallet = await this.getWalletByBlockchain(userId, blockchain);
       return wallet !== null;
     } catch (error) {
-      console.error('Error checking wallet existence:', error);
+      // Error checking wallet existence
       return false;
     }
   }
@@ -143,7 +143,7 @@ export class DeveloperWalletService {
 
       return response as { success: boolean; message?: string };
     } catch (error) {
-      console.error('Error requesting testnet tokens:', error);
+      // Error requesting testnet tokens
       throw error;
     }
   }
@@ -168,7 +168,7 @@ export class DeveloperWalletService {
 
       return response as LinkTelegramResponse;
     } catch (error) {
-      console.error('Error linking Telegram ID:', error);
+      // Error linking Telegram ID
       throw error;
     }
   }
@@ -197,7 +197,7 @@ export class DeveloperWalletService {
 
       return response as CreateWalletResponse;
     } catch (error) {
-      console.error('Error creating social wallet:', error);
+      // Error creating social wallet
       throw error;
     }
   }
@@ -220,7 +220,7 @@ export class DeveloperWalletService {
 
       return response.wallet || null;
     } catch (error) {
-      console.error('Error fetching wallet by social:', error);
+      // Error fetching wallet by social
       throw error;
     }
   }
@@ -237,7 +237,7 @@ export class DeveloperWalletService {
       const wallet = await this.getWalletBySocial(platform, socialUserId, blockchain);
       return wallet !== null;
     } catch (error) {
-      console.error('Error checking social wallet existence:', error);
+      // Error checking social wallet existence
       return false;
     }
   }
@@ -282,7 +282,7 @@ export class DeveloperWalletService {
 
       return response as { success: boolean; txHash?: string; error?: string; transaction?: any };
     } catch (error) {
-      console.error('Error sending transaction:', error);
+      // Error sending transaction
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,

@@ -61,10 +61,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           console.warn('[ClaimCards] Twitter username not found');
           return;
         }
-        console.log('[ClaimCards] Fetching pending Twitter cards for username:', twitterUsername);
-        
         const tokenIds = await web3Service.getPendingTwitterCards(twitterUsername);
-        console.log('[ClaimCards] Received Twitter token IDs from Vault:', tokenIds);
         
         const twitterCards = await Promise.all(
           tokenIds.map(async (tokenId) => {
@@ -103,10 +100,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           console.warn('[ClaimCards] Twitch username not found');
           return;
         }
-        console.log('[ClaimCards] Fetching pending Twitch cards for username:', twitchUsername);
-        
         const tokenIds = await web3Service.getPendingTwitchCards(twitchUsername);
-        console.log('[ClaimCards] Received Twitch token IDs from Vault:', tokenIds);
         
         const twitchCards = await Promise.all(
           tokenIds.map(async (tokenId) => {
@@ -144,10 +138,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         if (!normalizedTelegramUsername) {
           console.warn('[ClaimCards] Telegram username not found');
         } else {
-          console.log('[ClaimCards] Fetching pending Telegram cards for username:', normalizedTelegramUsername);
-          
           const tokenIds = await web3Service.getPendingTelegramCards(normalizedTelegramUsername);
-          console.log('[ClaimCards] Received Telegram token IDs from Vault:', tokenIds);
           
           const telegramCards = await Promise.all(
             tokenIds.map(async (tokenId) => {
@@ -187,10 +178,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           console.warn('[ClaimCards] TikTok username not found');
         } else {
           const normalizedTikTokUsername = tiktokUsername.replace(/^@/, '').trim();
-          console.log('[ClaimCards] Fetching pending TikTok cards for username:', normalizedTikTokUsername);
-
           const tokenIds = await web3Service.getPendingTikTokCards(normalizedTikTokUsername);
-          console.log('[ClaimCards] Received TikTok token IDs from Vault:', tokenIds);
 
           const tiktokCards = await Promise.all(
             tokenIds.map(async (tokenId) => {
@@ -230,10 +218,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           console.warn('[ClaimCards] Instagram username not found');
         } else {
           const normalizedInstagramUsername = instagramUsername.replace(/^@/, '').trim();
-          console.log('[ClaimCards] Fetching pending Instagram cards for username:', normalizedInstagramUsername);
-
           const tokenIds = await web3Service.getPendingInstagramCards(normalizedInstagramUsername);
-          console.log('[ClaimCards] Received Instagram token IDs from Vault:', tokenIds);
 
           const instagramCards = await Promise.all(
             tokenIds.map(async (tokenId) => {
@@ -531,7 +516,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
       try {
         if (devWallet.wallet_address) {
           await claimApiFunction(selectedCardForClaim.tokenId, username, devWallet.wallet_address);
-          console.log('Successfully updated Supabase after claim');
+          // Successfully updated Supabase after claim
         }
       } catch (apiError) {
         console.error('Error updating Supabase after claim (non-critical):', apiError);
@@ -542,7 +527,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
       if (!txResult.txHash && txResult.transactionId) {
         toast.info('Transaction submitted. Waiting for confirmation...');
         // You can poll the transaction status later or simply display the transactionId
-        console.log('Transaction ID:', txResult.transactionId, 'State:', txResult.transactionState);
+        // Transaction status checked
         toast.success(`Card claimed successfully! Transaction ID: ${txResult.transactionId.slice(0, 8)}...`);
       } else if (txResult.txHash) {
         toast.success(`Card claimed successfully! TX: ${txResult.txHash.slice(0, 10)}...`);
@@ -665,7 +650,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           // Note: This is non-critical - the blockchain transaction already succeeded
           try {
             await claimTwitterCard(card.tokenId, twitterUsername, devWallet.wallet_address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           } catch (apiError) {
             console.warn('Failed to update Supabase after claim (non-critical - blockchain transaction succeeded):', apiError);
             // Don't block the process - the card was already claimed on-chain
@@ -713,7 +698,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         try {
           if (address) {
             await claimTwitterCard(card.tokenId, twitterUsername, address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           }
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);
@@ -795,7 +780,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           // Update Supabase after successful blockchain transaction
           try {
             await claimTwitchCard(card.tokenId, twitchUsername, devWallet.wallet_address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           } catch (apiError) {
             console.error('Error updating Supabase after claim (non-critical):', apiError);
           }
@@ -841,7 +826,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         // Update Supabase after successful blockchain transaction
         try {
           await claimTwitchCard(card.tokenId, twitchUsername, address);
-          console.log('Successfully updated Supabase after claim');
+          // Successfully updated Supabase after claim
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);
           // Don't fail the claim if API update fails - blockchain transaction already succeeded
@@ -919,7 +904,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           // Update Supabase after successful blockchain transaction
           try {
             await claimTelegramCard(card.tokenId, normalizedLoggedIn, devWallet.wallet_address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           } catch (apiError) {
             console.error('Error updating Supabase after claim (non-critical):', apiError);
           }
@@ -966,7 +951,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         try {
           if (address) {
             await claimTelegramCard(card.tokenId, normalizedLoggedIn, address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           }
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);
@@ -1048,7 +1033,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           // Update Supabase after successful blockchain transaction
           try {
             await claimTikTokCard(card.tokenId, normalizedLoggedIn, devWallet.wallet_address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           } catch (apiError) {
             console.error('Error updating Supabase after claim (non-critical):', apiError);
           }
@@ -1095,7 +1080,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         try {
           if (address) {
             await claimTikTokCard(card.tokenId, normalizedLoggedIn, address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           }
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);
@@ -1177,7 +1162,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           // Update Supabase after successful blockchain transaction
           try {
             await claimInstagramCard(card.tokenId, normalizedLoggedIn, devWallet.wallet_address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           } catch (apiError) {
             console.error('Error updating Supabase after claim (non-critical):', apiError);
           }
@@ -1224,7 +1209,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         try {
           if (address) {
             await claimInstagramCard(card.tokenId, normalizedLoggedIn, address);
-            console.log('Successfully updated Supabase after claim');
+            // Successfully updated Supabase after claim
           }
         } catch (apiError) {
           console.error('Error updating Supabase after claim (non-critical):', apiError);

@@ -379,6 +379,11 @@ export function CreateGiftCard() {
         }) as bigint;
 
         if (currentAllowance < BigInt(amountWei)) {
+          // Validate that privyUser exists when using Developer Wallet
+          if (!privyUser) {
+            throw new Error('User not found. Please ensure you are logged in.');
+          }
+          
           toast.info(`Approving ${formData.currency} for contract...`);
 
           // Send approve via Developer Wallet
@@ -389,7 +394,7 @@ export function CreateGiftCard() {
             functionName: 'approve',
             args: [spenderAddress, BigInt(amountWei)],
             blockchain: 'ARC-TESTNET',
-            privyUserId: privyUser?.id,
+            privyUserId: privyUser.id,
             socialPlatform: developerWallet.social_platform || undefined,
             socialUserId: developerWallet.social_user_id || undefined
           });
@@ -428,6 +433,11 @@ export function CreateGiftCard() {
       
       // Use different methods based on wallet type and recipient type
       if (useDeveloperWallet) {
+        // Validate that privyUser exists when using Developer Wallet
+        if (!privyUser) {
+          throw new Error('User not found. Please ensure you are logged in.');
+        }
+        
         // Create card via developer wallet
         const normalizedUsername = formData.recipientType !== 'address' 
           ? formData.recipientUsername.toLowerCase().replace(/^@/, '').trim()
@@ -465,21 +475,7 @@ export function CreateGiftCard() {
           socialUserId = developerWallet.social_user_id || undefined;
         }
         
-        // Log transaction details for debugging
-        console.log('Creating gift card via Developer Wallet:', {
-          recipientType: formData.recipientType,
-          recipientUsername: formData.recipientType !== 'address' ? formData.recipientUsername : undefined,
-          recipientAddress: formData.recipientType === 'address' ? formData.recipientAddress : undefined,
-          functionName: functionName,
-          amount: formData.amount,
-          currency: formData.currency,
-          tokenAddress: tokenAddress,
-          amountWei: amountWei,
-          contractAddress: CONTRACT_ADDRESS,
-          walletAddress: developerWallet.wallet_address,
-          socialPlatform: socialPlatform,
-          socialUserId: socialUserId
-        });
+        // Transaction details logged on backend only
         
         // Send transaction via developer wallet
         const txResult = await DeveloperWalletService.sendTransaction({
@@ -489,7 +485,7 @@ export function CreateGiftCard() {
           functionName: functionName,
           args: args,
           blockchain: 'ARC-TESTNET',
-          privyUserId: privyUser?.id,
+          privyUserId: privyUser.id,
           socialPlatform: socialPlatform,
           socialUserId: socialUserId
         });
@@ -497,11 +493,7 @@ export function CreateGiftCard() {
         if (!txResult.success) {
           // Provide more specific error message
           const errorMessage = txResult.error || 'Failed to create gift card';
-          console.error('Transaction send failed:', {
-            error: errorMessage,
-            transaction: txResult.transaction,
-            recipientType: formData.recipientType
-          });
+          // Error details logged on backend only
           
           // Check for common error patterns
           if (errorMessage.includes('balance') || errorMessage.includes('insufficient')) {
@@ -551,12 +543,7 @@ export function CreateGiftCard() {
                     ? errorDetails 
                     : JSON.stringify(errorDetails);
                   
-                  console.error('Transaction failed:', {
-                    transactionId: txResult.transactionId,
-                    state: statusData.transactionState,
-                    error: errorMessage,
-                    transaction: statusData.transaction
-                  });
+                  // Transaction failure details logged on backend only
                   
                   // Provide more specific error message
                   let userFriendlyError = 'Transaction failed';
@@ -669,7 +656,7 @@ export function CreateGiftCard() {
         // Initialize web3 service
         let clientToUse = walletClient;
         if (!clientToUse) {
-          console.log('wagmi walletClient not available, creating manual client...');
+          // Creating manual wallet client
           clientToUse = createWalletClient({
             chain: arcTestnet,
             transport: custom(window.ethereum)
@@ -682,10 +669,7 @@ export function CreateGiftCard() {
         if (formData.recipientType === 'twitter') {
           // Normalize username for consistency (createCardForTwitter also normalizes)
           const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[CreateGiftCard] Creating Twitter card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating Twitter card
           
           // Use new Vault flow for Twitter cards
           result = await web3Service.createCardForTwitter(
@@ -714,10 +698,7 @@ export function CreateGiftCard() {
           }
         } else if (formData.recipientType === 'twitch') {
           const normalizedUsername = formData.recipientUsername.toLowerCase().trim();
-          console.log('[CreateGiftCard] Creating Twitch card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating Twitch card
           
           result = await web3Service.createCardForTwitch(
             normalizedUsername,
@@ -743,10 +724,7 @@ export function CreateGiftCard() {
           }
         } else if (formData.recipientType === 'telegram') {
           const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[CreateGiftCard] Creating Telegram card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating Telegram card
 
           result = await web3Service.createCardForTelegram(
             normalizedUsername,
@@ -772,10 +750,7 @@ export function CreateGiftCard() {
           }
         } else if (formData.recipientType === 'tiktok') {
           const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[CreateGiftCard] Creating TikTok card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating TikTok card
 
           result = await web3Service.createCardForTikTok(
             normalizedUsername,
@@ -801,10 +776,7 @@ export function CreateGiftCard() {
           }
         } else if (formData.recipientType === 'instagram') {
           const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[CreateGiftCard] Creating Instagram card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating Instagram card
 
           result = await web3Service.createCardForInstagram(
             normalizedUsername,
@@ -887,7 +859,7 @@ export function CreateGiftCard() {
           redeemed: false,
           tx_hash: result.txHash,
         });
-        console.log('Card saved to Supabase cache');
+        // Card saved to Supabase cache
       } catch (error) {
         console.error('Error saving card to Supabase:', error);
       }
@@ -919,17 +891,7 @@ export function CreateGiftCard() {
       const txHash = txHashMatch ? txHashMatch[0] : null;
       setErrorTxHash(txHash);
       
-      // Log additional context for debugging
-      console.error('Error context:', {
-        recipientType: formData.recipientType,
-        recipientUsername: formData.recipientType !== 'address' ? formData.recipientUsername : undefined,
-        recipientAddress: formData.recipientType === 'address' ? formData.recipientAddress : undefined,
-        amount: formData.amount,
-        currency: formData.currency,
-        useDeveloperWallet: useDeveloperWallet,
-        hasDeveloperWallet: hasDeveloperWallet,
-        errorMessage: errorMessage
-      });
+      // Error context logged on backend only
       
       // Check if it's a chain ID error with Coinbase Wallet
       if (errorMessage.includes('invalid chain ID') && typeof window !== 'undefined' && (window as any).ethereum?.isCoinbaseWallet) {
