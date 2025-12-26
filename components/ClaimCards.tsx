@@ -1299,7 +1299,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">🎁 Pending Gift Cards ({pendingCards.length})</h2>
+          <h2 className="text-2xl font-semibold">Pending Gift Cards ({pendingCards.length})</h2>
           <p className="text-sm text-gray-600 mt-1">
             Gift cards sent to {usernames.join(' and ')}
           </p>
