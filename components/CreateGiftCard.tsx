@@ -365,14 +365,11 @@ export function CreateGiftCard() {
           return;
         }
 
-        // check allowance if need make  approve
-        const spenderAddress =
-          formData.recipientType === 'twitter' ? VAULT_CONTRACT_ADDRESS :
-          formData.recipientType === 'twitch' ? TWITCH_VAULT_CONTRACT_ADDRESS :
-          formData.recipientType === 'telegram' ? TELEGRAM_VAULT_CONTRACT_ADDRESS :
-          formData.recipientType === 'tiktok' ? TIKTOK_VAULT_CONTRACT_ADDRESS :
-          formData.recipientType === 'instagram' ? INSTAGRAM_VAULT_CONTRACT_ADDRESS :
-          CONTRACT_ADDRESS;
+        // check allowance if need make approve
+        // For social usernames, the card creation functions are in the main CONTRACT_ADDRESS, not in vault contracts
+        // Vault contracts are only used for storing cards, not for creating them
+        // For address recipients, also use CONTRACT_ADDRESS
+        const spenderAddress = CONTRACT_ADDRESS;
 
         const currentAllowance = await publicClient.readContract({
           address: tokenAddress as `0x${string}`,
@@ -468,6 +465,22 @@ export function CreateGiftCard() {
           socialUserId = developerWallet.social_user_id || undefined;
         }
         
+        // Log transaction details for debugging
+        console.log('Creating gift card via Developer Wallet:', {
+          recipientType: formData.recipientType,
+          recipientUsername: formData.recipientType !== 'address' ? formData.recipientUsername : undefined,
+          recipientAddress: formData.recipientType === 'address' ? formData.recipientAddress : undefined,
+          functionName: functionName,
+          amount: formData.amount,
+          currency: formData.currency,
+          tokenAddress: tokenAddress,
+          amountWei: amountWei,
+          contractAddress: CONTRACT_ADDRESS,
+          walletAddress: developerWallet.wallet_address,
+          socialPlatform: socialPlatform,
+          socialUserId: socialUserId
+        });
+        
         // Send transaction via developer wallet
         const txResult = await DeveloperWalletService.sendTransaction({
           walletId: developerWallet.circle_wallet_id,
@@ -482,7 +495,26 @@ export function CreateGiftCard() {
         });
         
         if (!txResult.success) {
-          throw new Error(txResult.error || 'Failed to create gift card');
+          // Provide more specific error message
+          const errorMessage = txResult.error || 'Failed to create gift card';
+          console.error('Transaction send failed:', {
+            error: errorMessage,
+            transaction: txResult.transaction,
+            recipientType: formData.recipientType
+          });
+          
+          // Check for common error patterns
+          if (errorMessage.includes('balance') || errorMessage.includes('insufficient')) {
+            throw new Error(`Insufficient ${formData.currency} balance. Please ensure you have enough tokens to create this gift card.`);
+          } else if (errorMessage.includes('allowance') || errorMessage.includes('approve')) {
+            throw new Error('Token approval failed. Please try again.');
+          } else if (errorMessage.includes('Vault not set') || errorMessage.includes('vault')) {
+            throw new Error('Vault contract not configured. Please contact support.');
+          } else if (errorMessage.includes('Username required') || errorMessage.includes('username')) {
+            throw new Error('Invalid username. Please check the username and try again.');
+          }
+          
+          throw new Error(errorMessage);
         }
         
         // If txHash is not yet available, poll the transaction status until txHash is received
@@ -510,12 +542,62 @@ export function CreateGiftCard() {
                 }
                 // If the transaction failed
                 if (statusData.transactionState === 'FAILED') {
-                  throw new Error(statusData.error || 'Transaction failed');
+                  // Get more detailed error information
+                  const errorDetails = statusData.transaction?.errorDetails || 
+                                     statusData.transaction?.error || 
+                                     statusData.error || 
+                                     'Transaction failed';
+                  const errorMessage = typeof errorDetails === 'string' 
+                    ? errorDetails 
+                    : JSON.stringify(errorDetails);
+                  
+                  console.error('Transaction failed:', {
+                    transactionId: txResult.transactionId,
+                    state: statusData.transactionState,
+                    error: errorMessage,
+                    transaction: statusData.transaction
+                  });
+                  
+                  // Provide more specific error message
+                  let userFriendlyError = 'Transaction failed';
+                  if (errorMessage.includes('transfer amount exceeds balance') || 
+                      errorMessage.includes('insufficient balance') ||
+                      errorMessage.includes('ERC20')) {
+                    userFriendlyError = `Insufficient ${formData.currency} balance. Please ensure you have enough tokens to create this gift card.`;
+                  } else if (errorMessage.includes('allowance')) {
+                    userFriendlyError = 'Token approval failed. Please try again.';
+                  } else if (errorMessage.includes('Vault not set') || errorMessage.includes('vault')) {
+                    userFriendlyError = 'Vault contract not configured. Please contact support.';
+                  } else if (errorMessage.includes('Username required') || errorMessage.includes('username')) {
+                    userFriendlyError = 'Invalid username. Please check the username and try again.';
+                  }
+                  
+                  throw new Error(userFriendlyError);
+                }
+                // If transaction is completed but no txHash yet, continue polling
+                if (statusData.transactionState === 'COMPLETE' && !statusData.txHash) {
+                  // Wait a bit more for txHash to appear
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  // Try one more time
+                  const retryStatusData = await apiCall(`/wallets/transaction-status?transactionId=${encodeURIComponent(txResult.transactionId)}`, {
+                    method: 'GET'
+                  });
+                  if (retryStatusData?.txHash) {
+                    finalTxHash = retryStatusData.txHash;
+                    break;
+                  }
                 }
               }
             } catch (pollError) {
+              // If it's a transaction failure error, re-throw it
+              if (pollError instanceof Error && pollError.message !== 'Transaction failed') {
+                throw pollError;
+              }
               console.warn('Error polling transaction status:', pollError);
-              // Continue polling
+              // Continue polling only if it's not a transaction failure
+              if (pollError instanceof Error && pollError.message.includes('Transaction failed')) {
+                throw pollError;
+              }
             }
           }
           
@@ -837,6 +919,18 @@ export function CreateGiftCard() {
       const txHash = txHashMatch ? txHashMatch[0] : null;
       setErrorTxHash(txHash);
       
+      // Log additional context for debugging
+      console.error('Error context:', {
+        recipientType: formData.recipientType,
+        recipientUsername: formData.recipientType !== 'address' ? formData.recipientUsername : undefined,
+        recipientAddress: formData.recipientType === 'address' ? formData.recipientAddress : undefined,
+        amount: formData.amount,
+        currency: formData.currency,
+        useDeveloperWallet: useDeveloperWallet,
+        hasDeveloperWallet: hasDeveloperWallet,
+        errorMessage: errorMessage
+      });
+      
       // Check if it's a chain ID error with Coinbase Wallet
       if (errorMessage.includes('invalid chain ID') && typeof window !== 'undefined' && (window as any).ethereum?.isCoinbaseWallet) {
         setError('Coinbase Wallet has issues with Arc Testnet. Please use MetaMask or Rainbow Wallet to work with Arc Testnet.');
@@ -844,10 +938,10 @@ export function CreateGiftCard() {
         toast.error('Error: use MetaMask or Rainbow Wallet', {
           description: 'Coinbase Wallet is not supported for Arc Testnet'
         });
-      } else if (errorMessage.includes('ERC20') || errorMessage.includes('transfer amount exceeds balance') || errorMessage.includes('Transaction failed')) {
+      } else if (errorMessage.includes('ERC20') || errorMessage.includes('transfer amount exceeds balance') || errorMessage.includes('Insufficient') || errorMessage.includes('balance')) {
         // More specific error for balance/transfer issues
-        const baseMessage = errorMessage.includes('Transaction failed') 
-          ? 'Transaction failed'
+        const baseMessage = errorMessage.includes('Insufficient') 
+          ? errorMessage
           : `Insufficient ${formData.currency} balance. Please ensure you have enough tokens to create this gift card.`;
         setError(baseMessage);
         
@@ -857,6 +951,24 @@ export function CreateGiftCard() {
           : baseMessage;
         toast.error('Transaction failed', {
           description: toastDescription
+        });
+      } else if (errorMessage.includes('Transaction failed')) {
+        // Handle generic transaction failed errors
+        setError(errorMessage);
+        toast.error('Transaction failed', {
+          description: errorMessage
+        });
+      } else if (errorMessage.includes('Vault not configured') || errorMessage.includes('Vault contract')) {
+        // Handle vault configuration errors
+        setError(errorMessage);
+        toast.error('Configuration error', {
+          description: errorMessage
+        });
+      } else if (errorMessage.includes('Invalid username') || errorMessage.includes('username')) {
+        // Handle username validation errors
+        setError(errorMessage);
+        toast.error('Invalid username', {
+          description: errorMessage
         });
       } else {
         setError(errorMessage);
