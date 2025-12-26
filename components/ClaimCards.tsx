@@ -608,6 +608,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           throw new Error('This card is not for your Twitter account');
         }
 
+        if (!user) {
+          throw new Error('User not found. Please ensure you are logged in.');
+        }
+
         const privyUserId = user.id;
         const twitterUserId = getSocialUserId('twitter');
 
@@ -735,6 +739,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           throw new Error('This card is not for your Twitch account');
         }
 
+        if (!user) {
+          throw new Error('User not found. Please ensure you are logged in.');
+        }
+
         const privyUserId = user.id;
         const twitchUserId = getSocialUserId('twitch');
 
@@ -853,6 +861,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
         if (normalizedLoggedIn !== normalizedCard) {
           throw new Error('This card is not for your Telegram account');
+        }
+
+        if (!user) {
+          throw new Error('User not found. Please ensure you are logged in.');
         }
 
         const privyUserId = user.id;
@@ -980,6 +992,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           throw new Error('This card is not for your TikTok account');
         }
 
+        if (!user) {
+          throw new Error('User not found. Please ensure you are logged in.');
+        }
+
         const privyUserId = user.id;
         const tiktokUserId = getSocialUserId('tiktok');
 
@@ -1103,6 +1119,10 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
 
         if (normalizedLoggedIn !== normalizedCard) {
           throw new Error('This card is not for your Instagram account');
+        }
+
+        if (!user) {
+          throw new Error('User not found. Please ensure you are logged in.');
         }
 
         const privyUserId = user.id;
