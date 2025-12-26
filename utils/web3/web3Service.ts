@@ -335,7 +335,7 @@ export class Web3Service {
             redeemed: giftCardInfo.redeemed,
             type: 'received'
           } as GiftCardInfo;
-        }).catch(error => {
+        }).catch(() => {
           // Failed to load card from API result
           return null;
         })
