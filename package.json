@@ -8,12 +8,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "circle:create-wallet": "node scripts/circleCreateWallet.mjs",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test:automate-wallets": "tsx tests/automate-wallets.ts",
-    "test:create-cards": "tsx tests/create-cards-direct.ts",
-    "mint:zkcodex": "tsx tests/mint-zkcodex-nft.ts",
-    "test:generate-sql": "tsx tests/generate-sql-from-tx.ts"
+    "circle:create-wallet": "node scripts/circleCreateWallet.mjs",  
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.0.1",

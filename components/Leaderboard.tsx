@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { Trophy, RefreshCw, Users, Gift, Copy, CheckCircle2 } from 'lucide-react';
+import { Trophy, RefreshCw, Users, Copy, CheckCircle2 } from 'lucide-react';
 import { CardHeader, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -265,7 +265,6 @@ export function Leaderboard() {
               </div>
               <Separator orientation="vertical" className="h-4" />
               <div className="flex items-center gap-2">
-                <Gift className="h-4 w-4 text-gray-400" />
                 <span className="text-[36px] leading-[48px] font-extrabold text-[#635bff]">{totalCards}</span>
                 <span className="text-[14px] leading-[16px] font-medium text-[#64748b]">cards total</span>
               </div>
@@ -413,9 +412,6 @@ export function Leaderboard() {
                   </div>
                   <div className="text-left md:text-right">
                     <div className="flex items-center gap-2 justify-end">
-                      {(index === 0 || index === 2) && (
-                        <Gift className="h-4 w-4 text-gray-400" />
-                      )}
                       <p className="text-sm font-semibold text-gray-900">
                         {entry.cardsSentTotal} cards
                       </p>
