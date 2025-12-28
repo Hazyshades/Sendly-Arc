@@ -120,7 +120,7 @@ export function NewsPanel() {
                 size="icon"
                 onClick={toggleExpand}
                 className="h-8 w-8"
-                aria-label="Свернуть новости"
+                aria-label="Collapse news"
               >
                 <X className="w-4 h-4" />
               </Button>

@@ -98,7 +98,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
     circle: "/Circle-Mint"
   };
 
-  // Checking for a Developer wallet for social networks
+  // Checking for a Internal wallet for social networks
   useEffect(() => {
     const checkSocialWallet = async () => {
       // If MetaMask is connected - no need to check a social wallet
@@ -119,7 +119,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
 
       try {
         setCheckingWallet(true);
-        // Check for a developer wallet for linked social networks
+        // Check for a Internal wallet for linked social networks
         const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
         const blockchain = 'ARC-TESTNET';
         
@@ -178,7 +178,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       return;
     }
     
-    // Do not perform lookup if neither MetaMask nor developer wallet is available
+    // Do not perform lookup if neither MetaMask nor Internal wallet is available
     if (!isConnected && !hasDeveloperWallet) {
       return;
     }
@@ -231,7 +231,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
         // Get the original creator of the card
         creator = await web3Service.getCardCreator(tokenId);
       } else {
-        // For developer wallet use a public RPC for reading
+        // For Internal wallet use a public RPC for reading
         const { createPublicClient, http } = await import('viem');
         const publicClient = createPublicClient({
           chain: arcTestnet,
@@ -428,7 +428,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       let owner: string;
       
       if (useDeveloperWallet) {
-        // For developer wallet use public RPC for reading
+        // For Internal wallet use public RPC for reading
         const { createPublicClient, http } = await import('viem');
         const publicClient = createPublicClient({
           chain: arcTestnet,
@@ -509,13 +509,13 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
 
       // Redeem gift card on blockchain
       if (useDeveloperWallet) {
-        // Use developer wallet to redeem
+        // Use Internal wallet to redeem
         const privyUserId = privyUser?.id;
         if (!privyUserId) {
           throw new Error('Privy user ID not found');
         }
 
-        // Determine the social network for the developer wallet
+        // Determine the social network for the Internal wallet
         let socialPlatform: string | null = null;
         let socialUserId: string | null = null;
         
@@ -627,7 +627,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
     navigate('/my');
   };
 
-  // Show the message only if there is neither MetaMask nor a social Developer wallet
+  // Show the message only if there is neither MetaMask nor a social Internal wallet
   if (!isConnected && !hasDeveloperWallet) {
     if (checkingWallet) {
       return (

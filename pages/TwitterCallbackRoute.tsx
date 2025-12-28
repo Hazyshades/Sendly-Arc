@@ -26,7 +26,7 @@ export function TwitterCallbackRoute() {
     const error = params.get('error');
     const state = params.get('state');
     const storedState = sessionStorage.getItem('twitter_oauth_state');
-    const redirectUrl = sessionStorage.getItem('twitter_oauth_redirect') || '/agent';
+    const redirectUrl = sessionStorage.getItem('twitter_oauth_redirect') || '/dashboard';
     const codeVerifier = sessionStorage.getItem('twitter_code_verifier');
     
     console.log('[POPUP] Authorization code found:', !!code);

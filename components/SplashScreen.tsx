@@ -9,7 +9,7 @@ export function SplashScreen() {
           <Gift className="w-12 h-12 text-white" />
           {/* New Year's hat */}
           <svg
-            className="absolute -top-4 -right-2 w-12 h-12"
+            className="absolute -top-4 -right-4 w-12 h-12"
             style={{ transform: 'rotate(35deg)' }}
             viewBox="0 0 18 18"
             fill="none"

@@ -89,7 +89,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
       // If MetaMask is connected - check wallet by address
       checkWallet();
     } else if (authenticated && privyUser && !isConnected) {
-      // If MetaMask is NOT connected, but a social account exists - check developer wallet for the social account
+      // If MetaMask is NOT connected, but a social account exists - check Internal wallet for the social account
       checkSocialWallet();
     } else {
       setChecking(false);
@@ -130,7 +130,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
     try {
       setChecking(true);
       console.log('[DeveloperWallet] Checking social wallet for authenticated user');
-      // Check for a developer wallet for linked social networks
+      // Check for a Internal wallet for linked social networks
       const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
       
       let walletFound = false;
@@ -425,14 +425,14 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
 
       await web3Service.initialize(clientToUse, address);
 
-      // Send tokens to developer wallet
+      // Send tokens to Internal wallet
       const txHash = await web3Service.sendToken(
         topUpToken,
         wallet.wallet_address,
         topUpAmount
       );
 
-      toast.success(`Successfully sent ${topUpAmount} ${topUpToken} to developer wallet!`);
+      toast.success(`Successfully sent ${topUpAmount} ${topUpToken} to Internal wallet!`);
       setTopUpAmount('');
       
       // Open transaction in explorer
@@ -891,67 +891,70 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
 
   return (
     <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Wallet className="w-5 h-5" />
-           Internal Wallet
-        </CardTitle>
-        <CardDescription>
-          {shouldShowConnectMessage 
-            ? 'Please connect your wallet or social account to use AI Agents functionality.'
-            : 'To use AI Agents functionality via Telegram, please create an internal wallet.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {shouldShowConnectMessage ? null : (
-          <>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">Why is this needed?</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Send transactions through the Telegram bot</li>
-                <li>• No need to sign each transaction</li>
-                <li>• Design a flexible flow for your funds</li>
-                <li>• Assign tasks to the agent with</li>
-              </ul>
+  <CardHeader className="pb-6"> {/* add bottom margin, so the description does not stick to the content below */}
+    <div className="grid grid-rows-2 items-start gap-3">
+      {/* Title with icon — left */}
+      <CardTitle className="flex items-center gap-2">
+        <Wallet className="w-5 h-5 text-gray-700" />
+        Internal Wallet
+      </CardTitle>
+
+      {/* Description — center of the card */}
+      <CardDescription className="text-center text-sm text-gray-600 -mt-1">
+        {shouldShowConnectMessage
+          ? 'Please connect your wallet or social account to use platform functionality.'
+          : 'To use platform functionality via Telegram, please create an internal wallet.'}
+      </CardDescription>
+    </div>
+  </CardHeader>
+      {!shouldShowConnectMessage && (
+        <CardContent className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-900 mb-2">Why is this needed?</h4>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• Send transactions through the Telegram bot</li>
+              <li>• No need to sign each transaction</li>
+              <li>• Design a flexible flow for your funds</li>
+              <li>• Assign tasks to the agent with</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Blockchain:</span>
+              <span className="font-medium">{getBlockchainName(blockchain)}</span>
             </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Blockchain:</span>
-                <span className="font-medium">{getBlockchainName(blockchain)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Account type:</span>
-                <span className="font-medium">EOA (Externally Owned Account)</span>
-              </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Account type:</span>
+              <span className="font-medium">EOA (Externally Owned Account)</span>
             </div>
+          </div>
 
-            <Button
-              onClick={createWallet}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating wallet...
-                </>
-              ) : (
-                <>
-                  <Wallet className="w-4 h-4 mr-2" />
-                  Create wallet
-                </>
-              )}
-            </Button>
+          <Button
+            onClick={createWallet}
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Creating wallet...
+              </>
+            ) : (
+              <>
+                <Wallet className="w-4 h-4 mr-2" />
+                Create wallet
+              </>
+            )}
+          </Button>
 
-            <p className="text-xs text-gray-500 text-center">
-              {isConnected 
-                ? `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your EVM address and Telegram`
-                : `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your social account`}
-            </p>
-          </>
-        )}
-      </CardContent>
+          <p className="text-xs text-gray-500 text-center">
+            {isConnected 
+              ? `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your EVM address and Telegram`
+              : `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your social account`}
+          </p>
+        </CardContent>
+      )}
     </Card>
   );
 }

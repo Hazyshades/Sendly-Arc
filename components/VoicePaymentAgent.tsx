@@ -250,7 +250,7 @@ export function VoicePaymentAgent() {
     setRecordingState('idle');
   };
 
-  // Checking for a Developer wallet for social networks
+  // Checking for a Internal wallet for social networks
   useEffect(() => {
     const checkSocialWallet = async () => {
       // If MetaMask is connected - no need to check a social wallet
@@ -269,7 +269,7 @@ export function VoicePaymentAgent() {
 
       try {
         setCheckingWallet(true);
-        // Check for a developer wallet for linked social networks
+        // Check for a Internal wallet for linked social networks
         const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
         const blockchain = 'ARC-TESTNET';
         
@@ -320,7 +320,7 @@ export function VoicePaymentAgent() {
     };
   }, []);
 
-  // Show the message only if there is neither MetaMask nor a social Developer wallet
+  // Show the message only if there is neither MetaMask nor a social Internal wallet
   if (!isConnected && !hasDeveloperWallet) {
     if (checkingWallet) {
       return (
@@ -331,11 +331,7 @@ export function VoicePaymentAgent() {
       );
     }
 
-    return (
-      <div className="p-6 text-center">
-        
-      </div>
-    );
+    return null;
   }
 
   return (

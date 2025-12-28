@@ -112,7 +112,7 @@ export function ClaimTwitchCards() {
     return (twitchAccount as any)?.subject || (twitchAccount as any)?.id || null;
   };
 
-  // Handle creating Developer wallet and claiming card
+  // Handle creating Internal wallet and claiming card
   const handleCreateWalletAndClaim = async () => {
     if (!selectedCardForClaim) return;
 
@@ -150,11 +150,11 @@ export function ClaimTwitchCards() {
         return;
       }
 
-      // Check if Developer wallet exists
+      // Check if Internal wallet exists
       let devWallet = await DeveloperWalletService.getWalletBySocial('twitch', twitchUserId);
       
       if (!devWallet) {
-        // Create Developer wallet automatically
+        // Create Internal wallet automatically
         toast.info('Creating internal wallet for receiving donations...');
         const createResult = await DeveloperWalletService.createWalletForSocial(
           'twitch',
@@ -164,7 +164,7 @@ export function ClaimTwitchCards() {
         );
         
         if (!createResult.success || !createResult.wallet) {
-          throw new Error('Failed to create Developer wallet');
+          throw new Error('Failed to create Internal wallet');
         }
         
         devWallet = createResult.wallet;
@@ -190,7 +190,7 @@ export function ClaimTwitchCards() {
         }
       }
 
-      // Claim via Developer wallet
+      // Claim via Internal wallet
       toast.info('Claiming card via internal wallet...');
       
       const txResult = await DeveloperWalletService.sendTransaction({
@@ -206,7 +206,7 @@ export function ClaimTwitchCards() {
       });
 
       if (!txResult.success) {
-        throw new Error(txResult.error || 'Failed to claim card via Developer wallet');
+        throw new Error(txResult.error || 'Failed to claim card via Internal wallet');
       }
 
       // If there is no txHash yet but there is a transactionId - that's normal, the transaction is queued
@@ -252,7 +252,7 @@ export function ClaimTwitchCards() {
       return;
     }
 
-    // If no wallet and not using Developer wallet, show wallet choice modal
+    // If no wallet and not using Internal wallet, show wallet choice modal
     if (!useDeveloperWallet && (!isConnected || !address)) {
       setSelectedCardForClaim(card);
       setIsWalletChoiceModalOpen(true);
@@ -265,17 +265,17 @@ export function ClaimTwitchCards() {
       const privyUserId = user.id;
       const twitchUserId = getTwitchUserId();
 
-      // If there is no MetaMask or a social Developer wallet is selected
+      // If there is no MetaMask or a social Internal wallet is selected
       if (useDeveloperWallet || !isConnected || !address) {
         if (!privyUserId || !twitchUserId) {
           throw new Error('Privy user ID or Twitch ID not found. Please ensure you are logged in with Twitch.');
         }
 
-        // Check if Developer wallet exists
+        // Check if Internal wallet exists
         let devWallet = await DeveloperWalletService.getWalletBySocial('twitch', twitchUserId);
         
         if (!devWallet) {
-          // Create Developer wallet automatically
+          // Create Internal wallet automatically
           toast.info('Creating internal wallet for receiving donations...');
           const createResult = await DeveloperWalletService.createWalletForSocial(
             'twitch',
@@ -285,14 +285,14 @@ export function ClaimTwitchCards() {
           );
           
           if (!createResult.success || !createResult.wallet) {
-            throw new Error('Failed to create Developer wallet');
+            throw new Error('Failed to create Internal wallet');
           }
           
           devWallet = createResult.wallet;
           toast.success('Internal wallet created successfully!');
         }
 
-        // Claim via Developer wallet
+        // Claim via Internal wallet
         toast.info('Claiming card via internal wallet...');
         
         const txResult = await DeveloperWalletService.sendTransaction({
@@ -308,7 +308,7 @@ export function ClaimTwitchCards() {
         });
 
         if (!txResult.success || !txResult.txHash) {
-          throw new Error(txResult.error || 'Failed to claim card via Developer wallet');
+          throw new Error(txResult.error || 'Failed to claim card via Internal wallet');
         }
 
         toast.success(`Card claimed successfully! TX: ${txResult.txHash.slice(0, 10)}...`);

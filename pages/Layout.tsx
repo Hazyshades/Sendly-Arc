@@ -17,7 +17,7 @@ export function Layout({ children }: LayoutProps) {
   const [isPrivyModalOpen, setIsPrivyModalOpen] = useState(false);
 
   const navigationItems = [
-    { path: '/agent', label: 'Dashboard', icon: '🎤' },
+    { path: '/dashboard', label: 'Dashboard', icon: '🎤' },
     { path: '/create', label: 'Create', icon: '➕' },
     { path: '/my', label: 'My Cards', icon: '🎴' },
     { path: '/spend', label: 'Spend', icon: '💳' },
@@ -35,7 +35,14 @@ export function Layout({ children }: LayoutProps) {
           <div className="relative w-12 h-12 bg-blue-400 rounded-2xl flex items-center justify-center cursor-pointer shadow-circle-card">
             <Gift className="w-7 h-7 text-white" />
           </div>
-          <span className="text-gray-900 text-2xl font-semibold">Sendly</span>
+          <span className="relative text-gray-900 text-2xl font-semibold">
+            Sendly
+            <img 
+              src="/new_year.png" 
+              alt="Santa hat" 
+              className="absolute -top-4 left-[0.001em] w-6 h-6 object-contain z-10"
+            />
+          </span>
         </div>
         
         <div className="flex items-center gap-4">

@@ -174,7 +174,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   };
 
   useEffect(() => {
-    // Load cards if MetaMask is connected OR a social network with a developer wallet is available
+    // Load cards if MetaMask is connected OR a social network with a Internal wallet is available
     if ((isConnected && address) || (authenticated && user)) {
       if (!hasFetched) {
         setHasFetched(true);
@@ -198,14 +198,14 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
 
   const fetchCards = async () => {
     // If MetaMask is connected - use its address
-    // If there is no MetaMask but a social network is linked - check for a developer wallet
+    // If there is no MetaMask but a social network is linked - check for a Internal wallet
     let recipientAddresses: string[] = [];
     
     if (isConnected && address) {
       recipientAddresses.push(address.toLowerCase());
     }
     
-    // Check developer wallet for social networks
+    // Check Internal wallet for social networks
     if (authenticated && user) {
       try {
         const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
@@ -242,11 +242,11 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           }
         }
       } catch (error) {
-        console.error('Error fetching developer wallets:', error);
+        console.error('Error fetching Internal wallets:', error);
       }
     }
     
-    // If neither MetaMask nor a developer wallet is available - do not load cards
+    // If neither MetaMask nor a Internal wallet is available - do not load cards
     if (recipientAddresses.length === 0) {
       setLoading(false);
       return;
@@ -256,7 +256,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       // First, try to load from Supabase cache (fast) - display immediately
       // Loading cards from Supabase cache
       
-      // Retrieve cards for all addresses (MetaMask + developer wallets)
+      // Retrieve cards for all addresses (MetaMask + Internal wallets)
       const [allReceivedCards, supabaseSentCards] = await Promise.all([
         Promise.all(recipientAddresses.map(addr => GiftCardsService.getCardsByRecipientAddress(addr))).then(
           results => results.flat()
@@ -556,7 +556,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
     return matchesSearch && matchesStatus && matchesCurrency;
   });
 
-  // Allow viewing pending cards even without wallet connection (they can use Developer wallet)
+  // Allow viewing pending cards even without wallet connection (they can use Internal wallet)
   // But require wallet for viewing received/sent cards
   if (!isConnected && !authenticated) {
     return (
@@ -649,7 +649,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
                 setHasFetched(false);
                 
                 // Always refresh cards after claim, even without MetaMask
-                // This ensures cards claimed via Developer Wallet appear immediately
+                // This ensures cards claimed via Internal wallet appear immediately
                 await fetchCards();
                 await fetchPendingCardsCount();
                 

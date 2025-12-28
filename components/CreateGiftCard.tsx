@@ -184,7 +184,7 @@ export function CreateGiftCard() {
     setIsSocialsOpen(formData.recipientType !== 'address');
   }, [formData.recipientType]);
 
-  // Checking for the presence of a Developer wallet for social networks
+  // Checking for the presence of a Internal wallet for social networks
   useEffect(() => {
     const checkSocialWallet = async () => {
       // If MetaMask is connected - no need to check a social wallet
@@ -205,7 +205,7 @@ export function CreateGiftCard() {
 
       try {
         setCheckingWallet(true);
-        // Check for a developer wallet for linked social networks
+        // Check for a Internal wallet for linked social networks
         const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
         const blockchain = 'ARC-TESTNET';
         
@@ -251,7 +251,7 @@ export function CreateGiftCard() {
   }, [isConnected, authenticated, privyUser]);
 
   const handleCreateCard = async () => {
-    // Check for a wallet (MetaMask or developer wallet)
+    // Check for a wallet (MetaMask or Internal wallet)
     if (!isConnected && !hasDeveloperWallet) {
       setError('Please connect your wallet first');
       return;
@@ -345,7 +345,7 @@ export function CreateGiftCard() {
       
       const amountWei = (parseFloat(formData.amount) * 1000000).toString(); // 6 decimals for USDC/EURC
       
-      // Check balance for developer wallet
+      // Check balance for Internal wallet
       if (useDeveloperWallet) {
         const publicClient = createPublicClient({
           chain: arcTestnet,
@@ -379,14 +379,14 @@ export function CreateGiftCard() {
         }) as bigint;
 
         if (currentAllowance < BigInt(amountWei)) {
-          // Validate that privyUser exists when using Developer Wallet
+          // Validate that privyUser exists when using Internal wallet
           if (!privyUser) {
             throw new Error('User not found. Please ensure you are logged in.');
           }
           
           toast.info(`Approving ${formData.currency} for contract...`);
 
-          // Send approve via Developer Wallet
+          // Send approve via Internal wallet
           const approveTx = await DeveloperWalletService.sendTransaction({
             walletId: developerWallet.circle_wallet_id,
             walletAddress: developerWallet.wallet_address,
@@ -433,12 +433,12 @@ export function CreateGiftCard() {
       
       // Use different methods based on wallet type and recipient type
       if (useDeveloperWallet) {
-        // Validate that privyUser exists when using Developer Wallet
+        // Validate that privyUser exists when using Internal wallet
         if (!privyUser) {
           throw new Error('User not found. Please ensure you are logged in.');
         }
         
-        // Create card via developer wallet
+        // Create card via Internal wallet
         const normalizedUsername = formData.recipientType !== 'address' 
           ? formData.recipientUsername.toLowerCase().replace(/^@/, '').trim()
           : '';
@@ -477,7 +477,7 @@ export function CreateGiftCard() {
         
         // Transaction details logged on backend only
         
-        // Send transaction via developer wallet
+        // Send transaction via Internal wallet
         const txResult = await DeveloperWalletService.sendTransaction({
           walletId: developerWallet.circle_wallet_id,
           walletAddress: developerWallet.wallet_address,
@@ -992,7 +992,7 @@ export function CreateGiftCard() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  // Show the message only if there is neither MetaMask nor a social Developer wallet
+  // Show the message only if there is neither MetaMask nor a social Internal wallet
   if (!isConnected && !hasDeveloperWallet) {
     if (checkingWallet) {
       return (

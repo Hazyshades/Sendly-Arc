@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { SplashScreen } from '../components/SplashScreen';
 import { useState } from 'react';
@@ -47,7 +47,8 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<LandingRoute />} />
-      <Route path="/agent" element={<AgentRoute />} />
+      <Route path="/dashboard" element={<AgentRoute />} />
+      <Route path="/agent" element={<Navigate to="/dashboard" replace />} />
       <Route path="/create" element={<CreateRoute />} />
       <Route path="/my" element={<MyRoute />} />
       <Route path="/spend" element={<SpendRoute />} />
