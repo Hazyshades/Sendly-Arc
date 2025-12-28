@@ -9,19 +9,19 @@ interface NewsItem {
   title: string;
   description: string;
   date: string;
-  type?: 'update' | 'feature' | 'announcement';
+  type?: 'update' | 'feature' | 'announcement' | 'fixed';
 }
 
 // Example news data - can be replaced with real data from API
 const newsItems: NewsItem[] = [
-  /*{
-    id: '1',
-    title: 'New feature: Internal Wallets claims',
-    description: 'Now you can easily bridge USDC between different blockchains',
-    date: '2025-01-15',
-    type: 'feature',
-  },
   {
+    id: '2',
+    title: 'Fixed bug: Leaderboard not showing all users',
+    description: 'Leaderboard now shows all users, not just the top 1000',
+    date: '2025-12-28',
+    type: 'fixed',
+  },
+  /*{
     id: '2',
     title: 'Dev-Controlled Wallets update',
     description: 'Added support for Internal Wallets claims and sending cards with socials usernames.',
@@ -53,6 +53,8 @@ export function NewsPanel() {
         return 'text-purple-600 bg-purple-50';
       case 'announcement':
         return 'text-green-600 bg-green-50';
+      case 'fixed':
+        return 'text-orange-600 bg-orange-50';
       default:
         return 'text-gray-600 bg-gray-50';
     }
@@ -66,6 +68,8 @@ export function NewsPanel() {
         return 'Update';
       case 'announcement':
         return 'Announcement';
+      case 'fixed':
+        return 'Fixed';
       default:
         return 'News';
     }

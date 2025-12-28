@@ -78,7 +78,9 @@ export function Leaderboard() {
           }
         }
         
-        const data = await getLeaderboardSenders({ limit: 1000 });
+        // Load all leaderboard entries without limit
+        const data = await getLeaderboardSenders({ limit: 100000 });
+        console.log(`[Leaderboard] Loaded ${data.length} entries from API`);
         setEntries(data);
         setError(null);
       } catch (err) {
@@ -209,7 +211,7 @@ export function Leaderboard() {
   }, [totalPages, currentPage]);
 
   // Calculate statistics
-  const totalAddresses = useMemo(() => entries.length, [entries.length]);
+  const totalAddresses = useMemo(() => entries.length, [entries]);
   const totalCards = useMemo(
     () => entries.reduce((sum, entry) => sum + entry.cardsSentTotal, 0),
     [entries]

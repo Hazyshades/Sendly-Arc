@@ -32,7 +32,7 @@ export function Layout({ children }: LayoutProps) {
       <div className="abstract-shape"></div>
       <header className="flex items-center justify-between p-6 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-blue-400 rounded-2xl flex items-center justify-center cursor-pointer shadow-circle-card">
+          <div className="relative w-12 h-12 bg-blue-400 rounded-2xl flex items-center justify-center cursor-pointer shadow-circle-card">
             <Gift className="w-7 h-7 text-white" />
           </div>
           <span className="text-gray-900 text-2xl font-semibold">Sendly</span>
