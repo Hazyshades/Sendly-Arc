@@ -9,6 +9,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from './ui/empty';
 import { Progress } from './ui/progress';
 import { Input } from './ui/input';
+import { Separator } from './ui/separator';
+import { ScrollArea } from './ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -367,6 +369,7 @@ export function Leaderboard() {
               </div>
             </div>
           </div>
+          <Separator className="mt-4" />
         </div>
       </CardHeader>
 
@@ -378,7 +381,7 @@ export function Leaderboard() {
         )}
 
         {/* Search and filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 pb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -435,7 +438,8 @@ export function Leaderboard() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="space-y-2">
+          <ScrollArea className="w-full">
+            <div className="space-y-2 pr-4">
             {displayedEntries.map((entry, index) => {
               const isAddressLabel =
                 !entry.displayName ||
@@ -591,11 +595,14 @@ export function Leaderboard() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          </ScrollArea>
         )}
 
         {!loading && displayedEntries.length > 0 && totalPages > 1 && (
-          <div className="mt-6 flex justify-center">
+          <>
+            <Separator className="my-4" />
+            <div className="flex justify-center">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
@@ -647,7 +654,8 @@ export function Leaderboard() {
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
-          </div>
+            </div>
+          </>
         )}
       </CardContent>
     </>

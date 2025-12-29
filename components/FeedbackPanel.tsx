@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { MessageSquare, X, ThumbsDown } from 'lucide-react';
+import { MessageSquare, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
+import { Label } from './ui/label';
+import { Separator } from './ui/separator';
+import { ScrollArea } from './ui/scroll-area';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { cn } from './ui/utils';
 import { submitFeedback, type FeedbackInsert } from '../utils/supabase/feedback';
 import { usePrivy } from '@privy-io/react-auth';
@@ -112,45 +116,68 @@ export function FeedbackPanel() {
                 <X className="w-4 h-4" />
               </Button>
             </CardHeader>
-            <CardContent className="p-4 overflow-y-auto h-[calc(100%-73px)]">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-3">
-                    What could be better? (Select one)
-                  </p>
-                  <div className="space-y-2">
-                    {feedbackTypes.map((type) => (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => setSelectedType(type.value)}
-                        className={cn(
-                          'w-full text-left px-4 py-2.5 rounded-xl border transition-all text-sm font-medium',
-                          selectedType === type.value
-                            ? 'bg-orange-50 border-orange-300 text-orange-700 shadow-sm'
-                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                        )}
+            <CardContent className="p-4 h-[calc(100%-73px)] flex flex-col">
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                <ScrollArea className="flex-1 pr-4 mb-4">
+                  <div className="space-y-6">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                        What could be better? (Select one)
+                      </Label>
+                      <RadioGroup
+                        value={selectedType}
+                        onValueChange={setSelectedType}
+                        className="space-y-2"
                       >
-                        {type.label}
-                      </button>
-                    ))}
+                        {feedbackTypes.map((type) => (
+                          <div
+                            key={type.value}
+                            className={cn(
+                              'flex items-center space-x-3 rounded-xl border p-3 transition-all',
+                              selectedType === type.value
+                                ? 'bg-orange-50 border-orange-300'
+                                : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            )}
+                          >
+                            <RadioGroupItem
+                              value={type.value}
+                              id={type.value}
+                              className="flex-shrink-0"
+                            />
+                            <Label
+                              htmlFor={type.value}
+                              className={cn(
+                                'flex-1 cursor-pointer text-sm font-medium',
+                                selectedType === type.value
+                                  ? 'text-orange-700'
+                                  : 'text-gray-700'
+                              )}
+                            >
+                              {type.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block">
+                        Additional details (optional)
+                      </Label>
+                      <Textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Tell us what went wrong or what you expected..."
+                        className="min-h-24 resize-none"
+                        rows={4}
+                      />
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Additional details (optional)
-                  </label>
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Tell us what went wrong or what you expected..."
-                    className="min-h-24 resize-none"
-                    rows={4}
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-2">
+                </ScrollArea>
+                <div className="flex gap-3 pt-4 border-t">
                   <Button
                     type="button"
                     variant="outline"
