@@ -578,6 +578,11 @@ export function Leaderboard() {
                           </Tooltip>
                         )}
                       </div>
+                      {entry.znsDomain && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <p className="text-xs font-medium text-[#635bff]">@{entry.znsDomain}</p>
+                        </div>
+                      )}
                       {isCurrentUser && (
                         <div className="flex items-center gap-1 mt-1">
                           <CheckCircle2 className="h-3 w-3 text-indigo-500" />
