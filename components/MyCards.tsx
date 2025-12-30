@@ -52,6 +52,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
+  const [activeTab, setActiveTab] = useState('received');
   // Temporary flag to disable background blockchain sync on /my
   const ENABLE_BLOCKCHAIN_SYNC = false;
 
@@ -76,7 +77,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   };
 
   const fetchPendingCardsCount = async () => {
-    if (!authenticated || !isConnected || !address) {
+    if (!authenticated) {
       setPendingCount(0);
       return;
     }
@@ -84,18 +85,25 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
     const hasTwitter = user?.twitter?.username;
     const hasTwitch = user?.twitch?.username;
     const hasTelegram = telegramUsername;
+    const hasTikTok = user?.tiktok?.username;
+    const hasInstagram = user?.instagram?.username;
 
-    if (!hasTwitter && !hasTwitch && !hasTelegram) {
+    if (!hasTwitter && !hasTwitch && !hasTelegram && !hasTikTok && !hasInstagram) {
       setPendingCount(0);
       return;
     }
 
     try {
-      const walletClient = createWalletClient({
-        chain: arcTestnet,
-        transport: custom(window.ethereum)
-      });
-      await web3Service.initialize(walletClient, address);
+      // Initialize web3Service only if wallet is connected, otherwise use publicClient only
+      // publicClient is already created in web3Service constructor, so we can use it without initialization
+      if (isConnected && address && typeof window !== 'undefined' && window.ethereum) {
+        const walletClient = createWalletClient({
+          chain: arcTestnet,
+          transport: custom(window.ethereum)
+        });
+        await web3Service.initialize(walletClient, address);
+      }
+      // If no wallet connected, web3Service can still use publicClient for read operations
       
       let totalCount = 0;
 
@@ -134,6 +142,30 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         }
       }
 
+      if (hasTikTok) {
+        try {
+          const tiktokUsername = user!.tiktok!.username;
+          if (tiktokUsername) {
+            const tokenIds = await web3Service.getPendingTikTokCards(tiktokUsername);
+            totalCount += tokenIds.length;
+          }
+        } catch (error) {
+          console.error('Error fetching TikTok pending cards count:', error);
+        }
+      }
+
+      if (hasInstagram) {
+        try {
+          const instagramUsername = user!.instagram!.username;
+          if (instagramUsername) {
+            const tokenIds = await web3Service.getPendingInstagramCards(instagramUsername);
+            totalCount += tokenIds.length;
+          }
+        } catch (error) {
+          console.error('Error fetching Instagram pending cards count:', error);
+        }
+      }
+
       setPendingCount(totalCount);
     } catch (error) {
       console.error('Error fetching pending cards count:', error);
@@ -142,7 +174,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   };
 
   useEffect(() => {
-    // Load cards if MetaMask is connected OR a social network with a developer wallet is available
+    // Load cards if MetaMask is connected OR a social network with a Internal wallet is available
     if ((isConnected && address) || (authenticated && user)) {
       if (!hasFetched) {
         setHasFetched(true);
@@ -155,23 +187,25 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
   }, [isConnected, address, authenticated, user, hasFetched]);
 
   useEffect(() => {
-    if (authenticated && isConnected && address) {
+    // Fetch pending cards count if authenticated and has at least one social network
+    // This works even without connected wallet because web3Service uses publicClient for read operations
+    if (authenticated && (user?.twitter?.username || user?.twitch?.username || telegramUsername || user?.tiktok?.username || user?.instagram?.username)) {
       fetchPendingCardsCount();
     } else {
       setPendingCount(0);
     }
-  }, [authenticated, user?.twitter?.username, user?.twitch?.username, telegramUsername, isConnected, address]);
+  }, [authenticated, user?.twitter?.username, user?.twitch?.username, telegramUsername, user?.tiktok?.username, user?.instagram?.username, isConnected, address]);
 
   const fetchCards = async () => {
     // If MetaMask is connected - use its address
-    // If there is no MetaMask but a social network is linked - check for a developer wallet
+    // If there is no MetaMask but a social network is linked - check for a Internal wallet
     let recipientAddresses: string[] = [];
     
     if (isConnected && address) {
       recipientAddresses.push(address.toLowerCase());
     }
     
-    // Check developer wallet for social networks
+    // Check Internal wallet for social networks
     if (authenticated && user) {
       try {
         const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
@@ -208,11 +242,11 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           }
         }
       } catch (error) {
-        console.error('Error fetching developer wallets:', error);
+        console.error('Error fetching Internal wallets:', error);
       }
     }
     
-    // If neither MetaMask nor a developer wallet is available - do not load cards
+    // If neither MetaMask nor a Internal wallet is available - do not load cards
     if (recipientAddresses.length === 0) {
       setLoading(false);
       return;
@@ -220,9 +254,9 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
 
     try {
       // First, try to load from Supabase cache (fast) - display immediately
-      console.log('Loading cards from Supabase cache for addresses:', recipientAddresses);
+      // Loading cards from Supabase cache
       
-      // Retrieve cards for all addresses (MetaMask + developer wallets)
+      // Retrieve cards for all addresses (MetaMask + Internal wallets)
       const [allReceivedCards, supabaseSentCards] = await Promise.all([
         Promise.all(recipientAddresses.map(addr => GiftCardsService.getCardsByRecipientAddress(addr))).then(
           results => results.flat()
@@ -248,7 +282,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
         hasTimer: false,
         hasPassword: false,
-        qrCode: `sendly://redeem/${card.token_id}`
+        qrCode: `/spend?tokenId=${card.token_id}`
       }));
 
       const transformedSentCards: GiftCard[] = supabaseSentCards.map(card => {
@@ -278,7 +312,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
           hasTimer: false,
           hasPassword: false,
-          qrCode: `sendly://redeem/${card.token_id}`
+          qrCode: `/spend?tokenId=${card.token_id}`
         };
       });
 
@@ -418,7 +452,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           createdAt: existingReceivedMap.get(card.tokenId)?.createdAt || new Date().toLocaleDateString(),
           hasTimer: false,
           hasPassword: false,
-          qrCode: `sendly://redeem/${card.tokenId}`
+          qrCode: `/spend?tokenId=${card.tokenId}`
         }));
 
         // Always update with blockchain data if counts differ (blockchain is source of truth)
@@ -489,7 +523,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         createdAt: new Date().toLocaleDateString(),
         hasTimer: false,
         hasPassword: false,
-        qrCode: `sendly://redeem/${card.tokenId}`
+        qrCode: `/spend?tokenId=${card.tokenId}`
       }));
 
       // Update card state
@@ -522,7 +556,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
     return matchesSearch && matchesStatus && matchesCurrency;
   });
 
-  // Allow viewing pending cards even without wallet connection (they can use Developer wallet)
+  // Allow viewing pending cards even without wallet connection (they can use Internal wallet)
   // But require wallet for viewing received/sent cards
   if (!isConnected && !authenticated) {
     return (
@@ -594,7 +628,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         </div>
       </div>
       
-      <Tabs defaultValue="received" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className={`grid w-full ${authenticated ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="sent">Sent ({sentCards.length})</TabsTrigger>
           <TabsTrigger value="received">Received ({receivedCards.length})</TabsTrigger>
@@ -607,11 +641,20 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           <TabsContent value="pending" className="space-y-4">
             <ClaimCards 
               autoLoad={true}
-              onCardClaimed={() => {
-                if (isConnected && address) {
-                  fetchCards();
-                  fetchPendingCardsCount();
-                }
+              onCardClaimed={async () => {
+                // Wait a bit for database to update after claim
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Reset hasFetched to force reload
+                setHasFetched(false);
+                
+                // Always refresh cards after claim, even without MetaMask
+                // This ensures cards claimed via Internal wallet appear immediately
+                await fetchCards();
+                await fetchPendingCardsCount();
+                
+                // Switch to "Received" tab to show the newly claimed card
+                setActiveTab('received');
               }}
               onPendingCountChange={setPendingCount}
             />

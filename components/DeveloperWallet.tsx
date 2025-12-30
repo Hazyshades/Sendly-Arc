@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useAccount, useWalletClient } from 'wagmi';
 import { toast } from 'sonner';
@@ -30,7 +30,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [topUpToken, setTopUpToken] = useState<'USDC' | 'EURC' | 'USYC'>('USDC');
+  const [topUpToken, setTopUpToken] = useState<'USDC' | 'EURC'>('USDC');
   const [topUpAmount, setTopUpAmount] = useState('');
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -38,6 +38,9 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   const [linkingTelegram, setLinkingTelegram] = useState(false);
   const [balances, setBalances] = useState<{ USDC: string; EURC: string } | null>(null);
   const [loadingBalances, setLoadingBalances] = useState(false);
+  const isCheckingRef = useRef(false);
+  const lastCheckParamsRef = useRef<string>('');
+  const checkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isValidTelegramId = (value: string | null | undefined) => {
     if (!value) return false;
@@ -85,16 +88,85 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   };
 
   useEffect(() => {
-    if (isConnected && address) {
-      // If MetaMask is connected - check wallet by address
-      checkWallet();
-    } else if (authenticated && privyUser && !isConnected) {
-      // If MetaMask is NOT connected, but a social account exists - check developer wallet for the social account
-      checkSocialWallet();
-    } else {
-      setChecking(false);
+    // Clear previous timer if it exists
+    if (checkTimeoutRef.current) {
+      clearTimeout(checkTimeoutRef.current);
+      checkTimeoutRef.current = null;
     }
-  }, [isConnected, address, blockchain, authenticated, privyUser]);
+
+    // Create a stable key for checking (use only important data, not the entire privyUser object)
+    const privyUserId = privyUser?.id || '';
+    const checkKey = `${isConnected}-${address || ''}-${blockchain}-${authenticated}-${privyUserId}`;
+    
+    // If check is already in progress or parameters haven't changed, skip
+    if (isCheckingRef.current) {
+      return;
+    }
+
+    if (lastCheckParamsRef.current === checkKey) {
+      // Parameters haven't changed, no need to check again
+      // Make sure checking is set to false if check was already performed
+      if (!isCheckingRef.current) {
+        setChecking(false);
+      }
+      return;
+    }
+
+    // If there are no conditions for checking, just set checking to false
+    // But only if we're sure the data is loaded (not undefined)
+    const hasNoConditions = !isConnected && (authenticated === false || (authenticated === true && !privyUser));
+    if (hasNoConditions) {
+      setChecking(false);
+      lastCheckParamsRef.current = checkKey;
+      return;
+    }
+
+    // If data is still loading (authenticated === undefined), wait
+    if (!isConnected && authenticated === undefined) {
+      // Don't set checking to false, as data is still loading
+      return;
+    }
+
+    // Add a small delay for debounce (especially important for React StrictMode)
+    checkTimeoutRef.current = setTimeout(() => {
+      // Check again if parameters changed during the delay
+      const currentCheckKey = `${isConnected}-${address || ''}-${blockchain}-${authenticated}-${privyUser?.id || ''}`;
+      if (lastCheckParamsRef.current === currentCheckKey || isCheckingRef.current) {
+        // If parameters haven't changed or check is already in progress, reset checking
+        if (!isCheckingRef.current) {
+          setChecking(false);
+        }
+        return;
+      }
+
+      // Set check flag and save parameters
+      isCheckingRef.current = true;
+      lastCheckParamsRef.current = currentCheckKey;
+
+      if (isConnected && address) {
+        // If MetaMask is connected - check wallet by address
+        checkWallet().finally(() => {
+          isCheckingRef.current = false;
+        });
+      } else if (authenticated && privyUser && !isConnected) {
+        // If MetaMask is NOT connected, but a social account exists - check Internal wallet for the social account
+        checkSocialWallet().finally(() => {
+          isCheckingRef.current = false;
+        });
+      } else {
+        setChecking(false);
+        isCheckingRef.current = false;
+      }
+    }, 100); // Small delay for debounce
+
+    // Cleanup function
+    return () => {
+      if (checkTimeoutRef.current) {
+        clearTimeout(checkTimeoutRef.current);
+        checkTimeoutRef.current = null;
+      }
+    };
+  }, [isConnected, address, blockchain, authenticated, privyUser?.id]);
 
   // Load balances of the wallet
   useEffect(() => {
@@ -106,7 +178,10 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   }, [wallet]);
 
   const checkWallet = async () => {
-    if (!address) return;
+    if (!address) {
+      setChecking(false);
+      return;
+    }
     
     try {
       setChecking(true);
@@ -124,13 +199,14 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   const checkSocialWallet = async () => {
     if (!authenticated || !privyUser) {
       console.log('[DeveloperWallet] No authenticated user or privyUser');
+      setChecking(false);
       return;
     }
     
     try {
       setChecking(true);
       console.log('[DeveloperWallet] Checking social wallet for authenticated user');
-      // Check for a developer wallet for linked social networks
+      // Check for a Internal wallet for linked social networks
       const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
       
       let walletFound = false;
@@ -327,7 +403,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
       const usdcBalance = BigInt(balanceResults[0] as string | number | bigint || 0);
       const eurcBalance = BigInt(balanceResults[1] as string | number | bigint || 0);
 
-      // Made format balances (6 decimals for USDC/EURC/USYC)
+      // Made format balances (6 decimals for USDC/EURC)
       const formatBalance = (balance: bigint) => {
         const decimals = 6; // USDC, EURC, use 6 decimals
         const divisor = BigInt(10 ** decimals);
@@ -425,14 +501,14 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
 
       await web3Service.initialize(clientToUse, address);
 
-      // Send tokens to developer wallet
+      // Send tokens to Internal wallet
       const txHash = await web3Service.sendToken(
         topUpToken,
         wallet.wallet_address,
         topUpAmount
       );
 
-      toast.success(`Successfully sent ${topUpAmount} ${topUpToken} to developer wallet!`);
+      toast.success(`Successfully sent ${topUpAmount} ${topUpToken} to Internal wallet!`);
       setTopUpAmount('');
       
       // Open transaction in explorer
@@ -472,11 +548,35 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
       if (response.success) {
         toast.success('Testnet tokens requested! USDC and EURC will be sent to your wallet shortly.');
       } else {
-        toast.error(response.message || 'Failed to request testnet tokens');
+        // Check for rate limit error (429)
+        const responseAny = response as any;
+        const details = responseAny.details || responseAny.message || '';
+        const errorText = responseAny.error || '';
+        
+        if (details.includes('429') || details.includes('API rate limit error') || 
+            errorText.includes('429') || errorText.includes('API rate limit error')) {
+          toast.error('Limit exceeded. Sorry, you\'ve hit the limit. We\'ll have more test tokens available in 24 hours. Use a default faucet for Internal Wallet');
+        } else {
+          toast.error(response.message || 'Failed to request testnet tokens');
+        }
       }
     } catch (error: any) {
       console.error('Error requesting testnet tokens:', error);
-      toast.error(error?.message || 'Failed to request testnet tokens');
+      
+      // Check for rate limit error (429) in catch block
+      // Check errorData.details, error.details, error.message, and error.error
+      const errorData = error?.errorData || {};
+      const errorDetails = errorData.details || error?.details || error?.message || '';
+      const errorText = errorData.error || error?.error || '';
+      
+      // Check if any of these fields contain 429 or API rate limit error
+      const allErrorText = `${errorDetails} ${errorText} ${error?.message || ''}`;
+      
+      if (allErrorText.includes('429') || allErrorText.includes('API rate limit error')) {
+        toast.error('Limit exceeded. Sorry, you\'ve hit the limit. We\'ll have more test tokens available in 24 hours. Use a default faucet for Internal Wallet');
+      } else {
+        toast.error(error?.message || 'Failed to request testnet tokens');
+      }
     } finally {
       setRequestingTokens(false);
     }
@@ -801,18 +901,17 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
                     <div>
                       <h4 className="text-sm font-semibold mb-1">Top Up Wallet</h4>
                       <p className="text-xs text-gray-500 mb-3">
-                        Fund your wallet with USDC, EURC, or USYC tokens
+                        Fund your wallet with USDC or EURC tokens
                       </p>
                       <div className="space-y-3">
                         <div className="flex gap-2">
-                          <Select value={topUpToken} onValueChange={(value) => setTopUpToken(value as 'USDC' | 'EURC' | 'USYC')}>
+                          <Select value={topUpToken} onValueChange={(value) => setTopUpToken(value as 'USDC' | 'EURC')}>
                             <SelectTrigger className="w-[130px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="USDC">USDC</SelectItem>
                               <SelectItem value="EURC">EURC</SelectItem>
-                              <SelectItem value="USYC">USYC</SelectItem>
                             </SelectContent>
                           </Select>
                           <Input
@@ -890,67 +989,70 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
 
   return (
     <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Wallet className="w-5 h-5" />
-           Internal Wallet
-        </CardTitle>
-        <CardDescription>
-          {shouldShowConnectMessage 
-            ? 'Please connect your wallet or social account to use AI Agents functionality.'
-            : 'To use AI Agents functionality via Telegram, please create an internal wallet.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {shouldShowConnectMessage ? null : (
-          <>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">Why is this needed?</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Send transactions through the Telegram bot</li>
-                <li>• No need to sign each transaction</li>
-                <li>• Design a flexible flow for your funds</li>
-                <li>• Assign tasks to the agent with</li>
-              </ul>
+  <CardHeader className="pb-6"> {/* add bottom margin, so the description does not stick to the content below */}
+    <div className="grid grid-rows-2 items-start gap-3">
+      {/* Title with icon — left */}
+      <CardTitle className="flex items-center gap-2">
+        <Wallet className="w-5 h-5 text-gray-700" />
+        Internal Wallet
+      </CardTitle>
+
+      {/* Description — center of the card */}
+      <CardDescription className="text-center text-sm text-gray-600 -mt-1">
+        {shouldShowConnectMessage
+          ? 'Please connect your wallet or social account to use platform functionality.'
+          : 'To use platform functionality via Telegram, please create an internal wallet.'}
+      </CardDescription>
+    </div>
+  </CardHeader>
+      {!shouldShowConnectMessage && (
+        <CardContent className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-900 mb-2">Why is this needed?</h4>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• Send transactions through the Telegram bot</li>
+              <li>• No need to sign each transaction</li>
+              <li>• Design a flexible flow for your funds</li>
+              <li>• Assign tasks to the agent with</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Blockchain:</span>
+              <span className="font-medium">{getBlockchainName(blockchain)}</span>
             </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Blockchain:</span>
-                <span className="font-medium">{getBlockchainName(blockchain)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Account type:</span>
-                <span className="font-medium">EOA (Externally Owned Account)</span>
-              </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Account type:</span>
+              <span className="font-medium">EOA (Externally Owned Account)</span>
             </div>
+          </div>
 
-            <Button
-              onClick={createWallet}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating wallet...
-                </>
-              ) : (
-                <>
-                  <Wallet className="w-4 h-4 mr-2" />
-                  Create wallet
-                </>
-              )}
-            </Button>
+          <Button
+            onClick={createWallet}
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Creating wallet...
+              </>
+            ) : (
+              <>
+                <Wallet className="w-4 h-4 mr-2" />
+                Create wallet
+              </>
+            )}
+          </Button>
 
-            <p className="text-xs text-gray-500 text-center">
-              {isConnected 
-                ? `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your EVM address and Telegram`
-                : `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your social account`}
-            </p>
-          </>
-        )}
-      </CardContent>
+          <p className="text-xs text-gray-500 text-center">
+            {isConnected 
+              ? `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your EVM address and Telegram`
+              : `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your social account`}
+          </p>
+        </CardContent>
+      )}
     </Card>
   );
 }

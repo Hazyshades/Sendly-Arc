@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from './ui/empty';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner';
@@ -98,7 +99,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
     circle: "/Circle-Mint"
   };
 
-  // Checking for a Developer wallet for social networks
+  // Checking for a Internal wallet for social networks
   useEffect(() => {
     const checkSocialWallet = async () => {
       // If MetaMask is connected - no need to check a social wallet
@@ -119,7 +120,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
 
       try {
         setCheckingWallet(true);
-        // Check for a developer wallet for linked social networks
+        // Check for a Internal wallet for linked social networks
         const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
         const blockchain = 'ARC-TESTNET';
         
@@ -178,7 +179,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       return;
     }
     
-    // Do not perform lookup if neither MetaMask nor developer wallet is available
+    // Do not perform lookup if neither MetaMask nor Internal wallet is available
     if (!isConnected && !hasDeveloperWallet) {
       return;
     }
@@ -231,7 +232,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
         // Get the original creator of the card
         creator = await web3Service.getCardCreator(tokenId);
       } else {
-        // For developer wallet use a public RPC for reading
+        // For Internal wallet use a public RPC for reading
         const { createPublicClient, http } = await import('viem');
         const publicClient = createPublicClient({
           chain: arcTestnet,
@@ -428,7 +429,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       let owner: string;
       
       if (useDeveloperWallet) {
-        // For developer wallet use public RPC for reading
+        // For Internal wallet use public RPC for reading
         const { createPublicClient, http } = await import('viem');
         const publicClient = createPublicClient({
           chain: arcTestnet,
@@ -509,13 +510,13 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
 
       // Redeem gift card on blockchain
       if (useDeveloperWallet) {
-        // Use developer wallet to redeem
+        // Use Internal wallet to redeem
         const privyUserId = privyUser?.id;
         if (!privyUserId) {
           throw new Error('Privy user ID not found');
         }
 
-        // Determine the social network for the developer wallet
+        // Determine the social network for the Internal wallet
         let socialPlatform: string | null = null;
         let socialUserId: string | null = null;
         
@@ -627,7 +628,7 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
     navigate('/my');
   };
 
-  // Show the message only if there is neither MetaMask nor a social Developer wallet
+  // Show the message only if there is neither MetaMask nor a social Internal wallet
   if (!isConnected && !hasDeveloperWallet) {
     if (checkingWallet) {
       return (
@@ -641,13 +642,18 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
     }
 
     return (
-      <div className="p-6 text-center">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Please connect your wallet or social account to redeem gift cards
-          </AlertDescription>
-        </Alert>
+      <div className="p-6">
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Gift className="w-12 h-12 opacity-50" />
+            </EmptyMedia>
+            <EmptyTitle>Connect your wallet</EmptyTitle>
+            <EmptyDescription>
+              Please connect your wallet or social account to redeem gift cards
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     );
   }

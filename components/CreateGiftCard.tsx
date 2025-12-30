@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Gift, QrCode, Share2, Clock, Lock, Upload, Palette, CheckCircle, AlertCircle, ExternalLink, Mail, MessageCircle, Copy, ChevronDown } from 'lucide-react';
+import { Gift, QrCode, Share2, Clock, Lock, Upload, Palette, CheckCircle, AlertCircle, ExternalLink, Mail, MessageCircle, Copy, Wallet } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -11,17 +11,17 @@ import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Slider } from './ui/slider';
 import { Alert, AlertDescription } from './ui/alert';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from './ui/empty';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { toast } from 'sonner';
 import { useAccount, useWalletClient } from 'wagmi';
 import { createWalletClient, custom, createPublicClient, http } from 'viem';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
-import { CONTRACT_ADDRESS, USDC_ADDRESS, EURC_ADDRESS, USYC_ADDRESS, ERC20ABI, VAULT_CONTRACT_ADDRESS, TWITCH_VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS, TIKTOK_VAULT_CONTRACT_ADDRESS, INSTAGRAM_VAULT_CONTRACT_ADDRESS } from '../utils/web3/constants';
+import { CONTRACT_ADDRESS, USDC_ADDRESS, EURC_ADDRESS, ERC20ABI, VAULT_CONTRACT_ADDRESS, TWITCH_VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS, TIKTOK_VAULT_CONTRACT_ADDRESS, INSTAGRAM_VAULT_CONTRACT_ADDRESS } from '../utils/web3/constants';
 import pinataService from '../utils/pinata';
 import imageGenerator from '../utils/imageGenerator';
 import { createTwitterCardMapping } from '../utils/twitter';
@@ -31,7 +31,7 @@ import { createTikTokCardMapping } from '../utils/tiktok';
 import { createInstagramCardMapping } from '../utils/instagram';
 import BridgeDialog from './BridgeDialog';
 import { GiftCardsService } from '../utils/supabase/giftCards';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { generateBridgeUrlFromArc } from '../utils/bridge/bridgeUrlHelper';
 import { usePrivy } from '@privy-io/react-auth';
 import { DeveloperWalletService } from '../utils/circle/developerWalletService';
@@ -42,7 +42,7 @@ interface GiftCardData {
   recipientAddress: string;
   recipientUsername: string;
   amount: string;
-  currency: 'USDC' | 'EURC' | 'USYC';
+  currency: 'USDC' | 'EURC';
   design: 'pink' | 'blue' | 'green' | 'custom';
   message: string;
   secretMessage: string;
@@ -55,19 +55,68 @@ interface GiftCardData {
   nftCover: string;
 }
 
-const SOCIAL_RECIPIENT_OPTIONS = [
-  { value: 'twitter', label: 'Twitter' },
-  { value: 'twitch', label: 'Twitch' },
-  { value: 'telegram', label: 'Telegram' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'instagram', label: 'Instagram' }
-] as const;
+type PlatformIcon = 'wallet' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
+
+const RECIPIENT_OPTIONS: Array<{
+  value: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
+  label: string;
+  icon: PlatformIcon;
+}> = [
+  { value: 'address', label: 'Wallet address', icon: 'wallet' },
+  { value: 'twitter', label: 'Twitter', icon: 'twitter' },
+  { value: 'twitch', label: 'Twitch', icon: 'twitch' },
+  { value: 'telegram', label: 'Telegram', icon: 'telegram' },
+  { value: 'tiktok', label: 'TikTok', icon: 'tiktok' },
+  { value: 'instagram', label: 'Instagram', icon: 'instagram' }
+];
+
+// Helper function to render platform icons
+const renderPlatformIcon = (platform: PlatformIcon, className: string = "w-4 h-4") => {
+  switch (platform) {
+    case 'wallet':
+      return <Wallet className={className} />;
+    case 'twitter':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
+      );
+    case 'twitch':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+        </svg>
+      );
+    case 'telegram':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9.50039 15.0005L9.30305 18.7916C9.63343 18.7916 9.77653 18.6502 9.94861 18.4803L11.4982 16.9898L15.251 19.7367C15.9373 20.1197 16.4205 19.9285 16.6027 19.0304L18.9395 7.42573L18.9402 7.42504C19.1555 6.32428 18.5201 5.86444 17.851 6.13415L4.90234 11.1053C3.84037 11.5206 3.85629 12.1181 4.7964 12.3878L8.10118 13.3485L15.8533 8.52547C16.2199 8.28796 16.5538 8.42039 16.2799 8.6579L9.50039 15.0005Z" />
+        </svg>
+      );
+    case 'tiktok':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+        </svg>
+      );
+    case 'instagram':
+      return (
+        <svg className={className} viewBox="0 0 512 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M349.33 69.33a93.62 93.62 0 0193.34 93.34v186.66a93.62 93.62 0 01-93.34 93.34H162.67a93.62 93.62 0 01-93.34-93.34V162.67a93.62 93.62 0 0193.34-93.34h186.66m0-37.33H162.67C90.8 32 32 90.8 32 162.67v186.66C32 421.2 90.8 480 162.67 480h186.66C421.2 480 480 421.2 480 349.33V162.67C480 90.8 421.2 32 349.33 32z"/>
+          <path d="M377.33 162.67a28 28 0 1128-28 27.94 27.94 0 01-28 28zM256 181.33A74.67 74.67 0 11181.33 256 74.75 74.75 0 01256 181.33m0-37.33a112 112 0 10112 112 112 112 0 00-112-112z"/>
+        </svg>
+      );
+    default:
+      return null;
+  }
+};
 
 export function CreateGiftCard() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { authenticated, user: privyUser } = usePrivy();
   const navigate = useNavigate();
+  const location = useLocation();
   const [hasDeveloperWallet, setHasDeveloperWallet] = useState(false);
   const [developerWallet, setDeveloperWallet] = useState<any>(null);
   const [checkingWallet, setCheckingWallet] = useState(true);
@@ -93,10 +142,48 @@ export function CreateGiftCard() {
   const [isCreating, setIsCreating] = useState(false);
   const [createdCard, setCreatedCard] = useState<any>(null);
   const [error, setError] = useState('');
+  const [errorTxHash, setErrorTxHash] = useState<string | null>(null);
   const [step, setStep] = useState<'form' | 'generating' | 'uploading' | 'creating' | 'success'>('form');
   const [isBridgeDialogOpen, setIsBridgeDialogOpen] = useState(false);
   const [highlightField, setHighlightField] = useState<'twitch' | 'twitter' | 'telegram' | 'tiktok' | 'instagram' | null>(null);
-  const [isSocialsOpen, setIsSocialsOpen] = useState(formData.recipientType !== 'address');
+
+  // Auto-scroll to bottom of page every time user navigates to Create page
+  useEffect(() => {
+    // Only scroll if we're on the /create route
+    if (location.pathname === '/create') {
+      const scrollToBottom = () => {
+        // Use a very large number to ensure we scroll to the absolute bottom
+        window.scrollTo({
+          top: 999999,
+          left: 0,
+          behavior: 'smooth'
+        });
+      };
+
+      // Try scrolling multiple times with increasing delays to ensure content is loaded
+      const timers = [
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(scrollToBottom);
+          });
+        }, 200),
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(scrollToBottom);
+          });
+        }, 600),
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(scrollToBottom);
+          });
+        }, 1200)
+      ];
+
+      return () => {
+        timers.forEach(timer => clearTimeout(timer));
+      };
+    }
+  }, [location.pathname]);
 
   // Load selected recipient from localStorage on mount
   useEffect(() => {
@@ -179,11 +266,8 @@ export function CreateGiftCard() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  useEffect(() => {
-    setIsSocialsOpen(formData.recipientType !== 'address');
-  }, [formData.recipientType]);
 
-  // Checking for the presence of a Developer wallet for social networks
+  // Checking for the presence of a Internal wallet for social networks
   useEffect(() => {
     const checkSocialWallet = async () => {
       // If MetaMask is connected - no need to check a social wallet
@@ -204,7 +288,7 @@ export function CreateGiftCard() {
 
       try {
         setCheckingWallet(true);
-        // Check for a developer wallet for linked social networks
+        // Check for a Internal wallet for linked social networks
         const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
         const blockchain = 'ARC-TESTNET';
         
@@ -250,7 +334,7 @@ export function CreateGiftCard() {
   }, [isConnected, authenticated, privyUser]);
 
   const handleCreateCard = async () => {
-    // Check for a wallet (MetaMask or developer wallet)
+    // Check for a wallet (MetaMask or Internal wallet)
     if (!isConnected && !hasDeveloperWallet) {
       setError('Please connect your wallet first');
       return;
@@ -310,6 +394,7 @@ export function CreateGiftCard() {
 
     setIsCreating(true);
     setError('');
+    setErrorTxHash(null);
 
     try {
       // Step 1: Generate image
@@ -337,13 +422,11 @@ export function CreateGiftCard() {
       );
 
       // Step 3: Check token balance and prepare for creation
-      const tokenAddress = formData.currency === 'USDC' ? USDC_ADDRESS : 
-                          formData.currency === 'EURC' ? EURC_ADDRESS : 
-                          USYC_ADDRESS;
+      const tokenAddress = formData.currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
       
       const amountWei = (parseFloat(formData.amount) * 1000000).toString(); // 6 decimals for USDC/EURC
       
-      // Check balance for developer wallet
+      // Check balance for Internal wallet
       if (useDeveloperWallet) {
         const publicClient = createPublicClient({
           chain: arcTestnet,
@@ -363,14 +446,11 @@ export function CreateGiftCard() {
           return;
         }
 
-        // check allowance if need make  approve
-        const spenderAddress =
-          formData.recipientType === 'twitter' ? VAULT_CONTRACT_ADDRESS :
-          formData.recipientType === 'twitch' ? TWITCH_VAULT_CONTRACT_ADDRESS :
-          formData.recipientType === 'telegram' ? TELEGRAM_VAULT_CONTRACT_ADDRESS :
-          formData.recipientType === 'tiktok' ? TIKTOK_VAULT_CONTRACT_ADDRESS :
-          formData.recipientType === 'instagram' ? INSTAGRAM_VAULT_CONTRACT_ADDRESS :
-          CONTRACT_ADDRESS;
+        // check allowance if need make approve
+        // For social usernames, the card creation functions are in the main CONTRACT_ADDRESS, not in vault contracts
+        // Vault contracts are only used for storing cards, not for creating them
+        // For address recipients, also use CONTRACT_ADDRESS
+        const spenderAddress = CONTRACT_ADDRESS;
 
         const currentAllowance = await publicClient.readContract({
           address: tokenAddress as `0x${string}`,
@@ -380,9 +460,14 @@ export function CreateGiftCard() {
         }) as bigint;
 
         if (currentAllowance < BigInt(amountWei)) {
+          // Validate that privyUser exists when using Internal wallet
+          if (!privyUser) {
+            throw new Error('User not found. Please ensure you are logged in.');
+          }
+          
           toast.info(`Approving ${formData.currency} for contract...`);
 
-          // Send approve via Developer Wallet
+          // Send approve via Internal wallet
           const approveTx = await DeveloperWalletService.sendTransaction({
             walletId: developerWallet.circle_wallet_id,
             walletAddress: developerWallet.wallet_address,
@@ -390,7 +475,7 @@ export function CreateGiftCard() {
             functionName: 'approve',
             args: [spenderAddress, BigInt(amountWei)],
             blockchain: 'ARC-TESTNET',
-            privyUserId: privyUser?.id,
+            privyUserId: privyUser.id,
             socialPlatform: developerWallet.social_platform || undefined,
             socialUserId: developerWallet.social_user_id || undefined
           });
@@ -429,7 +514,12 @@ export function CreateGiftCard() {
       
       // Use different methods based on wallet type and recipient type
       if (useDeveloperWallet) {
-        // Create card via developer wallet
+        // Validate that privyUser exists when using Internal wallet
+        if (!privyUser) {
+          throw new Error('User not found. Please ensure you are logged in.');
+        }
+        
+        // Create card via Internal wallet
         const normalizedUsername = formData.recipientType !== 'address' 
           ? formData.recipientUsername.toLowerCase().replace(/^@/, '').trim()
           : '';
@@ -466,7 +556,9 @@ export function CreateGiftCard() {
           socialUserId = developerWallet.social_user_id || undefined;
         }
         
-        // Send transaction via developer wallet
+        // Transaction details logged on backend only
+        
+        // Send transaction via Internal wallet
         const txResult = await DeveloperWalletService.sendTransaction({
           walletId: developerWallet.circle_wallet_id,
           walletAddress: developerWallet.wallet_address,
@@ -474,13 +566,28 @@ export function CreateGiftCard() {
           functionName: functionName,
           args: args,
           blockchain: 'ARC-TESTNET',
-          privyUserId: privyUser?.id,
+          privyUserId: privyUser.id,
           socialPlatform: socialPlatform,
           socialUserId: socialUserId
         });
         
         if (!txResult.success) {
-          throw new Error(txResult.error || 'Failed to create gift card');
+          // Provide more specific error message
+          const errorMessage = txResult.error || 'Failed to create gift card';
+          // Error details logged on backend only
+          
+          // Check for common error patterns
+          if (errorMessage.includes('balance') || errorMessage.includes('insufficient')) {
+            throw new Error(`Insufficient ${formData.currency} balance. Please ensure you have enough tokens to create this gift card.`);
+          } else if (errorMessage.includes('allowance') || errorMessage.includes('approve')) {
+            throw new Error('Token approval failed. Please try again.');
+          } else if (errorMessage.includes('Vault not set') || errorMessage.includes('vault')) {
+            throw new Error('Vault contract not configured. Please contact support.');
+          } else if (errorMessage.includes('Username required') || errorMessage.includes('username')) {
+            throw new Error('Invalid username. Please check the username and try again.');
+          }
+          
+          throw new Error(errorMessage);
         }
         
         // If txHash is not yet available, poll the transaction status until txHash is received
@@ -508,12 +615,57 @@ export function CreateGiftCard() {
                 }
                 // If the transaction failed
                 if (statusData.transactionState === 'FAILED') {
-                  throw new Error(statusData.error || 'Transaction failed');
+                  // Get more detailed error information
+                  const errorDetails = statusData.transaction?.errorDetails || 
+                                     statusData.transaction?.error || 
+                                     statusData.error || 
+                                     'Transaction failed';
+                  const errorMessage = typeof errorDetails === 'string' 
+                    ? errorDetails 
+                    : JSON.stringify(errorDetails);
+                  
+                  // Transaction failure details logged on backend only
+                  
+                  // Provide more specific error message
+                  let userFriendlyError = 'Transaction failed';
+                  if (errorMessage.includes('transfer amount exceeds balance') || 
+                      errorMessage.includes('insufficient balance') ||
+                      errorMessage.includes('ERC20')) {
+                    userFriendlyError = `Insufficient ${formData.currency} balance. Please ensure you have enough tokens to create this gift card.`;
+                  } else if (errorMessage.includes('allowance')) {
+                    userFriendlyError = 'Token approval failed. Please try again.';
+                  } else if (errorMessage.includes('Vault not set') || errorMessage.includes('vault')) {
+                    userFriendlyError = 'Vault contract not configured. Please contact support.';
+                  } else if (errorMessage.includes('Username required') || errorMessage.includes('username')) {
+                    userFriendlyError = 'Invalid username. Please check the username and try again.';
+                  }
+                  
+                  throw new Error(userFriendlyError);
+                }
+                // If transaction is completed but no txHash yet, continue polling
+                if (statusData.transactionState === 'COMPLETE' && !statusData.txHash) {
+                  // Wait a bit more for txHash to appear
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  // Try one more time
+                  const retryStatusData = await apiCall(`/wallets/transaction-status?transactionId=${encodeURIComponent(txResult.transactionId)}`, {
+                    method: 'GET'
+                  });
+                  if (retryStatusData?.txHash) {
+                    finalTxHash = retryStatusData.txHash;
+                    break;
+                  }
                 }
               }
             } catch (pollError) {
+              // If it's a transaction failure error, re-throw it
+              if (pollError instanceof Error && pollError.message !== 'Transaction failed') {
+                throw pollError;
+              }
               console.warn('Error polling transaction status:', pollError);
-              // Continue polling
+              // Continue polling only if it's not a transaction failure
+              if (pollError instanceof Error && pollError.message.includes('Transaction failed')) {
+                throw pollError;
+              }
             }
           }
           
@@ -548,6 +700,11 @@ export function CreateGiftCard() {
             hash: finalTxHash as `0x${string}`
           });
           
+          // Check transaction status - if it failed, throw an error
+          if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
+            throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${finalTxHash}`);
+          }
+          
           // Extract tokenId from Transfer event
           const transferEventSignature = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
           const zeroAddress = '0x0000000000000000000000000000000000000000';
@@ -580,7 +737,7 @@ export function CreateGiftCard() {
         // Initialize web3 service
         let clientToUse = walletClient;
         if (!clientToUse) {
-          console.log('wagmi walletClient not available, creating manual client...');
+          // Creating manual wallet client
           clientToUse = createWalletClient({
             chain: arcTestnet,
             transport: custom(window.ethereum)
@@ -593,10 +750,7 @@ export function CreateGiftCard() {
         if (formData.recipientType === 'twitter') {
           // Normalize username for consistency (createCardForTwitter also normalizes)
           const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[CreateGiftCard] Creating Twitter card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating Twitter card
           
           // Use new Vault flow for Twitter cards
           result = await web3Service.createCardForTwitter(
@@ -625,10 +779,7 @@ export function CreateGiftCard() {
           }
         } else if (formData.recipientType === 'twitch') {
           const normalizedUsername = formData.recipientUsername.toLowerCase().trim();
-          console.log('[CreateGiftCard] Creating Twitch card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating Twitch card
           
           result = await web3Service.createCardForTwitch(
             normalizedUsername,
@@ -654,10 +805,7 @@ export function CreateGiftCard() {
           }
         } else if (formData.recipientType === 'telegram') {
           const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[CreateGiftCard] Creating Telegram card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating Telegram card
 
           result = await web3Service.createCardForTelegram(
             normalizedUsername,
@@ -683,10 +831,7 @@ export function CreateGiftCard() {
           }
         } else if (formData.recipientType === 'tiktok') {
           const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[CreateGiftCard] Creating TikTok card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating TikTok card
 
           result = await web3Service.createCardForTikTok(
             normalizedUsername,
@@ -712,10 +857,7 @@ export function CreateGiftCard() {
           }
         } else if (formData.recipientType === 'instagram') {
           const normalizedUsername = formData.recipientUsername.toLowerCase().replace(/^@/, '').trim();
-          console.log('[CreateGiftCard] Creating Instagram card:', {
-            original: formData.recipientUsername,
-            normalized: normalizedUsername
-          });
+          // Creating Instagram card
 
           result = await web3Service.createCardForInstagram(
             normalizedUsername,
@@ -752,6 +894,7 @@ export function CreateGiftCard() {
       }
 
       setStep('success');
+      setErrorTxHash(null); // Clear any previous error hash on success
       
       const createdCardData = {
         id: result.tokenId,
@@ -770,7 +913,7 @@ export function CreateGiftCard() {
         status: 'active',
         created_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + formData.expiryDays * 24 * 60 * 60 * 1000).toISOString(),
-        qr_code: `sendly://redeem/${result.tokenId}`,
+        qr_code: `/spend?tokenId=${result.tokenId}`,
         tx_hash: result.txHash,
         metadata_uri: metadataUri
       };
@@ -797,7 +940,7 @@ export function CreateGiftCard() {
           redeemed: false,
           tx_hash: result.txHash,
         });
-        console.log('Card saved to Supabase cache');
+        // Card saved to Supabase cache
       } catch (error) {
         console.error('Error saving card to Supabase:', error);
       }
@@ -823,16 +966,58 @@ export function CreateGiftCard() {
     } catch (error) {
       console.error('Error creating gift card:', error);
       
-      // Check if it's a chain ID error with Coinbase Wallet
+      // Extract transaction hash from error message if present
       const errorMessage = error instanceof Error ? error.message : 'Failed to create gift card';
+      const txHashMatch = errorMessage.match(/0x[a-fA-F0-9]{64}/);
+      const txHash = txHashMatch ? txHashMatch[0] : null;
+      setErrorTxHash(txHash);
+      
+      // Error context logged on backend only
+      
+      // Check if it's a chain ID error with Coinbase Wallet
       if (errorMessage.includes('invalid chain ID') && typeof window !== 'undefined' && (window as any).ethereum?.isCoinbaseWallet) {
         setError('Coinbase Wallet has issues with Arc Testnet. Please use MetaMask or Rainbow Wallet to work with Arc Testnet.');
+        setErrorTxHash(null);
         toast.error('Error: use MetaMask or Rainbow Wallet', {
           description: 'Coinbase Wallet is not supported for Arc Testnet'
         });
+      } else if (errorMessage.includes('ERC20') || errorMessage.includes('transfer amount exceeds balance') || errorMessage.includes('Insufficient') || errorMessage.includes('balance')) {
+        // More specific error for balance/transfer issues
+        const baseMessage = errorMessage.includes('Insufficient') 
+          ? errorMessage
+          : `Insufficient ${formData.currency} balance. Please ensure you have enough tokens to create this gift card.`;
+        setError(baseMessage);
+        
+        // Show toast with transaction hash if available
+        const toastDescription = txHash 
+          ? `${baseMessage}\nTX: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`
+          : baseMessage;
+        toast.error('Transaction failed', {
+          description: toastDescription
+        });
+      } else if (errorMessage.includes('Transaction failed')) {
+        // Handle generic transaction failed errors
+        setError(errorMessage);
+        toast.error('Transaction failed', {
+          description: errorMessage
+        });
+      } else if (errorMessage.includes('Vault not configured') || errorMessage.includes('Vault contract')) {
+        // Handle vault configuration errors
+        setError(errorMessage);
+        toast.error('Configuration error', {
+          description: errorMessage
+        });
+      } else if (errorMessage.includes('Invalid username') || errorMessage.includes('username')) {
+        // Handle username validation errors
+        setError(errorMessage);
+        toast.error('Invalid username', {
+          description: errorMessage
+        });
       } else {
         setError(errorMessage);
-        toast.error('Failed to create gift card');
+        toast.error('Failed to create gift card', {
+          description: errorMessage
+        });
       }
     } finally {
       setIsCreating(false);
@@ -843,7 +1028,7 @@ export function CreateGiftCard() {
   const handleShare = (method?: 'email' | 'x' | 'tiktok' | 'copy') => {
     if (!createdCard) return;
     
-    const shareUrl = `${window.location.origin}/redeem/${createdCard.id}`;
+    const shareUrl = `${window.location.origin}/spend?tokenId=${createdCard.id}`;
     const shareText = `🎁 Receive a Sendly gift card for $${createdCard.amount} ${createdCard.currency}! ${shareUrl}`;
     
     if (method === 'email') {
@@ -888,7 +1073,7 @@ export function CreateGiftCard() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  // Show the message only if there is neither MetaMask nor a social Developer wallet
+  // Show the message only if there is neither MetaMask nor a social Internal wallet
   if (!isConnected && !hasDeveloperWallet) {
     if (checkingWallet) {
       return (
@@ -902,13 +1087,18 @@ export function CreateGiftCard() {
     }
 
     return (
-      <div className="p-6 text-center">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Please connect your wallet or social account to create gift cards
-          </AlertDescription>
-        </Alert>
+      <div className="p-6">
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Gift className="w-12 h-12 opacity-50" />
+            </EmptyMedia>
+            <EmptyTitle>Connect your wallet</EmptyTitle>
+            <EmptyDescription>
+              Please connect your wallet or social account to create gift cards
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     );
   }
@@ -925,67 +1115,73 @@ export function CreateGiftCard() {
             <RadioGroup
               value={formData.recipientType}
               onValueChange={(value: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram') => updateFormData('recipientType', value)}
-              className="mt-2 space-y-3"
+              className="mt-2 space-y-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="address" id="address" />
-                <Label htmlFor="address" className="cursor-pointer font-normal">
-                  Wallet address
-                </Label>
-              </div>
-              <Collapsible open={isSocialsOpen} onOpenChange={setIsSocialsOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex w-full items-center justify-between bg-muted/20"
+              {RECIPIENT_OPTIONS.filter(option => option.value !== 'tiktok' && option.value !== 'instagram').map((option) => {
+                const isReceivingDisabled = option.value === 'tiktok' || option.value === 'instagram';
+                const isSelected = formData.recipientType === option.value;
+                
+                const content = (
+                  <div 
+                    className={`flex items-center space-x-3 rounded-md p-2.5 transition-all duration-200 ${
+                      isSelected 
+                        ? 'bg-white shadow-sm border border-gray-300' 
+                        : 'hover:bg-white/60'
+                    } ${isReceivingDisabled ? 'opacity-60' : ''}`}
                   >
-                    <span>Socials</span>
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform ${isSocialsOpen ? 'rotate-180' : ''}`}
+                    <RadioGroupItem 
+                      value={option.value} 
+                      id={option.value} 
+                      disabled={isReceivingDisabled}
+                      className="mt-0"
                     />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-3 space-y-2 rounded-lg border border-dashed border-gray-200 p-3">
-                  {SOCIAL_RECIPIENT_OPTIONS.map((option) => {
-                    const isReceivingDisabled = option.value === 'tiktok' || option.value === 'instagram';
-                    const content = (
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value={option.value} id={option.value} disabled={isReceivingDisabled} />
-                        <Label htmlFor={option.value} className={`cursor-pointer font-normal ${isReceivingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                          {option.label}
-                        </Label>
+                    <div className="flex items-center space-x-2.5 flex-1">
+                      <div className={`flex-shrink-0 ${
+                        option.icon === 'wallet' ? 'text-blue-600' :
+                        option.icon === 'twitter' ? 'text-gray-900' :
+                        option.icon === 'twitch' ? 'text-purple-600' :
+                        option.icon === 'telegram' ? 'text-sky-500' :
+                        option.icon === 'tiktok' ? 'text-gray-900' :
+                        option.icon === 'instagram' ? 'text-pink-600' :
+                        'text-gray-700'
+                      }`}>
+                        {renderPlatformIcon(option.icon, "w-5 h-5")}
                       </div>
-                    );
+                      <Label 
+                        htmlFor={option.value} 
+                        className={`cursor-pointer font-normal flex-1 ${
+                          isReceivingDisabled ? 'cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {option.label}
+                      </Label>
+                    </div>
+                  </div>
+                );
 
-                    if (isReceivingDisabled) {
-                      return (
-                        <Tooltip key={option.value}>
-                          <TooltipTrigger asChild>{content}</TooltipTrigger>
-                          <TooltipContent className="max-w-[220px] text-center">
-                            Receiving funds is not available yet
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    }
+                if (isReceivingDisabled) {
+                  return (
+                    <Tooltip key={option.value}>
+                      <TooltipTrigger asChild>{content}</TooltipTrigger>
+                      <TooltipContent className="max-w-[220px] text-center">
+                        Receiving funds is not available yet
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
 
-                    return (
-                      <div key={option.value} className="flex items-center space-x-2">
-                        <RadioGroupItem value={option.value} id={option.value} />
-                        <Label htmlFor={option.value} className="cursor-pointer font-normal">
-                          {option.label}
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </CollapsibleContent>
-              </Collapsible>
+                return (
+                  <div key={option.value}>
+                    {content}
+                  </div>
+                );
+              })}
             </RadioGroup>
           </div>
 
           {formData.recipientType === 'address' ? (
             <div>
-              <Label htmlFor="recipient">Recipient address (0x)</Label>
+              <Label htmlFor="recipient">Recipient address</Label>
               <Input
                 id="recipient"
                 placeholder="0x..."
@@ -1152,7 +1348,7 @@ export function CreateGiftCard() {
               <Label>Currency</Label>
               <Select
                 value={formData.currency}
-                onValueChange={(value: 'USDC' | 'EURC' | 'USYC') => updateFormData('currency', value)}
+                onValueChange={(value: 'USDC' | 'EURC') => updateFormData('currency', value)}
               >
                 <SelectTrigger className="mt-2">
                   <SelectValue />
@@ -1160,7 +1356,6 @@ export function CreateGiftCard() {
                 <SelectContent>
                   <SelectItem value="USDC">USDC</SelectItem>
                   <SelectItem value="EURC">EURC</SelectItem>
-                  <SelectItem value="USYC">USYC</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1223,8 +1418,6 @@ export function CreateGiftCard() {
               className="w-full"
               size="sm"
               onClick={openCircleBridge}
-              disabled={formData.currency === 'USYC'}
-              title={formData.currency === 'USYC' ? 'Bridge support for USYC is coming soon' : undefined}
             >
               <ExternalLink className="w-4 h-4 mr-2" />
               Top up {formData.currency} on Arc (Circle Bridge)
@@ -1237,8 +1430,6 @@ export function CreateGiftCard() {
                 const bridgeUrl = generateBridgeUrlFromArc('base-sepolia', formData.currency);
                 navigate(bridgeUrl);
               }}
-              disabled={formData.currency === 'USYC'}
-              title={formData.currency === 'USYC' ? 'Bridge support for USYC is coming soon' : undefined}
             >
               <ExternalLink className="w-4 h-4 mr-2" />
               Bridge {formData.currency} to Base Sepolia
@@ -1257,7 +1448,7 @@ export function CreateGiftCard() {
                 variant="outline" 
                 size="sm" 
                 className="flex-1"
-                disabled={!createdCard}
+                disabled={true}
               >
                 <QrCode className="w-4 h-4 mr-2" />
                 Generate QR
@@ -1308,7 +1499,24 @@ export function CreateGiftCard() {
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="space-y-2">
+                <div>{error}</div>
+                {errorTxHash && (
+                  <div className="text-sm">
+                    TX:{' '}
+                    <button
+                      onClick={() => {
+                        const explorer = import.meta.env.VITE_ARC_BLOCK_EXPLORER_URL || 'https://testnet.arcscan.app';
+                        window.open(`${explorer}/tx/${errorTxHash}`, '_blank');
+                      }}
+                      className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                      title={`View on Arc Explorer: ${errorTxHash}`}
+                    >
+                      {errorTxHash.slice(0, 10)}...{errorTxHash.slice(-8)}
+                    </button>
+                  </div>
+                )}
+              </AlertDescription>
             </Alert>
           )}
 

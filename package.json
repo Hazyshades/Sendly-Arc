@@ -9,11 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "circle:create-wallet": "node scripts/circleCreateWallet.mjs",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test:automate-wallets": "tsx tests/automate-wallets.ts",
-    "test:create-cards": "tsx tests/create-cards-direct.ts",
-    "mint:zkcodex": "tsx tests/mint-zkcodex-nft.ts",
-    "test:generate-sql": "tsx tests/generate-sql-from-tx.ts"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.0.1",
@@ -54,6 +50,7 @@
     "@solana/kit": "^3.0.3",
     "@supabase/supabase-js": "^2.39.0",
     "@tanstack/react-query": "^5.85.0",
+    "@vercel/analytics": "^1.6.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "cmdk": "^1.1.1",

@@ -19,7 +19,7 @@ export function TwitchCallbackRoute() {
     const error = params.get('error');
     const state = params.get('state');
     const storedState = sessionStorage.getItem('twitch_oauth_state');
-    const redirectUrl = sessionStorage.getItem('twitch_oauth_redirect') || '/agent';
+    const redirectUrl = sessionStorage.getItem('twitch_oauth_redirect') || '/dashboard';
     
     console.log('[POPUP] Access token found:', !!accessToken);
     console.log('[POPUP] Error:', error);
