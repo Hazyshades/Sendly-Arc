@@ -282,7 +282,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
         hasTimer: false,
         hasPassword: false,
-        qrCode: `sendly://redeem/${card.token_id}`
+        qrCode: `/spend?tokenId=${card.token_id}`
       }));
 
       const transformedSentCards: GiftCard[] = supabaseSentCards.map(card => {
@@ -312,7 +312,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           createdAt: card.created_at ? new Date(card.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
           hasTimer: false,
           hasPassword: false,
-          qrCode: `sendly://redeem/${card.token_id}`
+          qrCode: `/spend?tokenId=${card.token_id}`
         };
       });
 
@@ -452,7 +452,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
           createdAt: existingReceivedMap.get(card.tokenId)?.createdAt || new Date().toLocaleDateString(),
           hasTimer: false,
           hasPassword: false,
-          qrCode: `sendly://redeem/${card.tokenId}`
+          qrCode: `/spend?tokenId=${card.tokenId}`
         }));
 
         // Always update with blockchain data if counts differ (blockchain is source of truth)
@@ -523,7 +523,7 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
         createdAt: new Date().toLocaleDateString(),
         hasTimer: false,
         hasPassword: false,
-        qrCode: `sendly://redeem/${card.tokenId}`
+        qrCode: `/spend?tokenId=${card.tokenId}`
       }));
 
       // Update card state
