@@ -257,6 +257,18 @@ export class DeveloperWalletService {
     socialUserId?: string;
   }): Promise<{ success: boolean; txHash?: string; transactionId?: string; transactionState?: string; error?: string; transaction?: any }> {
     try {
+      console.log('[DeveloperWalletService] sendTransaction called with params:', {
+        walletId: params.walletId,
+        walletAddress: params.walletAddress,
+        contractAddress: params.contractAddress,
+        functionName: params.functionName,
+        args: params.args,
+        blockchain: params.blockchain,
+        privyUserId: params.privyUserId,
+        socialPlatform: params.socialPlatform,
+        socialUserId: params.socialUserId
+      });
+
       // Convert BigInt values to strings for JSON serialization
       const serializedArgs = params.args.map(arg => {
         if (typeof arg === 'bigint') {
@@ -265,24 +277,31 @@ export class DeveloperWalletService {
         return arg;
       });
 
+      console.log('[DeveloperWalletService] Calling API /wallets/send-transaction...');
+      const requestBody = {
+        walletId: params.walletId,
+        walletAddress: params.walletAddress,
+        contractAddress: params.contractAddress,
+        functionName: params.functionName,
+        args: serializedArgs,
+        blockchain: params.blockchain,
+        privyUserId: params.privyUserId,
+        socialPlatform: params.socialPlatform,
+        socialUserId: params.socialUserId
+      };
+      console.log('[DeveloperWalletService] Request body:', JSON.stringify(requestBody, null, 2));
+
       const response = await apiCall('/wallets/send-transaction', {
         method: 'POST',
-        body: JSON.stringify({
-          walletId: params.walletId,
-          walletAddress: params.walletAddress,
-          contractAddress: params.contractAddress,
-          functionName: params.functionName,
-          args: serializedArgs,
-          blockchain: params.blockchain,
-          privyUserId: params.privyUserId,
-          socialPlatform: params.socialPlatform,
-          socialUserId: params.socialUserId
-        })
+        body: JSON.stringify(requestBody)
       });
+
+      console.log('[DeveloperWalletService] API response:', response);
 
       return response as { success: boolean; txHash?: string; error?: string; transaction?: any };
     } catch (error) {
       // Error sending transaction
+      console.error('[DeveloperWalletService] Error in sendTransaction:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,

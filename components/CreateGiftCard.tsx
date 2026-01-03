@@ -111,15 +111,99 @@ const renderPlatformIcon = (platform: PlatformIcon, className: string = "w-4 h-4
   }
 };
 
+// Helper function to detect wallet name
+function getWalletName(): string {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    return 'Web3 Wallet';
+  }
+
+  const ethereum = window.ethereum as any;
+
+  // IMPORTANT: Check Rabby BEFORE MetaMask, but verify it's actually Rabby
+  // Rabby is based on MetaMask, so it may have isMetaMask = true
+  // But if ONLY isMetaMask is true (without isRabby), it's MetaMask
+  if (ethereum.isRabby === true) {
+    // Double-check: Rabby should have isRabby explicitly set to true
+    return 'Rabby Wallet';
+  }
+  
+  // If isMetaMask is true but isRabby is not explicitly true, it's MetaMask
+  if (ethereum.isMetaMask === true && ethereum.isRabby !== true) {
+    return 'MetaMask';
+  }
+  
+  // Fallback: if isMetaMask is true (even if isRabby might be undefined)
+  if (ethereum.isMetaMask === true) {
+    return 'MetaMask';
+  }
+  if (ethereum.isCoinbaseWallet) {
+    return 'Coinbase Wallet';
+  }
+  if (ethereum.isTrust) {
+    return 'Trust Wallet';
+  }
+  if (ethereum.isBraveWallet) {
+    return 'Brave Wallet';
+  }
+  if (ethereum.isTokenPocket) {
+    return 'TokenPocket';
+  }
+  if (ethereum.isImToken) {
+    return 'imToken';
+  }
+  if (ethereum.isOKExWallet) {
+    return 'OKX Wallet';
+  }
+  if (ethereum.isBitKeep) {
+    return 'BitKeep';
+  }
+  if (ethereum.isFrame) {
+    return 'Frame';
+  }
+  if (ethereum.isPhantom) {
+    return 'Phantom';
+  }
+  if (ethereum.isAvalanche) {
+    return 'Avalanche Wallet';
+  }
+  if (ethereum.isZeppelin) {
+    return 'Zeppelin';
+  }
+  
+  // Check for Rainbow Wallet (via RainbowKit)
+  if (ethereum.isRainbow) {
+    return 'Rainbow Wallet';
+  }
+  
+  // Check provider name if available (some wallets set this)
+  // But be careful - only use this if we haven't identified the wallet yet
+  // and only if it's an exact match
+  if (ethereum.providerName && !ethereum.isMetaMask && !ethereum.isRabby) {
+    const providerName = String(ethereum.providerName).toLowerCase().trim();
+    // Only trust exact matches
+    if (providerName === 'rabby' || providerName === 'rabby wallet') {
+      return 'Rabby Wallet';
+    }
+    if (providerName === 'metamask') {
+      return 'MetaMask';
+    }
+  }
+
+  // Default fallback
+  return 'Web3 Wallet';
+}
+
 export function CreateGiftCard() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { authenticated, user: privyUser } = usePrivy();
+  const [walletName, setWalletName] = useState<string>('Web3 Wallet');
   const navigate = useNavigate();
   const location = useLocation();
   const [hasDeveloperWallet, setHasDeveloperWallet] = useState(false);
   const [developerWallet, setDeveloperWallet] = useState<any>(null);
   const [checkingWallet, setCheckingWallet] = useState(true);
+  const [walletSource, setWalletSource] = useState<'metamask' | 'developer'>('metamask');
   const [formData, setFormData] = useState<GiftCardData>({
     recipientType: 'address',
     recipientAddress: '',
@@ -146,44 +230,7 @@ export function CreateGiftCard() {
   const [step, setStep] = useState<'form' | 'generating' | 'uploading' | 'creating' | 'success'>('form');
   const [isBridgeDialogOpen, setIsBridgeDialogOpen] = useState(false);
   const [highlightField, setHighlightField] = useState<'twitch' | 'twitter' | 'telegram' | 'tiktok' | 'instagram' | null>(null);
-
-  // Auto-scroll to bottom of page every time user navigates to Create page
-  useEffect(() => {
-    // Only scroll if we're on the /create route
-    if (location.pathname === '/create') {
-      const scrollToBottom = () => {
-        // Use a very large number to ensure we scroll to the absolute bottom
-        window.scrollTo({
-          top: 999999,
-          left: 0,
-          behavior: 'smooth'
-        });
-      };
-
-      // Try scrolling multiple times with increasing delays to ensure content is loaded
-      const timers = [
-        setTimeout(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(scrollToBottom);
-          });
-        }, 200),
-        setTimeout(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(scrollToBottom);
-          });
-        }, 600),
-        setTimeout(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(scrollToBottom);
-          });
-        }, 1200)
-      ];
-
-      return () => {
-        timers.forEach(timer => clearTimeout(timer));
-      };
-    }
-  }, [location.pathname]);
+  const [isSocialsOpen, setIsSocialsOpen] = useState(formData.recipientType !== 'address');
 
   // Load selected recipient from localStorage on mount
   useEffect(() => {
@@ -270,61 +317,170 @@ export function CreateGiftCard() {
   // Checking for the presence of a Internal wallet for social networks
   useEffect(() => {
     const checkSocialWallet = async () => {
-      // If MetaMask is connected - no need to check a social wallet
-      if (isConnected) {
-        setHasDeveloperWallet(false);
-        setDeveloperWallet(null);
-        setCheckingWallet(false);
-        return;
-      }
+      console.log('[CreateGiftCard] checkSocialWallet called:', {
+        isConnected,
+        address,
+        authenticated,
+        hasPrivyUser: !!privyUser,
+        privyUserId: privyUser?.id
+      });
 
-      // If no social network is linked - do not check
-      if (!authenticated || !privyUser) {
+      // If MetaMask is connected, ALWAYS check for developer wallet by address
+      // This allows finding wallets created with user_id = MetaMask address
+      // Even if user is not authenticated via Privy
+      if (!isConnected && (!authenticated || !privyUser)) {
+        console.log('[CreateGiftCard] No MetaMask and no Privy auth, skipping wallet check');
         setHasDeveloperWallet(false);
         setDeveloperWallet(null);
         setCheckingWallet(false);
         return;
       }
+      
+      // If we reach here, either MetaMask is connected OR Privy is authenticated
+      // Continue to check for wallet
+      console.log('[CreateGiftCard] Proceeding with wallet check...');
 
       try {
         setCheckingWallet(true);
+        console.log('[CreateGiftCard] Starting wallet check...');
         // Check for a Internal wallet for linked social networks
         const socialPlatforms = ['twitter', 'twitch', 'telegram', 'tiktok', 'instagram'];
         const blockchain = 'ARC-TESTNET';
+        let foundWallet: any = null;
         
-        for (const platform of socialPlatforms) {
-          let socialUserId: string | null = null;
-          
-          if (platform === 'twitter' && privyUser.twitter) {
-            socialUserId = (privyUser.twitter as any).subject;
-          } else if (platform === 'twitch' && privyUser.twitch) {
-            socialUserId = (privyUser.twitch as any).subject;
-          } else if (platform === 'telegram' && privyUser.telegram) {
-            socialUserId = privyUser.telegram.telegramUserId || (privyUser.telegram as any).subject;
-          } else if (platform === 'tiktok' && privyUser.tiktok) {
-            socialUserId = (privyUser.tiktok as any).subject;
-          } else if (platform === 'instagram' && (privyUser as any).instagram) {
-            socialUserId = ((privyUser as any).instagram as any).subject;
-          }
-
-          if (socialUserId) {
-            const foundWallet = await DeveloperWalletService.getWalletBySocial(
-              platform as 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram',
-              socialUserId,
-              blockchain
-            );
+        // If MetaMask is connected, first try to find wallet by MetaMask address
+        // (Developer Wallet can be created with user_id = MetaMask address)
+        if (isConnected && address) {
+          const normalizedAddress = address.toLowerCase().trim();
+          console.log('[CreateGiftCard] 🔍 MetaMask connected, checking wallet by address:', {
+            original: address,
+            normalized: normalizedAddress,
+            isConnected,
+            blockchain
+          });
+          try {
+            console.log('[CreateGiftCard] Calling DeveloperWalletService.getWallets with:', normalizedAddress);
+            const wallets = await DeveloperWalletService.getWallets(normalizedAddress);
+            console.log('[CreateGiftCard] 📦 Wallets found by MetaMask address:', {
+              count: wallets?.length || 0,
+              wallets: wallets,
+              allBlockchains: wallets?.map((w: any) => w.blockchain),
+              allUserIds: wallets?.map((w: any) => w.user_id)
+            });
+            
+            // Find wallet for ARC-TESTNET blockchain
+            foundWallet = wallets.find((w: any) => w.blockchain === blockchain) || wallets[0] || null;
             
             if (foundWallet) {
-              setHasDeveloperWallet(true);
-              setDeveloperWallet(foundWallet);
-              break;
+              console.log('[CreateGiftCard] ✅ Found wallet by MetaMask address:', {
+                walletAddress: foundWallet.wallet_address,
+                walletId: foundWallet.circle_wallet_id,
+                blockchain: foundWallet.blockchain,
+                user_id: foundWallet.user_id,
+                source: foundWallet.user_type
+              });
+            } else {
+              console.log('[CreateGiftCard] ❌ No wallet found for blockchain:', blockchain, 'Total wallets:', wallets?.length || 0);
             }
+          } catch (error) {
+            console.error('[CreateGiftCard] ❌ Error fetching wallets by MetaMask address:', error);
+          }
+        } else {
+          console.log('[CreateGiftCard] ⚠️ MetaMask not connected or no address:', { isConnected, address });
+        }
+        
+        // If no wallet found by MetaMask address, try to find by social platforms
+        if (!foundWallet) {
+          for (const platform of socialPlatforms) {
+            let socialUserId: string | null = null;
+            
+            if (platform === 'twitter' && privyUser.twitter) {
+              socialUserId = (privyUser.twitter as any).subject;
+            } else if (platform === 'twitch' && privyUser.twitch) {
+              socialUserId = (privyUser.twitch as any).subject;
+            } else if (platform === 'telegram' && privyUser.telegram) {
+              socialUserId = privyUser.telegram.telegramUserId || (privyUser.telegram as any).subject;
+            } else if (platform === 'tiktok' && privyUser.tiktok) {
+              socialUserId = (privyUser.tiktok as any).subject;
+            } else if (platform === 'instagram' && (privyUser as any).instagram) {
+              socialUserId = ((privyUser as any).instagram as any).subject;
+            }
+
+            if (socialUserId) {
+              const wallet = await DeveloperWalletService.getWalletBySocial(
+                platform as 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram',
+                socialUserId,
+                blockchain
+              );
+              
+              if (wallet) {
+                foundWallet = wallet;
+                break;
+              }
+            }
+          }
+        }
+        
+        // If no wallet found by social platforms, try to find by Privy User ID
+        if (!foundWallet && privyUser?.id) {
+          console.log('[CreateGiftCard] No wallet found by social platforms, trying Privy User ID:', privyUser.id);
+          try {
+            // Normalize Privy User ID (remove 'did:privy:' prefix if present)
+            const normalizedPrivyUserId = privyUser.id.startsWith('did:privy:') 
+              ? privyUser.id.replace('did:privy:', '') 
+              : privyUser.id;
+            
+            console.log('[CreateGiftCard] Normalized Privy User ID:', normalizedPrivyUserId);
+            const wallets = await DeveloperWalletService.getWallets(normalizedPrivyUserId);
+            console.log('[CreateGiftCard] Wallets found by Privy User ID:', wallets);
+            
+            // Find wallet for ARC-TESTNET blockchain
+            foundWallet = wallets.find((w: any) => w.blockchain === blockchain) || wallets[0] || null;
+            
+            if (foundWallet) {
+              console.log('[CreateGiftCard] Found wallet by Privy User ID:', foundWallet);
+            }
+          } catch (error) {
+            console.error('[CreateGiftCard] Error fetching wallets by Privy User ID:', error);
+          }
+        }
+        
+        // Update state based on found wallet
+        if (foundWallet) {
+          console.log('[CreateGiftCard] ✅ Setting Developer Wallet state:', {
+            walletAddress: foundWallet.wallet_address,
+            walletId: foundWallet.circle_wallet_id,
+            isConnected,
+            willShowChoice: isConnected && foundWallet
+          });
+          setHasDeveloperWallet(true);
+          setDeveloperWallet(foundWallet);
+          // If MetaMask is also connected, default to MetaMask but allow choice
+          if (isConnected) {
+            setWalletSource('metamask');
+          } else {
+            setWalletSource('developer');
+          }
+        } else {
+          console.log('[CreateGiftCard] ❌ No Developer Wallet found. State:', {
+            isConnected,
+            address,
+            hasDeveloperWallet: false
+          });
+          setHasDeveloperWallet(false);
+          setDeveloperWallet(null);
+          // If no developer wallet found and MetaMask is connected, use MetaMask
+          if (isConnected) {
+            setWalletSource('metamask');
           }
         }
       } catch (error) {
         console.error('Error checking social wallet:', error);
         setHasDeveloperWallet(false);
         setDeveloperWallet(null);
+        if (isConnected) {
+          setWalletSource('metamask');
+        }
       } finally {
         setCheckingWallet(false);
       }
@@ -333,6 +489,67 @@ export function CreateGiftCard() {
     checkSocialWallet();
   }, [isConnected, authenticated, privyUser]);
 
+  // Detect wallet name when connected
+  useEffect(() => {
+    if (isConnected && typeof window !== 'undefined' && window.ethereum) {
+      const ethereum = window.ethereum as any;
+      
+      // First, try to use connector name from wagmi (most reliable)
+      let detectedName = 'Web3 Wallet';
+      
+      if (connector?.name) {
+        const connectorName = connector.name.toLowerCase();
+        if (connectorName.includes('rabby')) {
+          detectedName = 'Rabby Wallet';
+        } else if (connectorName.includes('metamask')) {
+          detectedName = 'MetaMask';
+        } else if (connectorName.includes('coinbase')) {
+          detectedName = 'Coinbase Wallet';
+        } else if (connectorName.includes('trust')) {
+          detectedName = 'Trust Wallet';
+        } else if (connectorName.includes('rainbow')) {
+          detectedName = 'Rainbow Wallet';
+        } else {
+          // Use connector name as-is if it's a known format
+          detectedName = connector.name;
+        }
+      } else {
+        // Fallback to ethereum properties if connector name is not available
+        detectedName = getWalletName();
+      }
+      
+      setWalletName(detectedName);
+      
+      // Debug: Log all wallet identifiers
+      console.log('[CreateGiftCard] Wallet detection:', {
+        detectedName,
+        connectorName: connector?.name,
+        connectorId: connector?.id,
+        isRabby: ethereum.isRabby,
+        isMetaMask: ethereum.isMetaMask,
+        isCoinbaseWallet: ethereum.isCoinbaseWallet,
+        providerName: ethereum.providerName,
+        ethereumKeys: Object.keys(ethereum).filter(key => key.startsWith('is'))
+      });
+    } else {
+      setWalletName('Web3 Wallet');
+    }
+  }, [isConnected, connector]);
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('[CreateGiftCard] State update:', {
+      isConnected,
+      address,
+      hasDeveloperWallet,
+      developerWalletAddress: developerWallet?.wallet_address,
+      developerWalletId: developerWallet?.circle_wallet_id,
+      walletSource,
+      walletName,
+      shouldShowWalletChoice: isConnected && hasDeveloperWallet && developerWallet
+    });
+  }, [isConnected, address, hasDeveloperWallet, developerWallet, walletSource, walletName]);
+
   const handleCreateCard = async () => {
     // Check for a wallet (MetaMask or Internal wallet)
     if (!isConnected && !hasDeveloperWallet) {
@@ -340,17 +557,48 @@ export function CreateGiftCard() {
       return;
     }
     
-    // Determine the wallet address to create the card from
+    // Determine the wallet address to create the card from based on selected source
     let createAddress: string;
     let useDeveloperWallet = false;
     
-    if (isConnected && address) {
-      createAddress = address;
-    } else if (hasDeveloperWallet && developerWallet) {
+    console.log('[CreateGiftCard] Determining wallet source:', {
+      walletSource,
+      isConnected,
+      address,
+      hasDeveloperWallet,
+      developerWalletAddress: developerWallet?.wallet_address,
+      developerWalletId: developerWallet?.circle_wallet_id
+    });
+    
+    if (walletSource === 'developer' && hasDeveloperWallet && developerWallet) {
+      // Use Developer wallet
       createAddress = developerWallet.wallet_address;
       useDeveloperWallet = true;
+      console.log('[CreateGiftCard] Selected Developer Wallet:', createAddress);
+    } else if (walletSource === 'metamask' && isConnected && address) {
+      // Use MetaMask
+      createAddress = address;
+      useDeveloperWallet = false;
+      console.log('[CreateGiftCard] Selected MetaMask:', createAddress);
+    } else if (isConnected && address) {
+      // Fallback to MetaMask if available
+      createAddress = address;
+      useDeveloperWallet = false;
+      console.log('[CreateGiftCard] Fallback to MetaMask:', createAddress);
+    } else if (hasDeveloperWallet && developerWallet) {
+      // Fallback to Developer wallet if available
+      createAddress = developerWallet.wallet_address;
+      useDeveloperWallet = true;
+      console.log('[CreateGiftCard] Fallback to Developer Wallet:', createAddress);
     } else {
+      console.error('[CreateGiftCard] No wallet available');
       setError('Wallet not connected');
+      return;
+    }
+    
+    if (!createAddress) {
+      console.error('[CreateGiftCard] createAddress is empty!');
+      setError('Wallet address not found');
       return;
     }
 
@@ -428,6 +676,15 @@ export function CreateGiftCard() {
       
       // Check balance for Internal wallet
       if (useDeveloperWallet) {
+        console.log('[CreateGiftCard] Using Developer Wallet:', {
+          walletAddress: createAddress,
+          walletId: developerWallet?.circle_wallet_id,
+          tokenAddress,
+          amountWei,
+          amount: formData.amount,
+          currency: formData.currency
+        });
+        
         const publicClient = createPublicClient({
           chain: arcTestnet,
           transport: http()
@@ -440,8 +697,21 @@ export function CreateGiftCard() {
           args: [createAddress as `0x${string}`]
         }) as bigint;
         
+        const balanceFormatted = (Number(balance) / 1000000).toFixed(6);
+        const amountNeeded = parseFloat(formData.amount);
+        
+        console.log('[CreateGiftCard] Balance check:', {
+          balance: balance.toString(),
+          balanceFormatted,
+          amountNeeded,
+          amountWei,
+          hasEnough: BigInt(balance) >= BigInt(amountWei)
+        });
+        
         if (BigInt(balance) < BigInt(amountWei)) {
-          setError(`Insufficient ${formData.currency} balance`);
+          const errorMsg = `Insufficient ${formData.currency} balance. You have ${balanceFormatted} ${formData.currency}, but need ${formData.amount} ${formData.currency}. Wallet: ${createAddress?.slice(0, 6)}...${createAddress?.slice(-4)}`;
+          console.error('[CreateGiftCard] Balance insufficient:', errorMsg);
+          setError(errorMsg);
           setIsCreating(false);
           return;
         }
@@ -460,12 +730,21 @@ export function CreateGiftCard() {
         }) as bigint;
 
         if (currentAllowance < BigInt(amountWei)) {
-          // Validate that privyUser exists when using Internal wallet
-          if (!privyUser) {
-            throw new Error('User not found. Please ensure you are logged in.');
-          }
-          
           toast.info(`Approving ${formData.currency} for contract...`);
+
+          // Determine privyUserId - use Privy ID if available, otherwise use MetaMask address
+          // Developer Wallet can be created with user_id = MetaMask address
+          let privyUserIdForTx: string | undefined = undefined;
+          if (privyUser?.id) {
+            privyUserIdForTx = privyUser.id.startsWith('did:privy:') 
+              ? privyUser.id.replace('did:privy:', '') 
+              : privyUser.id;
+          } else if (isConnected && address) {
+            // If no Privy auth but MetaMask is connected, use MetaMask address
+            // This works for wallets created with user_id = MetaMask address
+            privyUserIdForTx = address.toLowerCase();
+            console.log('[CreateGiftCard] Using MetaMask address as userId for transaction:', privyUserIdForTx);
+          }
 
           // Send approve via Internal wallet
           const approveTx = await DeveloperWalletService.sendTransaction({
@@ -475,7 +754,7 @@ export function CreateGiftCard() {
             functionName: 'approve',
             args: [spenderAddress, BigInt(amountWei)],
             blockchain: 'ARC-TESTNET',
-            privyUserId: privyUser.id,
+            privyUserId: privyUserIdForTx,
             socialPlatform: developerWallet.social_platform || undefined,
             socialUserId: developerWallet.social_user_id || undefined
           });
@@ -514,11 +793,6 @@ export function CreateGiftCard() {
       
       // Use different methods based on wallet type and recipient type
       if (useDeveloperWallet) {
-        // Validate that privyUser exists when using Internal wallet
-        if (!privyUser) {
-          throw new Error('User not found. Please ensure you are logged in.');
-        }
-        
         // Create card via Internal wallet
         const normalizedUsername = formData.recipientType !== 'address' 
           ? formData.recipientUsername.toLowerCase().replace(/^@/, '').trim()
@@ -551,14 +825,42 @@ export function CreateGiftCard() {
         // Get social platform info for transaction
         let socialPlatform: string | undefined;
         let socialUserId: string | undefined;
-        if (privyUser && developerWallet) {
+        if (developerWallet) {
           socialPlatform = developerWallet.social_platform || undefined;
           socialUserId = developerWallet.social_user_id || undefined;
         }
         
-        // Transaction details logged on backend only
+        // Determine privyUserId - use Privy ID if available, otherwise use MetaMask address
+        // Developer Wallet can be created with user_id = MetaMask address
+        let privyUserIdForTx: string | undefined = undefined;
+        if (privyUser?.id) {
+          privyUserIdForTx = privyUser.id.startsWith('did:privy:') 
+            ? privyUser.id.replace('did:privy:', '') 
+            : privyUser.id;
+        } else if (isConnected && address) {
+          // If no Privy auth but MetaMask is connected, use MetaMask address
+          // This works for wallets created with user_id = MetaMask address
+          privyUserIdForTx = address.toLowerCase();
+          console.log('[CreateGiftCard] Using MetaMask address as userId for transaction:', privyUserIdForTx);
+        }
+        
+        console.log('[CreateGiftCard] Preparing to send transaction via Developer Wallet:', {
+          walletId: developerWallet.circle_wallet_id,
+          walletAddress: developerWallet.wallet_address,
+          contractAddress: CONTRACT_ADDRESS,
+          functionName,
+          args: args.map(arg => typeof arg === 'bigint' ? arg.toString() : arg),
+          blockchain: 'ARC-TESTNET',
+          privyUserId: privyUserIdForTx,
+          socialPlatform,
+          socialUserId,
+          recipientType: formData.recipientType,
+          amount: formData.amount,
+          currency: formData.currency
+        });
         
         // Send transaction via Internal wallet
+        console.log('[CreateGiftCard] Calling DeveloperWalletService.sendTransaction...');
         const txResult = await DeveloperWalletService.sendTransaction({
           walletId: developerWallet.circle_wallet_id,
           walletAddress: developerWallet.wallet_address,
@@ -566,9 +868,17 @@ export function CreateGiftCard() {
           functionName: functionName,
           args: args,
           blockchain: 'ARC-TESTNET',
-          privyUserId: privyUser.id,
+          privyUserId: privyUserIdForTx,
           socialPlatform: socialPlatform,
           socialUserId: socialUserId
+        });
+        
+        console.log('[CreateGiftCard] Transaction result:', {
+          success: txResult.success,
+          txHash: txResult.txHash,
+          transactionId: txResult.transactionId,
+          transactionState: txResult.transactionState,
+          error: txResult.error
         });
         
         if (!txResult.success) {
@@ -1110,6 +1420,59 @@ export function CreateGiftCard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Form Section */}
         <div className="space-y-4">
+          {/* Wallet Source Selection - Always visible */}
+          <div>
+            <Label>Wallet source</Label>
+            <RadioGroup
+              value={walletSource}
+              onValueChange={(value: 'metamask' | 'developer') => setWalletSource(value)}
+              className="mt-2 space-y-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3"
+            >
+              <div className={`flex items-center space-x-3 rounded-md p-2.5 transition-all duration-200 ${
+                walletSource === 'metamask' 
+                  ? 'bg-white shadow-sm border border-gray-300' 
+                  : 'hover:bg-white/60'
+              } ${!isConnected ? 'opacity-60' : ''}`}>
+                <RadioGroupItem 
+                  value="metamask" 
+                  id="wallet-metamask" 
+                  className="mt-0" 
+                  disabled={!isConnected}
+                />
+                <div className="flex items-center space-x-2.5 flex-1">
+                  <Wallet className="w-5 h-5 text-blue-600" />
+                  <Label htmlFor="wallet-metamask" className="cursor-pointer font-normal flex-1">
+                    {isConnected && address 
+                      ? `${walletName} (${address.slice(0, 6)}...${address.slice(-4)})`
+                      : `${walletName} (Not connected)`
+                    }
+                  </Label>
+                </div>
+              </div>
+              <div className={`flex items-center space-x-3 rounded-md p-2.5 transition-all duration-200 ${
+                walletSource === 'developer' 
+                  ? 'bg-white shadow-sm border border-gray-300' 
+                  : 'hover:bg-white/60'
+              } ${!hasDeveloperWallet || !developerWallet ? 'opacity-60' : ''}`}>
+                <RadioGroupItem 
+                  value="developer" 
+                  id="wallet-developer" 
+                  className="mt-0" 
+                  disabled={!hasDeveloperWallet || !developerWallet}
+                />
+                <div className="flex items-center space-x-2.5 flex-1">
+                  <Wallet className="w-5 h-5 text-purple-600" />
+                  <Label htmlFor="wallet-developer" className="cursor-pointer font-normal flex-1">
+                    {hasDeveloperWallet && developerWallet?.wallet_address
+                      ? `Internal Wallet (${developerWallet.wallet_address.slice(0, 6)}...${developerWallet.wallet_address.slice(-4)})`
+                      : 'Internal Wallet (Not available)'
+                    }
+                  </Label>
+                </div>
+              </div>
+            </RadioGroup>
+          </div>
+          
           <div>
             <Label>Recipient type</Label>
             <RadioGroup

@@ -19,35 +19,28 @@ interface NewsItem {
 const newsItems: NewsItem[] = [
 
   {
-    id: '1',
+    id: '3',
     title: 'Fixed 403 error with creating new cards',
     description: 'You can now create cards without any problems.',
-    date: '2026-01-03',
-    type: 'fixed',
-  }
-
-  /*{
-    id: '2',
-    title: 'Fixed bug: Leaderboard not showing all users',
-    description: 'Leaderboard now shows all users, not just the top 1000',
-    date: '2025-12-28',
+    date: '1/3/2026',
     type: 'fixed',
   },
+
   {
     id: '2',
-    title: 'Leaderboard update',
-    description: 'Added new list filters and sorting options.',
-    date: '2025-12-29',
-    type: 'update',
+    title: 'Synchronization of blockchain data in the leaderboard',
+    description: 'Currently, some wallets are not displayed in the leaderboard. Data synchronization will happen soon.',
+    date: '1/3/2026',
+    type: 'announcement',
   },
-  
   {
     id: '1',
-    title: 'Sendly reached 1000 unique users',
-    description: 'A huge thank you to everyone who participated in the testing phase! Stay tuned, keep sending.',
-    date: '2025-12-27',
-    type: 'announcement',
-  },*/
+    title: 'Creating cards from an Internal wallet',
+    description: 'The new functionality allows you to select an Internal wallet for creating cards.',
+    date: '1/3/2026',
+    type: 'update',
+  }
+  
 ];
 
 export function NewsPanel() {
@@ -146,15 +139,15 @@ export function NewsPanel() {
                 <X className="w-4 h-4" />
               </Button>
             </CardHeader>
-            <CardContent className="p-4 h-[calc(100%-73px)] flex flex-col">
-              <Tabs value={filterType} onValueChange={setFilterType} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-4">
+            <CardContent className="p-4 h-[calc(100%-73px)] flex flex-col overflow-hidden">
+              <Tabs value={filterType} onValueChange={setFilterType} className="w-full flex flex-col flex-1 min-h-0">
+                <TabsList className="grid w-full grid-cols-3 mb-4 flex-shrink-0">
                   <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
                   <TabsTrigger value="announcement" className="text-xs">Announcements</TabsTrigger>
                       <TabsTrigger value="update" className="text-xs">Updates</TabsTrigger>
                 </TabsList>
-                <ScrollArea className="flex-1 pr-4">
-                  <div className="space-y-3">
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="space-y-3 pr-4">
                     {filteredNews.map((item, index) => (
                       <div key={item.id}>
                         <div

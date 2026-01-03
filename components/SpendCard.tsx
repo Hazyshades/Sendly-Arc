@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Camera, Gift, Lock, Clock, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -608,7 +609,23 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
 
     } catch (error) {
       console.error('Error redeeming card:', error);
-      setError(error instanceof Error ? error.message : 'Failed to redeem gift card. Please try again.');
+      
+      // Check if error is user rejection
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as any)?.code;
+      
+      // Check for user rejection patterns
+      if (
+        errorCode === 4001 ||
+        errorMessage.toLowerCase().includes('user rejected') ||
+        errorMessage.toLowerCase().includes('user denied') ||
+        errorMessage.toLowerCase().includes('rejected the request') ||
+        errorMessage.toLowerCase().includes('denied transaction')
+      ) {
+        setError('User rejected the action');
+      } else {
+        setError(errorMessage || 'Failed to redeem gift card. Please try again.');
+      }
     }
   };
 
@@ -953,132 +970,42 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
                     </span>
                   </div>
 
-                  <Popover
-                    open={isUsdWithdrawOpen}
-                    onOpenChange={(open) => {
-                      setIsUsdWithdrawOpen(open);
-                      if (open) {
-                        setIsTechGiantsOpen(false);
-                      }
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
-                          isUsdWithdrawSelected ? 'scale-110' : 'hover:scale-105'
-                        }`}
-                        aria-label="Open USD Withdraw options"
-                      >
-                        <div
-                          className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                            isUsdWithdrawSelected
-                              ? 'border-emerald-500 shadow-lg'
-                              : 'border-gray-200 hover:border-emerald-300'
-                          }`}
-                        >
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-500 to-lime-500">
-                            <span className="text-xs font-semibold text-white">USD</span>
-                          </div>
-                        </div>
-                        <span
-                          className={`text-xs font-medium transition-colors ${
-                            isUsdWithdrawSelected ? 'text-emerald-600' : 'text-gray-600'
-                          }`}
-                        >
-                          USD Withdraw
-                        </span>
-                      </button>
-                    </PopoverTrigger>
-
-                    <PopoverContent className="w-72 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">USD Withdraw</span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                            isUsdWithdrawOpen ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* Visa */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
                         <button
                           type="button"
+                          disabled
                           className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
-                            selectedService === 'visa' ? 'scale-110' : 'hover:scale-105'
-                          }`}
-                          onClick={() => {
-                            setSelectedService('visa');
-                            setIsUsdWithdrawOpen(false);
-                          }}
+                            isUsdWithdrawSelected ? 'scale-110' : 'hover:scale-105'
+                          } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                          aria-label="Open USD Withdraw options"
                         >
                           <div
                             className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                              selectedService === 'visa'
-                                ? 'border-blue-500 shadow-lg'
-                                : 'border-gray-200 hover:border-blue-300'
-                            }`}
-                          >
-                            <img
-                              src="/visa.png"
-                              alt="Visa"
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-                          <span
-                            className={`text-xs font-medium transition-colors ${
-                              selectedService === 'visa' ? 'text-blue-600' : 'text-gray-600'
-                            }`}
-                          >
-                            Visa
-                          </span>
-                        </button>
-
-                        {/* Circle */}
-                        <button
-                          type="button"
-                          className={`flex flex-col items-center transition-all duration-200 focus:outline-none ${
-                            selectedService === 'circle' ? 'scale-110' : 'hover:scale-105'
-                          }`}
-                          onClick={() => {
-                            setSelectedService('circle');
-                            setIsUsdWithdrawOpen(false);
-                            if (currentCard) {
-                              const params = new URLSearchParams({
-                                tokenId: currentCard.tokenId,
-                                amount: currentCard.amount,
-                                autoConnect: '1'
-                              }).toString();
-                              navigate(`/Circle-Mint?${params}`);
-                            } else {
-                              navigate('/Circle-Mint');
-                            }
-                          }}
-                        >
-                          <div
-                            className={`w-16 h-16 rounded-lg overflow-hidden shadow-sm mb-2 border-2 transition-all duration-200 ${
-                              selectedService === 'circle'
+                              isUsdWithdrawSelected
                                 ? 'border-emerald-500 shadow-lg'
                                 : 'border-gray-200 hover:border-emerald-300'
                             }`}
                           >
-                            <img
-                              src="/circle-icon_icon trans.png"
-                              alt="Circle"
-                              className="h-full w-full object-cover"
-                            />
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-500 to-lime-500">
+                              <span className="text-xs font-semibold text-white">USD</span>
+                            </div>
                           </div>
                           <span
                             className={`text-xs font-medium transition-colors ${
-                              selectedService === 'circle' ? 'text-emerald-600' : 'text-gray-600'
+                              isUsdWithdrawSelected ? 'text-emerald-600' : 'text-gray-600'
                             }`}
                           >
-                            Circle
+                            USD Withdraw
                           </span>
                         </button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>On/off-ramp for USDC will be available in Mainnet</p>
+                    </TooltipContent>
+                  </Tooltip>
 
                   {/* Stripe */}
                   <div 
