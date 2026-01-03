@@ -17,13 +17,22 @@ interface NewsItem {
 
 // Example news data - can be replaced with real data from API
 const newsItems: NewsItem[] = [
+
+  {
+    id: '1',
+    title: 'Fixed 403 error with creating new cards',
+    description: 'You can now create cards without any problems.',
+    date: '2026-01-03',
+    type: 'fixed',
+  }
+
   /*{
     id: '2',
     title: 'Fixed bug: Leaderboard not showing all users',
     description: 'Leaderboard now shows all users, not just the top 1000',
     date: '2025-12-28',
     type: 'fixed',
-  },*/
+  },
   {
     id: '2',
     title: 'Leaderboard update',
@@ -38,7 +47,7 @@ const newsItems: NewsItem[] = [
     description: 'A huge thank you to everyone who participated in the testing phase! Stay tuned, keep sending.',
     date: '2025-12-27',
     type: 'announcement',
-  },
+  },*/
 ];
 
 export function NewsPanel() {
