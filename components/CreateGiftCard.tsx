@@ -31,7 +31,7 @@ import { createTikTokCardMapping } from '../utils/tiktok';
 import { createInstagramCardMapping } from '../utils/instagram';
 import BridgeDialog from './BridgeDialog';
 import { GiftCardsService } from '../utils/supabase/giftCards';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { generateBridgeUrlFromArc } from '../utils/bridge/bridgeUrlHelper';
 import { usePrivy } from '@privy-io/react-auth';
 import { DeveloperWalletService } from '../utils/circle/developerWalletService';
@@ -199,7 +199,6 @@ export function CreateGiftCard() {
   const { authenticated, user: privyUser } = usePrivy();
   const [walletName, setWalletName] = useState<string>('Web3 Wallet');
   const navigate = useNavigate();
-  const location = useLocation();
   const [hasDeveloperWallet, setHasDeveloperWallet] = useState(false);
   const [developerWallet, setDeveloperWallet] = useState<any>(null);
   const [checkingWallet, setCheckingWallet] = useState(true);
@@ -230,7 +229,6 @@ export function CreateGiftCard() {
   const [step, setStep] = useState<'form' | 'generating' | 'uploading' | 'creating' | 'success'>('form');
   const [isBridgeDialogOpen, setIsBridgeDialogOpen] = useState(false);
   const [highlightField, setHighlightField] = useState<'twitch' | 'twitter' | 'telegram' | 'tiktok' | 'instagram' | null>(null);
-  const [isSocialsOpen, setIsSocialsOpen] = useState(formData.recipientType !== 'address');
 
   // Load selected recipient from localStorage on mount
   useEffect(() => {
@@ -390,7 +388,7 @@ export function CreateGiftCard() {
         }
         
         // If no wallet found by MetaMask address, try to find by social platforms
-        if (!foundWallet) {
+        if (!foundWallet && privyUser) {
           for (const platform of socialPlatforms) {
             let socialUserId: string | null = null;
             

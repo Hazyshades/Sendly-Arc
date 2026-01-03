@@ -9,7 +9,7 @@ import { Spinner } from './ui/spinner';
 import { toast } from 'sonner';
 import { usePrivy } from '@privy-io/react-auth';
 import { useAccount } from 'wagmi';
-import { createWalletClient, custom } from 'viem';
+import { createWalletClient, custom, createPublicClient, http } from 'viem';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
 import { getTwitterCardMapping, claimTwitterCard, type TwitterCardMapping } from '../utils/twitter';
@@ -19,7 +19,7 @@ import { getTikTokCardMapping, claimTikTokCard, type TikTokCardMapping } from '.
 import { getInstagramCardMapping, claimInstagramCard, type InstagramCardMapping } from '../utils/instagram';
 import { PrivyAuthModal } from './PrivyAuthModal';
 import { DeveloperWalletService } from '../utils/circle/developerWalletService';
-import { TWITCH_VAULT_CONTRACT_ADDRESS, VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS, TIKTOK_VAULT_CONTRACT_ADDRESS, INSTAGRAM_VAULT_CONTRACT_ADDRESS } from '../utils/web3/constants';
+import { TWITCH_VAULT_CONTRACT_ADDRESS, VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS, TIKTOK_VAULT_CONTRACT_ADDRESS, INSTAGRAM_VAULT_CONTRACT_ADDRESS, CONTRACT_ADDRESS, GiftCardABI, USDC_ADDRESS, EURC_ADDRESS, USYC_ADDRESS, ARC_RPC_URLS } from '../utils/web3/constants';
 import { WalletChoiceModal } from './WalletChoiceModal';
 
 type PendingCard = (TwitterCardMapping | TwitchCardMapping | TelegramCardMapping | TikTokCardMapping | InstagramCardMapping) & {
@@ -43,6 +43,51 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
   const [selectedCardForClaim, setSelectedCardForClaim] = useState<PendingCard | null>(null);
   const telegramAccount = (user as any)?.telegram;
   const telegramIdentifier = telegramAccount?.username || telegramAccount?.telegramUserId || telegramAccount?.id;
+
+  // Helper function to get card info from blockchain contract
+  const getCardInfoFromContract = async (tokenId: string): Promise<{ amount: string; currency: string; message: string } | null> => {
+    try {
+      const publicClient = createPublicClient({
+        chain: arcTestnet,
+        transport: http(ARC_RPC_URLS[0] || 'https://rpc.testnet.arc.network'),
+      });
+
+      const giftCardInfo = await publicClient.readContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        abi: GiftCardABI,
+        functionName: 'getGiftCardInfo',
+        args: [BigInt(tokenId)],
+      }) as {
+        amount: bigint;
+        token: `0x${string}`;
+        redeemed: boolean;
+        message: string;
+      };
+
+      // Format amount (6 decimals for stablecoins)
+      const amount = (Number(giftCardInfo.amount) / 1000000).toString();
+      
+      // Get token symbol from address
+      const tokenAddress = giftCardInfo.token.toLowerCase();
+      let currency = 'USDC'; // Default
+      if (tokenAddress === USDC_ADDRESS.toLowerCase()) {
+        currency = 'USDC';
+      } else if (tokenAddress === EURC_ADDRESS.toLowerCase()) {
+        currency = 'EURC';
+      } else if (tokenAddress === USYC_ADDRESS.toLowerCase()) {
+        currency = 'USYC';
+      }
+
+      return {
+        amount,
+        currency,
+        message: giftCardInfo.message || '',
+      };
+    } catch (error) {
+      console.warn(`[ClaimCards] Failed to get card info from contract for tokenId ${tokenId}:`, error);
+      return null;
+    }
+  };
 
   const fetchPendingCards = useCallback(async () => {
     const hasTwitter = authenticated && user?.twitter?.username;
@@ -68,12 +113,46 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
             try {
               const metadata = await getTwitterCardMapping(tokenId);
               if (metadata) {
+                // If amount is 0 or missing, try to get it from contract
+                if (!metadata.amount || metadata.amount === '0') {
+                  const contractInfo = await getCardInfoFromContract(tokenId);
+                  if (contractInfo) {
+                    return { 
+                      ...metadata, 
+                      amount: contractInfo.amount,
+                      currency: contractInfo.currency,
+                      message: contractInfo.message || metadata.message,
+                      cardType: 'twitter' as const 
+                    };
+                  }
+                }
                 return { ...metadata, cardType: 'twitter' as const };
               }
             } catch (error) {
               console.warn(`[ClaimCards] Failed to fetch metadata for Twitter card ${tokenId}:`, error);
-              // Continue with fallback data
             }
+            
+            // Fallback: try to get info from contract
+            const contractInfo = await getCardInfoFromContract(tokenId);
+            if (contractInfo) {
+              return {
+                tokenId,
+                username: twitterUsername,
+                temporaryOwner: '',
+                senderAddress: '',
+                amount: contractInfo.amount,
+                currency: contractInfo.currency,
+                message: contractInfo.message,
+                metadataUri: '',
+                status: 'pending' as const,
+                createdAt: new Date().toISOString(),
+                claimedAt: null,
+                realOwner: null,
+                cardType: 'twitter' as const
+              };
+            }
+            
+            // Last resort fallback
             return {
               tokenId,
               username: twitterUsername,
@@ -107,12 +186,46 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
             try {
               const metadata = await getTwitchCardMapping(tokenId);
               if (metadata) {
+                // If amount is 0 or missing, try to get it from contract
+                if (!metadata.amount || metadata.amount === '0') {
+                  const contractInfo = await getCardInfoFromContract(tokenId);
+                  if (contractInfo) {
+                    return { 
+                      ...metadata, 
+                      amount: contractInfo.amount,
+                      currency: contractInfo.currency,
+                      message: contractInfo.message || metadata.message,
+                      cardType: 'twitch' as const 
+                    };
+                  }
+                }
                 return { ...metadata, cardType: 'twitch' as const };
               }
             } catch (error) {
               console.warn(`[ClaimCards] Failed to fetch metadata for Twitch card ${tokenId}:`, error);
-              // Continue with fallback data
             }
+            
+            // Fallback: try to get info from contract
+            const contractInfo = await getCardInfoFromContract(tokenId);
+            if (contractInfo) {
+              return {
+                tokenId,
+                username: twitchUsername,
+                temporaryOwner: '',
+                senderAddress: '',
+                amount: contractInfo.amount,
+                currency: contractInfo.currency,
+                message: contractInfo.message,
+                metadataUri: '',
+                status: 'pending' as const,
+                createdAt: new Date().toISOString(),
+                claimedAt: null,
+                realOwner: null,
+                cardType: 'twitch' as const
+              };
+            }
+            
+            // Last resort fallback
             return {
               tokenId,
               username: twitchUsername,
@@ -145,12 +258,46 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
               try {
                 const metadata = await getTelegramCardMapping(tokenId);
                 if (metadata) {
+                  // If amount is 0 or missing, try to get it from contract
+                  if (!metadata.amount || metadata.amount === '0') {
+                    const contractInfo = await getCardInfoFromContract(tokenId);
+                    if (contractInfo) {
+                      return { 
+                        ...metadata, 
+                        amount: contractInfo.amount,
+                        currency: contractInfo.currency,
+                        message: contractInfo.message || metadata.message,
+                        cardType: 'telegram' as const 
+                      };
+                    }
+                  }
                   return { ...metadata, cardType: 'telegram' as const };
                 }
               } catch (error) {
                 console.warn(`[ClaimCards] Failed to fetch metadata for Telegram card ${tokenId}:`, error);
-                // Continue with fallback data
               }
+              
+              // Fallback: try to get info from contract
+              const contractInfo = await getCardInfoFromContract(tokenId);
+              if (contractInfo) {
+                return {
+                  tokenId,
+                  username: normalizedTelegramUsername,
+                  temporaryOwner: '',
+                  senderAddress: '',
+                  amount: contractInfo.amount,
+                  currency: contractInfo.currency,
+                  message: contractInfo.message,
+                  metadataUri: '',
+                  status: 'pending' as const,
+                  createdAt: new Date().toISOString(),
+                  claimedAt: null,
+                  realOwner: null,
+                  cardType: 'telegram' as const
+                };
+              }
+              
+              // Last resort fallback
               return {
                 tokenId,
                 username: normalizedTelegramUsername,
@@ -185,12 +332,46 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
               try {
                 const metadata = await getTikTokCardMapping(tokenId);
                 if (metadata) {
+                  // If amount is 0 or missing, try to get it from contract
+                  if (!metadata.amount || metadata.amount === '0') {
+                    const contractInfo = await getCardInfoFromContract(tokenId);
+                    if (contractInfo) {
+                      return { 
+                        ...metadata, 
+                        amount: contractInfo.amount,
+                        currency: contractInfo.currency,
+                        message: contractInfo.message || metadata.message,
+                        cardType: 'tiktok' as const 
+                      };
+                    }
+                  }
                   return { ...metadata, cardType: 'tiktok' as const };
                 }
               } catch (error) {
                 console.warn(`[ClaimCards] Failed to fetch metadata for TikTok card ${tokenId}:`, error);
-                // Continue with fallback data
               }
+              
+              // Fallback: try to get info from contract
+              const contractInfo = await getCardInfoFromContract(tokenId);
+              if (contractInfo) {
+                return {
+                  tokenId,
+                  username: normalizedTikTokUsername,
+                  temporaryOwner: '',
+                  senderAddress: '',
+                  amount: contractInfo.amount,
+                  currency: contractInfo.currency,
+                  message: contractInfo.message,
+                  metadataUri: '',
+                  status: 'pending' as const,
+                  createdAt: new Date().toISOString(),
+                  claimedAt: null,
+                  realOwner: null,
+                  cardType: 'tiktok' as const
+                };
+              }
+              
+              // Last resort fallback
               return {
                 tokenId,
                 username: normalizedTikTokUsername,
@@ -225,12 +406,46 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
               try {
                 const metadata = await getInstagramCardMapping(tokenId);
                 if (metadata) {
+                  // If amount is 0 or missing, try to get it from contract
+                  if (!metadata.amount || metadata.amount === '0') {
+                    const contractInfo = await getCardInfoFromContract(tokenId);
+                    if (contractInfo) {
+                      return { 
+                        ...metadata, 
+                        amount: contractInfo.amount,
+                        currency: contractInfo.currency,
+                        message: contractInfo.message || metadata.message,
+                        cardType: 'instagram' as const 
+                      };
+                    }
+                  }
                   return { ...metadata, cardType: 'instagram' as const };
                 }
               } catch (error) {
                 console.warn(`[ClaimCards] Failed to fetch metadata for Instagram card ${tokenId}:`, error);
-                // Continue with fallback data
               }
+              
+              // Fallback: try to get info from contract
+              const contractInfo = await getCardInfoFromContract(tokenId);
+              if (contractInfo) {
+                return {
+                  tokenId,
+                  username: normalizedInstagramUsername,
+                  temporaryOwner: '',
+                  senderAddress: '',
+                  amount: contractInfo.amount,
+                  currency: contractInfo.currency,
+                  message: contractInfo.message,
+                  metadataUri: '',
+                  status: 'pending' as const,
+                  createdAt: new Date().toISOString(),
+                  claimedAt: null,
+                  realOwner: null,
+                  cardType: 'instagram' as const
+                };
+              }
+              
+              // Last resort fallback
               return {
                 tokenId,
                 username: normalizedInstagramUsername,
@@ -1436,11 +1651,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
                     </Button>
                   )}
                   
-                  {!isConnected && (
-                    <span className="text-xs text-gray-500 text-center">
-                      No MetaMask? Use internal wallet
-                    </span>
-                  )}
+                 
                 </div>
               </div>
             </CardContent>

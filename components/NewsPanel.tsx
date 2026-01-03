@@ -19,13 +19,12 @@ interface NewsItem {
 const newsItems: NewsItem[] = [
 
   {
-    id: '3',
-    title: 'Fixed 403 error with creating new cards',
-    description: 'You can now create cards without any problems.',
+    id: '1',
+    title: 'Creating cards from an Internal wallet',
+    description: 'The new functionality allows you to select an Internal wallet for creating cards.',
     date: '1/3/2026',
-    type: 'fixed',
+    type: 'update',
   },
-
   {
     id: '2',
     title: 'Synchronization of blockchain data in the leaderboard',
@@ -34,12 +33,13 @@ const newsItems: NewsItem[] = [
     type: 'announcement',
   },
   {
-    id: '1',
-    title: 'Creating cards from an Internal wallet',
-    description: 'The new functionality allows you to select an Internal wallet for creating cards.',
+    id: '3',
+    title: 'Fixed 403 error with creating new cards',
+    description: 'You can now create cards without any problems.',
     date: '1/3/2026',
-    type: 'update',
-  }
+    type: 'fixed',
+  },
+
   
 ];
 

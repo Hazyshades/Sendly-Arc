@@ -69,7 +69,6 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   const [currentCard, setCurrentCard] = useState<RedeemableCard | null>(null);
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [isTechGiantsOpen, setIsTechGiantsOpen] = useState(false);
-  const [isUsdWithdrawOpen, setIsUsdWithdrawOpen] = useState(false);
 
   const [redeemStep, setRedeemStep] = useState<'input' | 'verify' | 'redeem' | 'success'>('input');
   const [error, setError] = useState('');
@@ -787,9 +786,6 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
                       open={isTechGiantsOpen}
                       onOpenChange={(open) => {
                         setIsTechGiantsOpen(open);
-                        if (open) {
-                          setIsUsdWithdrawOpen(false);
-                        }
                       }}
                     >
                       <PopoverTrigger asChild>
