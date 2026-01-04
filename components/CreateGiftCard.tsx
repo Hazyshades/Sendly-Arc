@@ -609,18 +609,20 @@ export function CreateGiftCard() {
         if (currentAllowance < BigInt(amountWei)) {
           toast.info(`Approving ${formData.currency} for contract...`);
 
-          // Determine privyUserId - use Privy ID if available, otherwise use MetaMask address
-          // Developer Wallet can be created with user_id = MetaMask address
-          let privyUserIdForTx: string | undefined = undefined;
-          if (privyUser?.id) {
-            privyUserIdForTx = privyUser.id.startsWith('did:privy:') 
-              ? privyUser.id.replace('did:privy:', '') 
-              : privyUser.id;
-          } else if (isConnected && address) {
-            // If no Privy auth but MetaMask is connected, use MetaMask address
-            // This works for wallets created with user_id = MetaMask address
-            privyUserIdForTx = address.toLowerCase();
-          }
+        // Determine privyUserId - use Privy ID if available, otherwise use MetaMask address
+        // Developer Wallet can be created with user_id = MetaMask address
+        let privyUserIdForTx: string | undefined = undefined;
+        if (privyUser?.id) {
+          privyUserIdForTx = privyUser.id.startsWith('did:privy:') 
+            ? privyUser.id.replace('did:privy:', '') 
+            : privyUser.id;
+        } else if (isConnected && address) {
+          // If no Privy auth but MetaMask is connected, use MetaMask address
+          // This works for wallets created with user_id = MetaMask address
+          privyUserIdForTx = address.toLowerCase();
+        }
+        // Note: If user is authenticated only via social account (no MetaMask),
+        // privyUserId may be undefined, but socialPlatform/socialUserId will be used for verification
 
           // Send approve via Internal wallet
           const approveTx = await DeveloperWalletService.sendTransaction({
@@ -718,6 +720,8 @@ export function CreateGiftCard() {
           // This works for wallets created with user_id = MetaMask address
           privyUserIdForTx = address.toLowerCase();
         }
+        // Note: If user is authenticated only via social account (no MetaMask),
+        // privyUserId may be undefined, but socialPlatform/socialUserId will be used for verification
         
         // Send transaction via Internal wallet
         const txResult = await DeveloperWalletService.sendTransaction({
