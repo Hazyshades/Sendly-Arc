@@ -27,7 +27,7 @@ import {
   PaginationNext,
   PaginationEllipsis,
 } from './ui/pagination';
-import { getLeaderboardSenders, recalculateLeaderboard, LeaderboardEntry } from '../utils/leaderboard';
+import { getLeaderboardSenders, getLeaderboardSendersGraph, recalculateLeaderboard, syncLeaderboardGraph, updateZnsDomainsGraph, LeaderboardEntry } from '../utils/leaderboard';
 import { useAccount } from 'wagmi';
 import { toast } from 'sonner';
 
@@ -135,18 +135,9 @@ export function Leaderboard() {
       }
 
       try {
-        if (shouldRecalculate) {
-          console.log('Recalculating leaderboard before loading...');
-          const recalcResult = await recalculateLeaderboard();
-          if (!recalcResult.success) {
-            console.warn('Leaderboard recalculation failed:', recalcResult.message);
-          } else {
-            console.log('Leaderboard recalculated. Entries:', recalcResult.entries_count);
-          }
-        }
-        
-        const data = await getLeaderboardSenders({ limit: 100000 });
-        console.log(`[Leaderboard] Loaded ${data.length} entries from API`);
+        // Use leaderboard_stats_graph table (temporary)
+        const data = await getLeaderboardSendersGraph({ limit: 100000 });
+        console.log(`[Leaderboard] Loaded ${data.length} entries from leaderboard_stats_graph`);
         setEntries(data);
         setError(null);
       } catch (err) {
@@ -323,12 +314,32 @@ export function Leaderboard() {
     setIsRefreshing(true);
     hasScrolledToUser.current = false;
     try {
-      // Note: updateZNSDomains function needs to be implemented
-      // For now, we'll skip it and just recalculate the leaderboard
-      loadEntries({ preserveData: true, recalculate: true });
+      // Sync leaderboard_stats_graph from gift_cards_graph
+      console.log('[Leaderboard] Syncing leaderboard_stats_graph...');
+      const syncResult = await syncLeaderboardGraph();
+      if (syncResult.success) {
+        console.log(`[Leaderboard] Synced ${syncResult.entries_count || 0} entries`);
+      } else {
+        console.error('[Leaderboard] Sync failed:', syncResult.message);
+      }
+      
+      // Update ZNS domains for leaderboard_stats_graph
+      console.log('[Leaderboard] Updating ZNS domains...');
+      const znsResult = await updateZnsDomainsGraph();
+      if (znsResult.success) {
+        console.log(`[Leaderboard] Updated ZNS domains: ${znsResult.records_updated || 0} records`);
+        toast.success(`Updated ${znsResult.records_updated || 0} ZNS domains`);
+      } else {
+        console.error('[Leaderboard] ZNS update failed:', znsResult.message);
+        toast.error(`ZNS update failed: ${znsResult.message || 'Unknown error'}`);
+      }
+      
+      // Refresh from leaderboard_stats_graph
+      loadEntries({ preserveData: true, recalculate: false });
     } catch (error) {
       console.error('Failed to refresh leaderboard:', error);
-      loadEntries({ preserveData: true, recalculate: true });
+      toast.error('Failed to refresh leaderboard');
+      loadEntries({ preserveData: true, recalculate: false });
     }
   };
 
