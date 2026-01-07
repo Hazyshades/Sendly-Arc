@@ -224,6 +224,87 @@ export function Leaderboard() {
     return () => clearTimeout(timeoutId);
   }, [entries, normalizedAccount, loading, currentPage, scrollToUserEntry]);
 
+  // Calculate global ranks based on full entries list (before filtering)
+  // Ranks are calculated based on current sortBy to maintain consistency
+  const globalRanksMap = useMemo(() => {
+    if (!entries.length) return new Map<string, number>();
+    
+    // Aggregate entries by senderAddress (sum all platforms for the same address)
+    const aggregatedMap = new Map<string, LeaderboardEntry>();
+    
+    for (const entry of entries) {
+      const addressKey = entry.senderAddress?.toLowerCase() || '';
+      if (!addressKey) continue;
+      
+      const existing = aggregatedMap.get(addressKey);
+      
+      if (!existing) {
+        // First entry for this address - use it as base
+        aggregatedMap.set(addressKey, { ...entry });
+      } else {
+        // Merge with existing entry
+        // Sum cards
+        existing.cardsSentTotal += entry.cardsSentTotal;
+        
+        // Sum amounts by currency
+        for (const [currency, amount] of Object.entries(entry.amountSentByCurrency || {})) {
+          existing.amountSentByCurrency[currency] = (existing.amountSentByCurrency[currency] || 0) + amount;
+        }
+        
+        // Sum total amount
+        existing.amountSentTotal += entry.amountSentTotal;
+        
+        // Take latest lastSentAt
+        const existingDate = existing.lastSentAt ? new Date(existing.lastSentAt).getTime() : 0;
+        const entryDate = entry.lastSentAt ? new Date(entry.lastSentAt).getTime() : 0;
+        if (entryDate > existingDate) {
+          existing.lastSentAt = entry.lastSentAt;
+          existing.lastRecipient = entry.lastRecipient || existing.lastRecipient;
+        }
+        
+        // Prefer non-null values for display fields
+        if (!existing.displayName && entry.displayName) {
+          existing.displayName = entry.displayName;
+        }
+        if (!existing.avatarUrl && entry.avatarUrl) {
+          existing.avatarUrl = entry.avatarUrl;
+        }
+        if (!existing.znsDomain && entry.znsDomain) {
+          existing.znsDomain = entry.znsDomain;
+        }
+      }
+    }
+    
+    // Convert map back to array and sort based on current sortBy
+    const aggregated = Array.from(aggregatedMap.values());
+    aggregated.sort((a, b) => {
+      switch (sortBy) {
+        case 'cards':
+          return b.cardsSentTotal - a.cardsSentTotal;
+        case 'amount':
+          // Divide by 1,000,000 for 6 decimals when comparing amounts
+          const aTotal = Object.values(a.amountSentByCurrency).reduce((sum, val) => sum + val, 0) / TOKEN_DECIMALS_DIVISOR;
+          const bTotal = Object.values(b.amountSentByCurrency).reduce((sum, val) => sum + val, 0) / TOKEN_DECIMALS_DIVISOR;
+          return bTotal - aTotal;
+        case 'date':
+          return new Date(b.lastSentAt || 0).getTime() - new Date(a.lastSentAt || 0).getTime();
+        default:
+          return 0;
+      }
+    });
+    
+    // Create map of address -> global rank
+    const ranksMap = new Map<string, number>();
+    aggregated.forEach((entry, index) => {
+      const addressKey = entry.senderAddress?.toLowerCase() || '';
+      if (addressKey) {
+        ranksMap.set(addressKey, index + 1);
+      }
+    });
+    
+    return ranksMap;
+  }, [entries, sortBy]);
+
   // Filter and sort entries
   const filteredAndSortedEntries = useMemo(() => {
     let filtered = [...entries];
@@ -591,7 +672,17 @@ export function Leaderboard() {
               const isCurrentUser =
                 normalizedAccount &&
                 entry.senderAddress?.toLowerCase() === normalizedAccount;
-              const globalRank = startIndex + index + 1;
+              // Use global rank when filter is "All" (with or without search)
+              // Use relative rank when platform filter is applied (starts from 1)
+              const addressKey = entry.senderAddress?.toLowerCase() || '';
+              let globalRank: number;
+              if (filterType === 'all') {
+                // Use global rank when showing all platforms (even with search)
+                globalRank = globalRanksMap.get(addressKey) ?? (startIndex + index + 1);
+              } else {
+                // Use relative rank when platform filter is applied (starts from 1)
+                globalRank = startIndex + index + 1;
+              }
               // Get leader's values for difference calculation
               const leader = filteredAndSortedEntries[0];
               const leaderCards = leader?.cardsSentTotal || 0;
