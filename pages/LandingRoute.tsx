@@ -270,6 +270,11 @@ export function LandingRoute() {
                     Litepaper
                   </Link>
                 </li>
+                <li>
+                  <Link to="/blog" className="text-sm hover:text-white transition-colors">
+                    Blog
+                  </Link>
+                </li>
               </ul>
             </div>
 

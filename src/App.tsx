@@ -17,6 +17,8 @@ import { TwitchCallbackRoute } from '../pages/TwitchCallbackRoute';
 import { TwitterCallbackRoute } from '../pages/TwitterCallbackRoute';
 import { CircleMintRoute } from '../pages/CircleMintRoute';
 import { LeaderboardRoute } from '../pages/LeaderboardRoute';
+import { BlogRoute } from '../pages/BlogRoute';
+import { BlogPostRoute } from '../pages/BlogPostRoute';
 
 function AppRouter() {
   const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +61,8 @@ function AppRouter() {
       <Route path="/auth/twitch/callback" element={<TwitchCallbackRoute />} />
       <Route path="/auth/twitter/callback" element={<TwitterCallbackRoute />} />
       <Route path="/Circle-Mint" element={<CircleMintRoute />} />
+      <Route path="/blog" element={<BlogRoute />} />
+      <Route path="/blog/:slug" element={<BlogPostRoute />} />
     </Routes>
   );
 }
