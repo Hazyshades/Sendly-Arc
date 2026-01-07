@@ -145,39 +145,58 @@ export async function getLeaderboardSenders(params: FetchParams = {}): Promise<L
 
 // Get leaderboard from leaderboard_stats_graph table (temporary)
 export async function getLeaderboardSendersGraph(params: FetchParams = {}): Promise<LeaderboardEntry[]> {
-  const searchParams = new URLSearchParams();
-  if (params.limit) {
-    searchParams.set('limit', String(params.limit));
-  }
-
-  const query = searchParams.toString();
-  const endpoint = `/leaderboard/senders-graph${query ? `?${query}` : ''}`;
-  const response = await apiCall(endpoint);
-
-  const entries: any[] = Array.isArray(response.entries) ? response.entries : [];
-
-  return entries.map((entry) => {
-    const amountSentByCurrencyRaw =
-      entry.amountSentByCurrency ?? entry.amount_sent_by_currency ?? {};
-
-    const amountSentByCurrency: Record<string, number> = {};
-    for (const [currency, value] of Object.entries(amountSentByCurrencyRaw)) {
-      amountSentByCurrency[currency] = toNumber(value);
+  try {
+    const searchParams = new URLSearchParams();
+    if (params.limit) {
+      searchParams.set('limit', String(params.limit));
     }
 
-    return {
-      id: entry.id,
-      userIdentifier: entry.userIdentifier ?? entry.user_identifier ?? '',
-      senderAddress: entry.senderAddress ?? entry.sender_address ?? '',
-      socialPlatform: entry.socialPlatform ?? entry.social_platform ?? 'generic',
-      displayName: entry.displayName ?? entry.display_name ?? null,
-      avatarUrl: entry.avatarUrl ?? entry.avatar_url ?? null,
-      lastRecipient: entry.lastRecipient ?? entry.last_recipient ?? null,
-      cardsSentTotal: entry.cardsSentTotal ?? entry.cards_sent_total ?? 0,
-      amountSentTotal: toNumber(entry.amountSentTotal ?? entry.amount_sent_total ?? 0),
-      amountSentByCurrency,
-      lastSentAt: entry.lastSentAt ?? entry.last_sent_at ?? null,
-      znsDomain: entry.znsDomain ?? entry.zns_domain ?? null,
-    } satisfies LeaderboardEntry;
-  });
+    const query = searchParams.toString();
+    const endpoint = `/leaderboard/senders-graph${query ? `?${query}` : ''}`;
+    const response = await apiCall(endpoint);
+
+    // Handle different response formats
+    let entries: any[] = [];
+    if (Array.isArray(response)) {
+      // If response is directly an array
+      entries = response;
+    } else if (Array.isArray(response.entries)) {
+      // If response has entries property
+      entries = response.entries;
+    } else if (response.data && Array.isArray(response.data)) {
+      // If response has data property
+      entries = response.data;
+    } else {
+      console.warn('[getLeaderboardSendersGraph] Unexpected response format:', response);
+      return [];
+    }
+
+    return entries.map((entry) => {
+      const amountSentByCurrencyRaw =
+        entry.amountSentByCurrency ?? entry.amount_sent_by_currency ?? {};
+
+      const amountSentByCurrency: Record<string, number> = {};
+      for (const [currency, value] of Object.entries(amountSentByCurrencyRaw)) {
+        amountSentByCurrency[currency] = toNumber(value);
+      }
+
+      return {
+        id: entry.id,
+        userIdentifier: entry.userIdentifier ?? entry.user_identifier ?? '',
+        senderAddress: entry.senderAddress ?? entry.sender_address ?? '',
+        socialPlatform: entry.socialPlatform ?? entry.social_platform ?? 'generic',
+        displayName: entry.displayName ?? entry.display_name ?? null,
+        avatarUrl: entry.avatarUrl ?? entry.avatar_url ?? null,
+        lastRecipient: entry.lastRecipient ?? entry.last_recipient ?? null,
+        cardsSentTotal: entry.cardsSentTotal ?? entry.cards_sent_total ?? 0,
+        amountSentTotal: toNumber(entry.amountSentTotal ?? entry.amount_sent_total ?? 0),
+        amountSentByCurrency,
+        lastSentAt: entry.lastSentAt ?? entry.last_sent_at ?? null,
+        znsDomain: entry.znsDomain ?? entry.zns_domain ?? null,
+      } satisfies LeaderboardEntry;
+    });
+  } catch (error) {
+    console.error('[getLeaderboardSendersGraph] Error fetching leaderboard:', error);
+    throw error;
+  }
 }

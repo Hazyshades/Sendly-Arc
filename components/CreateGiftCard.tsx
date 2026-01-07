@@ -1093,6 +1093,24 @@ export function CreateGiftCard() {
           formData.recipientType === 'address'
             ? null
             : formData.recipientUsername.replace(/^@/, '').trim();
+        
+        // Determine event_type based on recipient type
+        let eventType: string | null = null;
+        if (formData.recipientType === 'twitter') {
+          eventType = 'GiftCardCreatedForTwitter';
+        } else if (formData.recipientType === 'twitch') {
+          eventType = 'GiftCardCreatedForTwitch';
+        } else if (formData.recipientType === 'telegram') {
+          eventType = 'GiftCardCreatedForTelegram';
+        } else if (formData.recipientType === 'tiktok') {
+          eventType = 'GiftCardCreatedForTikTok';
+        } else if (formData.recipientType === 'instagram') {
+          eventType = 'GiftCardCreatedForInstagram';
+        } else {
+          eventType = 'GiftCardCreated';
+        }
+
+        // Save to gift_cards table
         await GiftCardsService.upsertCard({
           token_id: result.tokenId,
           sender_address: (createAddress || '').toLowerCase(),
@@ -1105,7 +1123,27 @@ export function CreateGiftCard() {
           redeemed: false,
           tx_hash: result.txHash,
         });
-        // Card saved to Supabase cache
+
+        // Also save to gift_cards_graph table for leaderboard calculations
+        await GiftCardsService.upsertCardGraph({
+          token_id: result.tokenId,
+          sender_address: (createAddress || '').toLowerCase(),
+          recipient_address: formData.recipientType === 'address' ? formData.recipientAddress.toLowerCase() : null,
+          recipient_username: recipientUsernameForStorage,
+          recipient_type: formData.recipientType,
+          amount: formData.amount,
+          currency: formData.currency,
+          message: formData.message,
+          redeemed: false,
+          tx_hash: result.txHash,
+          event_type: eventType,
+          uri: metadataUri || null,
+          // block_number and block_timestamp will be filled later via sync if needed
+          block_number: null,
+          block_timestamp: null,
+        });
+        
+        // Card saved to Supabase cache and graph table
       } catch (error) {
         console.error('Error saving card to Supabase:', error);
       }

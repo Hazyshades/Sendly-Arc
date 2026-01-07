@@ -145,11 +145,19 @@ export function Leaderboard() {
         // Use leaderboard_stats_graph_true table
         const data = await getLeaderboardSendersGraph({ limit: 100000 });
         console.log(`[Leaderboard] Loaded ${data.length} entries from leaderboard_stats_graph_true`);
+        
+        // Validate data format
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid data format: expected array');
+        }
+        
         setEntries(data);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch leaderboard', err);
-        setError(err instanceof Error ? err.message : 'Failed to load data');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
+        setError(errorMessage);
+        setEntries([]); // Clear entries on error to prevent rendering issues
       } finally {
         if (preserveData) {
           setIsRefreshing(false);
@@ -371,7 +379,7 @@ export function Leaderboard() {
   }, [totalPages, currentPage]);
 
   // Calculate statistics
-  const totalAddresses = useMemo(() => entries.length, [entries.length]);
+  const totalAddresses = useMemo(() => entries.length, [entries]);
   const totalCards = useMemo(
     () => entries.reduce((sum, entry) => sum + entry.cardsSentTotal, 0),
     [entries]
@@ -598,6 +606,11 @@ export function Leaderboard() {
               // Get USDC amount for display (divide by 1,000,000 for 6 decimals)
               const usdcAmount = (entry.amountSentByCurrency?.['USDC'] || 0) / TOKEN_DECIMALS_DIVISOR;
               const isAmountSort = sortBy === 'amount';
+              
+              // Calculate differences for progress display
+              const leaderUsdcAmountDisplay = (leaderUsdcAmount / TOKEN_DECIMALS_DIVISOR);
+              const usdcDifference = leaderUsdcAmountDisplay - usdcAmount;
+              const cardsDifference = leaderCards - entry.cardsSentTotal;
 
               return (
                 <div

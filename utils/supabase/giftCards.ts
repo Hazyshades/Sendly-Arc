@@ -163,5 +163,52 @@ export class GiftCardsService {
       return false;
     }
   }
+
+  /**
+   * Upsert card to gift_cards_graph table
+   * This table is used for leaderboard calculations from The Graph data
+   */
+  static async upsertCardGraph(card: GiftCardInsert & { 
+    block_number?: number | null;
+    block_timestamp?: number | null;
+    event_type?: string | null;
+    uri?: string | null;
+  }): Promise<boolean> {
+    try {
+      const graphCard: any = {
+        token_id: card.token_id,
+        sender_address: card.sender_address?.toLowerCase() || null,
+        recipient_address: card.recipient_address?.toLowerCase() || null,
+        recipient_username: card.recipient_username || null,
+        recipient_type: card.recipient_type,
+        amount: card.amount,
+        currency: card.currency,
+        message: card.message || '',
+        redeemed: card.redeemed || false,
+        tx_hash: card.tx_hash || null,
+        block_number: card.block_number || null,
+        block_timestamp: card.block_timestamp || null,
+        event_type: card.event_type || null,
+        uri: card.uri || null,
+      };
+
+      const { error } = await supabase
+        .from('gift_cards_graph')
+        .upsert(graphCard, {
+          onConflict: 'token_id',
+          ignoreDuplicates: false,
+        });
+
+      if (error) {
+        console.error('Error upserting gift card to graph:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error upserting gift card to graph:', error);
+      return false;
+    }
+  }
 }
 
