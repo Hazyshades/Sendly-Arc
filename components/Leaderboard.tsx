@@ -27,7 +27,7 @@ import {
   PaginationNext,
   PaginationEllipsis,
 } from './ui/pagination';
-import { getLeaderboardSenders, getLeaderboardSendersGraph, recalculateLeaderboard, syncLeaderboardGraph, updateZnsDomainsGraph, LeaderboardEntry } from '../utils/leaderboard';
+import { getLeaderboardSendersGraph, syncLeaderboardGraph, updateZnsDomainsGraph, LeaderboardEntry } from '../utils/leaderboard';
 import { useAccount } from 'wagmi';
 import { toast } from 'sonner';
 
@@ -133,7 +133,6 @@ export function Leaderboard() {
   const loadEntries = useCallback(
     async (options?: { preserveData?: boolean; recalculate?: boolean }) => {
       const preserveData = options?.preserveData ?? false;
-      const shouldRecalculate = options?.recalculate ?? false;
       
       if (preserveData) {
         setIsRefreshing(true);
