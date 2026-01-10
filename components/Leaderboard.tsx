@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { Trophy, RefreshCw, Users, Copy, CheckCircle2, Search } from 'lucide-react';
+import { Trophy, RefreshCw, Users, Copy, CheckCircle2, Search, Twitter, Zap, Wallet, TrendingUp, Twitch, Send } from 'lucide-react';
 import { CardHeader, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -30,6 +30,8 @@ import {
 import { getLeaderboardSendersGraph, syncLeaderboardGraph, updateZnsDomainsGraph, LeaderboardEntry } from '../utils/leaderboard';
 import { useAccount } from 'wagmi';
 import { toast } from 'sonner';
+import { getContractBalance, getContractTransactionsCount } from '../utils/web3/contractBalance';
+import { CONTRACT_ADDRESS } from '../utils/web3/constants';
 
 const ITEMS_PER_PAGE = 30;
 
@@ -125,6 +127,11 @@ export function Leaderboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'cards' | 'amount' | 'date'>('cards');
   const [filterType, setFilterType] = useState<'all' | 'address' | 'twitter' | 'telegram' | 'twitch' | 'zns'>('all');
+  const [metricView, setMetricView] = useState<'total' | 'twitter' | 'twitch' | 'telegram' | 'gas' | 'tvl'>('total');
+  const [contractTvl, setContractTvl] = useState<number | null>(null);
+  const [tvlLoading, setTvlLoading] = useState(false);
+  const [contractTransactionsCount, setContractTransactionsCount] = useState<number | null>(null);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
   const { address } = useAccount();
   const normalizedAccount = address?.toLowerCase() ?? null;
   const userEntryRef = useRef<HTMLDivElement>(null);
@@ -189,8 +196,8 @@ export function Leaderboard() {
   }, []);
 
   useEffect(() => {
-    loadEntries({ preserveData: hasFetchedOnce });
     if (!hasFetchedOnce) {
+      loadEntries({ preserveData: false });
       setHasFetchedOnce(true);
     }
   }, [hasFetchedOnce, loadEntries]);
@@ -459,11 +466,83 @@ export function Leaderboard() {
   }, [totalPages, currentPage]);
 
   // Calculate statistics
-  const totalAddresses = useMemo(() => entries.length, [entries]);
+  const totalAddresses = useMemo(() => {
+    // Get unique addresses
+    const uniqueAddresses = new Set(entries.map(e => e.senderAddress?.toLowerCase()).filter(Boolean));
+    return uniqueAddresses.size;
+  }, [entries]);
+  
   const totalCards = useMemo(
     () => entries.reduce((sum, entry) => sum + entry.cardsSentTotal, 0),
     [entries]
   );
+
+  // Calculate Twitter cards
+  const twitterCards = useMemo(() => {
+    return entries
+      .filter(entry => entry.socialPlatform?.toLowerCase() === 'twitter')
+      .reduce((sum, entry) => sum + entry.cardsSentTotal, 0);
+  }, [entries]);
+
+  // Calculate Twitter addresses (unique addresses that sent cards via Twitter)
+  const twitterAddresses = useMemo(() => {
+    const twitterEntries = entries.filter(entry => entry.socialPlatform?.toLowerCase() === 'twitter');
+    const uniqueAddresses = new Set(twitterEntries.map(e => e.senderAddress?.toLowerCase()).filter(Boolean));
+    return uniqueAddresses.size;
+  }, [entries]);
+
+  // Calculate Twitch cards
+  const twitchCards = useMemo(() => {
+    return entries
+      .filter(entry => entry.socialPlatform?.toLowerCase() === 'twitch')
+      .reduce((sum, entry) => sum + entry.cardsSentTotal, 0);
+  }, [entries]);
+
+  // Calculate Twitch addresses (unique addresses that sent cards via Twitch)
+  const twitchAddresses = useMemo(() => {
+    const twitchEntries = entries.filter(entry => entry.socialPlatform?.toLowerCase() === 'twitch');
+    const uniqueAddresses = new Set(twitchEntries.map(e => e.senderAddress?.toLowerCase()).filter(Boolean));
+    return uniqueAddresses.size;
+  }, [entries]);
+
+  // Calculate Telegram cards
+  const telegramCards = useMemo(() => {
+    return entries
+      .filter(entry => entry.socialPlatform?.toLowerCase() === 'telegram')
+      .reduce((sum, entry) => sum + entry.cardsSentTotal, 0);
+  }, [entries]);
+
+  // Calculate Telegram addresses (unique addresses that sent cards via Telegram)
+  const telegramAddresses = useMemo(() => {
+    const telegramEntries = entries.filter(entry => entry.socialPlatform?.toLowerCase() === 'telegram');
+    const uniqueAddresses = new Set(telegramEntries.map(e => e.senderAddress?.toLowerCase()).filter(Boolean));
+    return uniqueAddresses.size;
+  }, [entries]);
+
+  // Calculate Gas Spent: transactions_count * 0.05
+  const gasSpent = useMemo(() => {
+    // Use contract transactions count if available, otherwise fallback to totalCards
+    const transactionsCount = contractTransactionsCount !== null 
+      ? contractTransactionsCount 
+      : totalCards;
+    return transactionsCount * 0.05;
+  }, [contractTransactionsCount, totalCards]);
+
+  // Calculate TVL (Total Value Locked) - use contract balance if available, otherwise calculate from entries
+  const tvl = useMemo(() => {
+    // If we have contract balance from API, use it (more accurate)
+    if (contractTvl !== null) {
+      return contractTvl;
+    }
+    // Fallback: Sum all amounts sent (in smallest units, so divide by 1,000,000 for 6 decimals)
+    return entries.reduce((sum, entry) => {
+      const entryTvl = Object.values(entry.amountSentByCurrency || {}).reduce(
+        (currencySum, amount) => currencySum + amount,
+        0
+      ) / TOKEN_DECIMALS_DIVISOR;
+      return sum + entryTvl;
+    }, 0);
+  }, [entries, contractTvl]);
 
   // Get leader's value for progress calculation (cards or USDC amount)
   const leaderValue = useMemo(() => {
@@ -477,6 +556,54 @@ export function Leaderboard() {
     // For cards sorting, use card count
     return leader?.cardsSentTotal || 1;
   }, [filteredAndSortedEntries, sortBy]);
+
+  // Load contract balance for TVL
+  useEffect(() => {
+    const loadContractBalance = async () => {
+      // Only load if viewing TVL metric and balance is not yet loaded
+      if (metricView === 'tvl' && contractTvl === null) {
+        setTvlLoading(true);
+        try {
+          console.log('[Leaderboard] Loading contract balance for TVL...');
+          const balance = await getContractBalance(CONTRACT_ADDRESS);
+          console.log(`[Leaderboard] Contract balance loaded: ${balance} USDC`);
+          setContractTvl(balance);
+        } catch (error) {
+          console.error('[Leaderboard] Failed to load contract balance:', error);
+          // Don't show error toast, just use calculated TVL as fallback
+        } finally {
+          setTvlLoading(false);
+        }
+      }
+    };
+
+    loadContractBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metricView]);
+
+  // Load contract transactions count (loads on mount)
+  useEffect(() => {
+    const loadContractTransactions = async () => {
+      // Load if count is not yet loaded
+      if (contractTransactionsCount === null) {
+        setTransactionsLoading(true);
+        try {
+          console.log('[Leaderboard] Loading contract transactions count from /counters endpoint...');
+          const count = await getContractTransactionsCount(CONTRACT_ADDRESS);
+          console.log(`[Leaderboard] Contract transactions count loaded: ${count}`);
+          setContractTransactionsCount(count);
+        } catch (error) {
+          console.error('[Leaderboard] Failed to load contract transactions count:', error);
+          // Don't show error toast, just use totalCards as fallback
+        } finally {
+          setTransactionsLoading(false);
+        }
+      }
+    };
+
+    loadContractTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -510,6 +637,22 @@ export function Leaderboard() {
       } catch (znsError) {
         console.error('[Leaderboard] Exception during ZNS update:', znsError);
         toast.error(`ZNS update error: ${znsError instanceof Error ? znsError.message : 'Unknown error'}`);
+      }
+      
+      // Refresh contract balance for TVL
+      try {
+        const balance = await getContractBalance(CONTRACT_ADDRESS);
+        setContractTvl(balance);
+      } catch (error) {
+        console.error('[Leaderboard] Failed to refresh contract balance:', error);
+      }
+      
+      // Refresh contract transactions count for Gas view
+      try {
+        const count = await getContractTransactionsCount(CONTRACT_ADDRESS);
+        setContractTransactionsCount(count);
+      } catch (error) {
+        console.error('[Leaderboard] Failed to refresh contract transactions count:', error);
       }
       
       // Refresh from leaderboard_stats_graph_true
@@ -552,30 +695,260 @@ export function Leaderboard() {
             </Button>
           </div>
           
-          {/* Improved statistics cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <span className="text-sm font-medium text-gray-600">Total Addresses</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-blue-700">{totalAddresses}</span>
-                <span className="text-sm text-gray-500">addresses</span>
-              </div>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
-              <div className="flex items-center gap-2 mb-2">
-                <Trophy className="h-5 w-5 text-purple-600" />
-                <span className="text-sm font-medium text-gray-600">Total Cards</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-purple-700">{totalCards}</span>
-                <span className="text-sm text-gray-500">cards sent</span>
-              </div>
+          {/* Metric view selector - buttons */}
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={metricView === 'total' ? 'default' : 'outline'}
+              onClick={() => setMetricView('total')}
+              className={`transition-all duration-200 ${
+                metricView === 'total'
+                  ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent shadow-md'
+                  : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              Total
+            </Button>
+            <Button
+              variant={metricView === 'twitter' ? 'default' : 'outline'}
+              onClick={() => setMetricView('twitter')}
+              className={`transition-all duration-200 ${
+                metricView === 'twitter'
+                  ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent shadow-md'
+                  : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              <Twitter className="h-4 w-4 mr-2" />
+              Twitter
+            </Button>
+            <Button
+              variant={metricView === 'twitch' ? 'default' : 'outline'}
+              onClick={() => setMetricView('twitch')}
+              className={`transition-all duration-200 ${
+                metricView === 'twitch'
+                  ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent shadow-md'
+                  : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              <Twitch className="h-4 w-4 mr-2" />
+              Twitch
+            </Button>
+            <Button
+              variant={metricView === 'telegram' ? 'default' : 'outline'}
+              onClick={() => setMetricView('telegram')}
+              className={`transition-all duration-200 ${
+                metricView === 'telegram'
+                  ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent shadow-md'
+                  : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Telegram
+            </Button>
+            <Button
+              variant={metricView === 'gas' ? 'default' : 'outline'}
+              onClick={() => setMetricView('gas')}
+              className={`transition-all duration-200 ${
+                metricView === 'gas'
+                  ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent shadow-md'
+                  : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Gas
+            </Button>
+            <Button
+              variant={metricView === 'tvl' ? 'default' : 'outline'}
+              onClick={() => setMetricView('tvl')}
+              className={`transition-all duration-200 ${
+                metricView === 'tvl'
+                  ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent shadow-md'
+                  : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              <Wallet className="h-4 w-4 mr-2" />
+              TVL
+            </Button>
+          </div>
+
+          {/* Statistics cards - dynamic based on metric view with smooth transition */}
+          <div className="relative min-h-[120px] overflow-hidden">
+            <div 
+              key={metricView}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500"
+            >
+            {metricView === 'total' && (
+              <>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-5 w-5 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-600">Total Addresses</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-blue-700">{totalAddresses}</span>
+                    <span className="text-sm text-gray-500">addresses</span>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Trophy className="h-5 w-5 text-purple-600" />
+                    <span className="text-sm font-medium text-gray-600">Total Cards</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-purple-700">{totalCards}</span>
+                    <span className="text-sm text-gray-500">cards sent</span>
+                  </div>
+                </div>
+              </>
+            )}
+            
+            {metricView === 'twitter' && (
+              <>
+                <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-xl p-4 border border-sky-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Twitter className="h-5 w-5 text-sky-600" />
+                    <span className="text-sm font-medium text-gray-600">Twitter Cards</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-sky-700">{twitterCards}</span>
+                    <span className="text-sm text-gray-500">cards sent</span>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-5 w-5 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-600">Twitter Addresses</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-blue-700">{twitterAddresses}</span>
+                    <span className="text-sm text-gray-500">addresses</span>
+                  </div>
+                </div>
+              </>
+            )}
+            
+            {metricView === 'twitch' && (
+              <>
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Twitch className="h-5 w-5 text-purple-600" />
+                    <span className="text-sm font-medium text-gray-600">Twitch Cards</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-purple-700">{twitchCards}</span>
+                    <span className="text-sm text-gray-500">cards sent</span>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl p-4 border border-pink-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-5 w-5 text-pink-600" />
+                    <span className="text-sm font-medium text-gray-600">Twitch Addresses</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-pink-700">{twitchAddresses}</span>
+                    <span className="text-sm text-gray-500">addresses</span>
+                  </div>
+                </div>
+              </>
+            )}
+            
+            {metricView === 'telegram' && (
+              <>
+                <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-4 border border-cyan-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Send className="h-5 w-5 text-cyan-600" />
+                    <span className="text-sm font-medium text-gray-600">Telegram Cards</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-cyan-700">{telegramCards}</span>
+                    <span className="text-sm text-gray-500">cards sent</span>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-5 w-5 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-600">Telegram Addresses</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-blue-700">{telegramAddresses}</span>
+                    <span className="text-sm text-gray-500">addresses</span>
+                  </div>
+                </div>
+              </>
+            )}
+            
+            {metricView === 'gas' && (
+              <>
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="h-5 w-5 text-orange-600" />
+                    <span className="text-sm font-medium text-gray-600">Gas Spent</span>
+                    {transactionsLoading && (
+                      <RefreshCw className="h-3 w-3 text-orange-600 animate-spin" />
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    {transactionsLoading && contractTransactionsCount === null ? (
+                      <Skeleton className="h-9 w-32" />
+                    ) : (
+                      <>
+                        <span className="text-3xl font-bold text-orange-700">{gasSpent.toFixed(3)}</span>
+                        <span className="text-sm text-gray-500">USDC</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-4 border border-amber-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="h-5 w-5 text-amber-600" />
+                    <span className="text-sm font-medium text-gray-600">Transactions</span>
+                    {transactionsLoading && (
+                      <RefreshCw className="h-3 w-3 text-amber-600 animate-spin" />
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    {transactionsLoading && contractTransactionsCount === null ? (
+                      <Skeleton className="h-9 w-32" />
+                    ) : (
+                      <>
+                        <span className="text-3xl font-bold text-amber-700">
+                          {contractTransactionsCount !== null 
+                            ? contractTransactionsCount.toLocaleString() 
+                            : totalCards.toLocaleString()}
+                        </span>
+                        <span className="text-sm text-gray-500">total tx</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+            
+            {metricView === 'tvl' && (
+              <>
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-100 transition-all duration-300 hover:shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Wallet className="h-5 w-5 text-emerald-600" />
+                    <span className="text-sm font-medium text-gray-600">Total Value Locked</span>
+                    {tvlLoading && (
+                      <RefreshCw className="h-3 w-3 text-emerald-600 animate-spin" />
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    {tvlLoading && contractTvl === null ? (
+                      <Skeleton className="h-9 w-32" />
+                    ) : (
+                      <>
+                        <span className="text-3xl font-bold text-emerald-700">${tvl.toFixed(2)}</span>
+                        <span className="text-sm text-gray-500">USDC</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+              </>
+            )}
             </div>
           </div>
-          <Separator className="mt-4" />
         </div>
       </CardHeader>
 

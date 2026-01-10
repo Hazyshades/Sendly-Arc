@@ -61,3 +61,8 @@ tmp/
 /.git backup2/
 
 /tests/
+
+/cursor/
+.cursorignore
+
+.cursor/
