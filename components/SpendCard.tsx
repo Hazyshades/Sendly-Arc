@@ -511,8 +511,28 @@ export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
       // Redeem gift card on blockchain
       if (useDeveloperWallet) {
         // Use Internal wallet to redeem
-        const privyUserId = privyUser?.id;
-        if (!privyUserId) {
+        // Determine privyUserId - if wallet was created with user_id = MetaMask address (and no privy_user_id),
+        // use MetaMask address instead of Privy ID for verification
+        let privyUserId: string | undefined = undefined;
+        
+        // Check if wallet was created with user_id = address (no privy_user_id in DB)
+        const walletCreatedWithAddress = developerWallet && 
+          developerWallet.user_id && 
+          developerWallet.user_id.startsWith('0x') && 
+          !developerWallet.privy_user_id &&
+          isConnected && 
+          address &&
+          developerWallet.user_id.toLowerCase() === address.toLowerCase();
+        
+        if (walletCreatedWithAddress) {
+          // Wallet was created with user_id = MetaMask address, use address for verification
+          privyUserId = address.toLowerCase();
+        } else if (privyUser?.id) {
+          // Use Privy ID as normal
+          privyUserId = privyUser.id.startsWith('did:privy:') 
+            ? privyUser.id.replace('did:privy:', '') 
+            : privyUser.id;
+        } else {
           throw new Error('Privy user ID not found');
         }
 

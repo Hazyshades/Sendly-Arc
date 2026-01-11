@@ -609,16 +609,29 @@ export function CreateGiftCard() {
         if (currentAllowance < BigInt(amountWei)) {
           toast.info(`Approving ${formData.currency} for contract...`);
 
-        // Determine privyUserId - use Privy ID if available, otherwise use MetaMask address
-        // Developer Wallet can be created with user_id = MetaMask address
+        // Determine privyUserId - if wallet was created with user_id = MetaMask address (and no privy_user_id),
+        // use MetaMask address instead of Privy ID for verification
         let privyUserIdForTx: string | undefined = undefined;
-        if (privyUser?.id) {
+        
+        // Check if wallet was created with user_id = address (no privy_user_id in DB)
+        const walletCreatedWithAddress = developerWallet && 
+          developerWallet.user_id && 
+          developerWallet.user_id.startsWith('0x') && 
+          !developerWallet.privy_user_id &&
+          isConnected && 
+          address &&
+          developerWallet.user_id.toLowerCase() === address.toLowerCase();
+        
+        if (walletCreatedWithAddress) {
+          // Wallet was created with user_id = MetaMask address, use address for verification
+          privyUserIdForTx = address.toLowerCase();
+        } else if (privyUser?.id) {
+          // Use Privy ID as normal
           privyUserIdForTx = privyUser.id.startsWith('did:privy:') 
             ? privyUser.id.replace('did:privy:', '') 
             : privyUser.id;
         } else if (isConnected && address) {
           // If no Privy auth but MetaMask is connected, use MetaMask address
-          // This works for wallets created with user_id = MetaMask address
           privyUserIdForTx = address.toLowerCase();
         }
         // Note: If user is authenticated only via social account (no MetaMask),
@@ -708,16 +721,29 @@ export function CreateGiftCard() {
           socialUserId = developerWallet.social_user_id || undefined;
         }
         
-        // Determine privyUserId - use Privy ID if available, otherwise use MetaMask address
-        // Developer Wallet can be created with user_id = MetaMask address
+        // Determine privyUserId - if wallet was created with user_id = MetaMask address (and no privy_user_id),
+        // use MetaMask address instead of Privy ID for verification
         let privyUserIdForTx: string | undefined = undefined;
-        if (privyUser?.id) {
+        
+        // Check if wallet was created with user_id = address (no privy_user_id in DB)
+        const walletCreatedWithAddress = developerWallet && 
+          developerWallet.user_id && 
+          developerWallet.user_id.startsWith('0x') && 
+          !developerWallet.privy_user_id &&
+          isConnected && 
+          address &&
+          developerWallet.user_id.toLowerCase() === address.toLowerCase();
+        
+        if (walletCreatedWithAddress) {
+          // Wallet was created with user_id = MetaMask address, use address for verification
+          privyUserIdForTx = address.toLowerCase();
+        } else if (privyUser?.id) {
+          // Use Privy ID as normal
           privyUserIdForTx = privyUser.id.startsWith('did:privy:') 
             ? privyUser.id.replace('did:privy:', '') 
             : privyUser.id;
         } else if (isConnected && address) {
           // If no Privy auth but MetaMask is connected, use MetaMask address
-          // This works for wallets created with user_id = MetaMask address
           privyUserIdForTx = address.toLowerCase();
         }
         // Note: If user is authenticated only via social account (no MetaMask),
