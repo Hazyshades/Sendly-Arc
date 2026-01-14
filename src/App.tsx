@@ -19,6 +19,8 @@ import { CircleMintRoute } from '../pages/CircleMintRoute';
 import { LeaderboardRoute } from '../pages/LeaderboardRoute';
 import { BlogRoute } from '../pages/BlogRoute';
 import { BlogPostRoute } from '../pages/BlogPostRoute';
+import { ReclaimCallbackRoute } from '../pages/ReclaimCallbackRoute';
+import { ZkSendRoute } from '../pages/ZkSendRoute';
 
 function AppRouter() {
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +62,8 @@ function AppRouter() {
       <Route path="/gateway" element={<GatewayRoute />} />
       <Route path="/auth/twitch/callback" element={<TwitchCallbackRoute />} />
       <Route path="/auth/twitter/callback" element={<TwitterCallbackRoute />} />
+      <Route path="/reclaim/callback" element={<ReclaimCallbackRoute />} />
+      <Route path="/zksend" element={<ZkSendRoute />} />
       <Route path="/Circle-Mint" element={<CircleMintRoute />} />
       <Route path="/blog" element={<BlogRoute />} />
       <Route path="/blog/:slug" element={<BlogPostRoute />} />

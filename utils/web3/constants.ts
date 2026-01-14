@@ -50,6 +50,14 @@ export const INSTAGRAM_VAULT_CONTRACT_ADDRESS =
   import.meta.env.VITE_ARC_INSTAGRAM_VAULT_ADDRESS ||
   "0x3332dEf130Ea17C69B9dFe8F06be1162526873df";
 
+export const ZKSEND_CONTRACT_ADDRESS =
+  import.meta.env.VITE_ARC_ZKSEND_CONTRACT_ADDRESS ||
+  "0x30bbcCBB38B8C99A36c93BC36dcE2F9831FEFa4D";
+
+export const RECLAIM_VERIFIER_CONTRACT_ADDRESS =
+  import.meta.env.VITE_RECLAIM_VERIFIER_CONTRACT_ADDRESS ||
+  "";
+
 console.log('=== Resolved Addresses ===');
 console.log('CONTRACT_ADDRESS:', CONTRACT_ADDRESS);
 console.log('USDC_ADDRESS:', USDC_ADDRESS);
@@ -2143,6 +2151,118 @@ export const TelegramCardVaultABI = [
 
 export const TikTokCardVaultABI = TwitchCardVaultABI;
 export const InstagramCardVaultABI = TwitchCardVaultABI;
+
+// ZkSend ABI
+export const ZkSendABI = [
+  {
+    "inputs": [
+      {"internalType": "address", "name": "_usdcAddress", "type": "address"},
+      {"internalType": "address", "name": "_eurcAddress", "type": "address"},
+      {"internalType": "address", "name": "_verifierAddress", "type": "address"}
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "uint256", "name": "paymentId", "type": "uint256"},
+      {"indexed": true, "internalType": "address", "name": "sender", "type": "address"},
+      {"indexed": true, "internalType": "bytes32", "name": "socialIdentityHash", "type": "bytes32"},
+      {"indexed": false, "internalType": "string", "name": "platform", "type": "string"},
+      {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"},
+      {"indexed": false, "internalType": "address", "name": "token", "type": "address"}
+    ],
+    "name": "PaymentCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "uint256", "name": "paymentId", "type": "uint256"},
+      {"indexed": true, "internalType": "address", "name": "recipient", "type": "address"},
+      {"indexed": true, "internalType": "bytes32", "name": "socialIdentityHash", "type": "bytes32"},
+      {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"},
+      {"indexed": false, "internalType": "address", "name": "token", "type": "address"}
+    ],
+    "name": "PaymentClaimed",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "_socialIdentityHash", "type": "bytes32"},
+      {"internalType": "string", "name": "_platform", "type": "string"},
+      {"internalType": "uint256", "name": "_amount", "type": "uint256"},
+      {"internalType": "address", "name": "_token", "type": "address"}
+    ],
+    "name": "createPayment",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "_paymentId", "type": "uint256"},
+      {"internalType": "bytes", "name": "_proof", "type": "bytes"},
+      {"internalType": "bytes32[]", "name": "_publicInputs", "type": "bytes32[]"},
+      {"internalType": "address", "name": "_recipient", "type": "address"}
+    ],
+    "name": "claimPayment",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "_socialIdentityHash", "type": "bytes32"}
+    ],
+    "name": "getPendingPayments",
+    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "_paymentId", "type": "uint256"}
+    ],
+    "name": "getPayment",
+    "outputs": [{
+      "components": [
+        {"internalType": "uint256", "name": "paymentId", "type": "uint256"},
+        {"internalType": "address", "name": "sender", "type": "address"},
+        {"internalType": "bytes32", "name": "socialIdentityHash", "type": "bytes32"},
+        {"internalType": "string", "name": "platform", "type": "string"},
+        {"internalType": "uint256", "name": "amount", "type": "uint256"},
+        {"internalType": "address", "name": "token", "type": "address"},
+        {"internalType": "address", "name": "recipient", "type": "address"},
+        {"internalType": "bool", "name": "claimed", "type": "bool"},
+        {"internalType": "uint256", "name": "createdAt", "type": "uint256"},
+        {"internalType": "uint256", "name": "claimedAt", "type": "uint256"}
+      ],
+      "internalType": "struct ZkSend.Payment",
+      "name": "",
+      "type": "tuple"
+    }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "verifierContract",
+    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "_newVerifier", "type": "address"}
+    ],
+    "name": "setVerifierContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+] as const;
 
 // ERC20 ABI for USDC/USDT
 export const ERC20ABI = [
