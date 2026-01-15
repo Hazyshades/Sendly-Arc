@@ -56,7 +56,8 @@ export const ZKSEND_CONTRACT_ADDRESS =
 
 export const RECLAIM_VERIFIER_CONTRACT_ADDRESS =
   import.meta.env.VITE_RECLAIM_VERIFIER_CONTRACT_ADDRESS ||
-  "";
+  import.meta.env.VITE_ARC_ZKTLS_VERIFIER_ADDRESS ||
+  "0xfDd1D064529aA8c8058CDD574452c3FF9d6256a7";
 
 console.log('=== Resolved Addresses ===');
 console.log('CONTRACT_ADDRESS:', CONTRACT_ADDRESS);
@@ -2152,116 +2153,132 @@ export const TelegramCardVaultABI = [
 export const TikTokCardVaultABI = TwitchCardVaultABI;
 export const InstagramCardVaultABI = TwitchCardVaultABI;
 
-// ZkSend ABI
+// ZkSend ABI (synced with `contracts/ZkSend.sol` in this repo)
 export const ZkSendABI = [
   {
-    "inputs": [
-      {"internalType": "address", "name": "_usdcAddress", "type": "address"},
-      {"internalType": "address", "name": "_eurcAddress", "type": "address"},
-      {"internalType": "address", "name": "_verifierAddress", "type": "address"}
+    type: 'event',
+    name: 'PaymentCreated',
+    inputs: [
+      { name: 'paymentId', type: 'uint256', indexed: true },
+      { name: 'sender', type: 'address', indexed: true },
+      { name: 'socialIdentityHash', type: 'bytes32', indexed: true },
+      { name: 'platform', type: 'string', indexed: false },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'token', type: 'address', indexed: false },
     ],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
+    anonymous: false,
   },
   {
-    "anonymous": false,
-    "inputs": [
-      {"indexed": true, "internalType": "uint256", "name": "paymentId", "type": "uint256"},
-      {"indexed": true, "internalType": "address", "name": "sender", "type": "address"},
-      {"indexed": true, "internalType": "bytes32", "name": "socialIdentityHash", "type": "bytes32"},
-      {"indexed": false, "internalType": "string", "name": "platform", "type": "string"},
-      {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"},
-      {"indexed": false, "internalType": "address", "name": "token", "type": "address"}
+    type: 'event',
+    name: 'PaymentClaimed',
+    inputs: [
+      { name: 'paymentId', type: 'uint256', indexed: true },
+      { name: 'recipient', type: 'address', indexed: true },
+      { name: 'socialIdentityHash', type: 'bytes32', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'token', type: 'address', indexed: false },
     ],
-    "name": "PaymentCreated",
-    "type": "event"
+    anonymous: false,
   },
   {
-    "anonymous": false,
-    "inputs": [
-      {"indexed": true, "internalType": "uint256", "name": "paymentId", "type": "uint256"},
-      {"indexed": true, "internalType": "address", "name": "recipient", "type": "address"},
-      {"indexed": true, "internalType": "bytes32", "name": "socialIdentityHash", "type": "bytes32"},
-      {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"},
-      {"indexed": false, "internalType": "address", "name": "token", "type": "address"}
+    type: 'function',
+    name: 'createPayment',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: '_socialIdentityHash', type: 'bytes32' },
+      { name: '_platform', type: 'string' },
+      { name: '_amount', type: 'uint256' },
+      { name: '_token', type: 'address' },
     ],
-    "name": "PaymentClaimed",
-    "type": "event"
+    outputs: [{ name: '', type: 'uint256' }],
   },
   {
-    "inputs": [
-      {"internalType": "bytes32", "name": "_socialIdentityHash", "type": "bytes32"},
-      {"internalType": "string", "name": "_platform", "type": "string"},
-      {"internalType": "uint256", "name": "_amount", "type": "uint256"},
-      {"internalType": "address", "name": "_token", "type": "address"}
+    type: 'function',
+    name: 'claimPayment',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: '_paymentId', type: 'uint256' },
+      {
+        name: '_proof',
+        type: 'tuple',
+        components: [
+          {
+            name: 'claimInfo',
+            type: 'tuple',
+            components: [
+              { name: 'provider', type: 'string' },
+              { name: 'parameters', type: 'string' },
+              { name: 'context', type: 'string' },
+            ],
+          },
+          {
+            name: 'signedClaim',
+            type: 'tuple',
+            components: [
+              {
+                name: 'claim',
+                type: 'tuple',
+                components: [
+                  { name: 'identifier', type: 'bytes32' },
+                  { name: 'owner', type: 'address' },
+                  { name: 'timestampS', type: 'uint32' },
+                  { name: 'epoch', type: 'uint32' },
+                ],
+              },
+              { name: 'signatures', type: 'bytes[]' },
+            ],
+          },
+        ],
+      },
+      { name: '_recipient', type: 'address' },
     ],
-    "name": "createPayment",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    outputs: [],
   },
   {
-    "inputs": [
-      {"internalType": "uint256", "name": "_paymentId", "type": "uint256"},
-      {"internalType": "bytes", "name": "_proof", "type": "bytes"},
-      {"internalType": "bytes32[]", "name": "_publicInputs", "type": "bytes32[]"},
-      {"internalType": "address", "name": "_recipient", "type": "address"}
-    ],
-    "name": "claimPayment",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    type: 'function',
+    name: 'getPendingPayments',
+    stateMutability: 'view',
+    inputs: [{ name: '_socialIdentityHash', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'uint256[]' }],
   },
   {
-    "inputs": [
-      {"internalType": "bytes32", "name": "_socialIdentityHash", "type": "bytes32"}
+    type: 'function',
+    name: 'getPayment',
+    stateMutability: 'view',
+    inputs: [{ name: '_paymentId', type: 'uint256' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'paymentId', type: 'uint256' },
+          { name: 'sender', type: 'address' },
+          { name: 'socialIdentityHash', type: 'bytes32' },
+          { name: 'platform', type: 'string' },
+          { name: 'amount', type: 'uint256' },
+          { name: 'token', type: 'address' },
+          { name: 'recipient', type: 'address' },
+          { name: 'claimed', type: 'bool' },
+          { name: 'createdAt', type: 'uint256' },
+          { name: 'claimedAt', type: 'uint256' },
+        ],
+      },
     ],
-    "name": "getPendingPayments",
-    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
-    "stateMutability": "view",
-    "type": "function"
   },
   {
-    "inputs": [
-      {"internalType": "uint256", "name": "_paymentId", "type": "uint256"}
-    ],
-    "name": "getPayment",
-    "outputs": [{
-      "components": [
-        {"internalType": "uint256", "name": "paymentId", "type": "uint256"},
-        {"internalType": "address", "name": "sender", "type": "address"},
-        {"internalType": "bytes32", "name": "socialIdentityHash", "type": "bytes32"},
-        {"internalType": "string", "name": "platform", "type": "string"},
-        {"internalType": "uint256", "name": "amount", "type": "uint256"},
-        {"internalType": "address", "name": "token", "type": "address"},
-        {"internalType": "address", "name": "recipient", "type": "address"},
-        {"internalType": "bool", "name": "claimed", "type": "bool"},
-        {"internalType": "uint256", "name": "createdAt", "type": "uint256"},
-        {"internalType": "uint256", "name": "claimedAt", "type": "uint256"}
-      ],
-      "internalType": "struct ZkSend.Payment",
-      "name": "",
-      "type": "tuple"
-    }],
-    "stateMutability": "view",
-    "type": "function"
+    type: 'function',
+    name: 'verifierContract',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
   },
   {
-    "inputs": [],
-    "name": "verifierContract",
-    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
+    type: 'function',
+    name: 'setVerifierContract',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: '_newVerifier', type: 'address' }],
+    outputs: [],
   },
-  {
-    "inputs": [
-      {"internalType": "address", "name": "_newVerifier", "type": "address"}
-    ],
-    "name": "setVerifierContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
 ] as const;
 
 // ERC20 ABI for USDC/USDT

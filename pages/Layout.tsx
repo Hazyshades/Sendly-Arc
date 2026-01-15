@@ -20,6 +20,7 @@ export function Layout({ children }: LayoutProps) {
   const navigationItems = [
     { path: '/dashboard', label: 'Dashboard', icon: '🎤' },
     { path: '/create', label: 'Create', icon: '➕' },
+    { path: '/zksend', label: 'zkSEND', icon: '⚡' },
     { path: '/my', label: 'My Cards', icon: '🎴' },
     { path: '/spend', label: 'Spend', icon: '💳' },
     { path: '/history', label: 'History', icon: '📜' },

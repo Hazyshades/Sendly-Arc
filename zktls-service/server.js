@@ -6,6 +6,9 @@
  * Input JSON format is based on testdata/input.json from zktls repository
  */
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const { exec } = require('child_process');
 const { promisify } = require('util');
@@ -23,7 +26,21 @@ const ZKTLS_BINARY = process.env.ZKTLS_BINARY || process.env.ZKTLS_PATH || '/roo
 const ZKTLS_BACKEND = process.env.ZKTLS_BACKEND || 'r0';
 const API_KEY = process.env.ZKTLS_API_KEY;
 
+// Reclaim Protocol (kept on backend; do NOT expose secrets to frontend)
+const RECLAIM_APP_ID = process.env.RECLAIM_APP_ID;
+const RECLAIM_APP_SECRET = process.env.RECLAIM_APP_SECRET;
+// Optional callback URL for server-to-server proof delivery
+const RECLAIM_APP_CALLBACK_URL = process.env.RECLAIM_APP_CALLBACK_URL; // e.g. https://your-domain.com/api/reclaim/callback
+
+// Provider IDs (configure per env; twitter default from Reclaim Dev Tool)
+const RECLAIM_PROVIDER_ID_TWITTER =
+  process.env.RECLAIM_PROVIDER_ID_TWITTER || 'e6fe962d-8b4e-4ce5-abcc-3d21c88bd64a';
+const RECLAIM_PROVIDER_ID_TELEGRAM = process.env.RECLAIM_PROVIDER_ID_TELEGRAM;
+const RECLAIM_PROVIDER_ID_INSTAGRAM = process.env.RECLAIM_PROVIDER_ID_INSTAGRAM;
+const RECLAIM_PROVIDER_ID_TIKTOK = process.env.RECLAIM_PROVIDER_ID_TIKTOK;
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // CORS middleware
 app.use((req, res, next) => {
@@ -48,6 +65,9 @@ const requireAuth = (req, res, next) => {
   }
   next();
 };
+
+// Reclaim endpoints don't require auth (they use Reclaim's own security)
+const noAuth = (req, res, next) => next();
 
 /**
  * Convert string to hex format (0x...)
@@ -113,25 +133,160 @@ function buildRawHttpRequest(url, method = 'GET', headers = {}) {
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
-    const { stdout } = await execAsync(`${ZKTLS_BINARY} --version`, { timeout: 5000 });
-    res.json({
+    const health = {
       status: 'healthy',
       version: '1.0.0',
-      zktls_version: stdout.trim(),
-      backend: ZKTLS_BACKEND,
-      backends: {
-        risc0: 'available',
-        sp1: 'available',
-      },
-    });
+      service: 'zktls-service',
+      reclaim_configured: !!(RECLAIM_APP_ID && RECLAIM_APP_SECRET),
+      port: PORT,
+    };
+    
+    // Try to check zktls binary if configured (optional)
+    if (ZKTLS_BINARY && ZKTLS_BINARY !== '/root/Sendly/zktls-service/zktls/target/release/zktls') {
+      try {
+        const { stdout } = await execAsync(`${ZKTLS_BINARY} --version`, { timeout: 5000 });
+        health.zktls_version = stdout.trim();
+        health.backend = ZKTLS_BACKEND;
+      } catch (error) {
+        health.zktls_note = 'zktls binary not available (optional for Reclaim Protocol)';
+      }
+    }
+    
+    res.json(health);
   } catch (error) {
     res.status(503).json({
       status: 'unhealthy',
-      error: 'zktls binary not available',
+      error: 'Service error',
       message: error.message,
-      path: ZKTLS_BINARY,
-      service_status: 'running',
     });
+  }
+});
+
+function getReclaimProviderId(platform) {
+  const p = String(platform || '').toLowerCase();
+  if (p === 'twitter' || p === 'x') return RECLAIM_PROVIDER_ID_TWITTER;
+  if (p === 'telegram') return RECLAIM_PROVIDER_ID_TELEGRAM;
+  if (p === 'instagram') return RECLAIM_PROVIDER_ID_INSTAGRAM;
+  if (p === 'tiktok') return RECLAIM_PROVIDER_ID_TIKTOK;
+  return undefined;
+}
+
+/**
+ * Reclaim: build proof request config (server-side)
+ * Docs: https://docs.reclaimprotocol.org/js-sdk/preparing-request
+ */
+app.get('/api/reclaim/config', noAuth, async (req, res) => {
+  try {
+    if (!RECLAIM_APP_ID || !RECLAIM_APP_SECRET) {
+      return res.status(500).json({
+        error: 'Reclaim is not configured on backend',
+        required: ['RECLAIM_APP_ID', 'RECLAIM_APP_SECRET'],
+      });
+    }
+
+    const { platform, username, paymentId, recipient, redirectUrl } = req.query;
+    if (!platform) {
+      return res.status(400).json({ error: 'Missing required query param: platform' });
+    }
+
+    const providerId = getReclaimProviderId(platform);
+    if (!providerId) {
+      return res.status(400).json({
+        error: 'Unsupported platform or missing RECLAIM_PROVIDER_ID_* env var',
+        platform,
+      });
+    }
+
+    const { ReclaimProofRequest } = await import('@reclaimprotocol/js-sdk');
+
+    const reclaimProofRequest = await ReclaimProofRequest.init(
+      RECLAIM_APP_ID,
+      RECLAIM_APP_SECRET,
+      providerId
+    );
+
+    // Context is returned in proof and helps correlate with zkSEND payment
+    const contextAddress = recipient || 'anonymous';
+    const contextMessage = JSON.stringify({ platform, username, paymentId, recipient });
+    reclaimProofRequest.setContext(contextAddress, contextMessage);
+
+    // Optional: redirect user after proof generation (useful for mobile QR flow)
+    if (redirectUrl) {
+      try {
+        reclaimProofRequest.setRedirectUrl(String(redirectUrl));
+      } catch (_) {}
+    }
+
+    // Optional: set backend callback url (Reclaim will POST proofs server-to-server)
+    if (RECLAIM_APP_CALLBACK_URL) {
+      // useJson=true => send proof as raw JSON
+      reclaimProofRequest.setAppCallbackUrl(RECLAIM_APP_CALLBACK_URL, true);
+    }
+
+    const reclaimProofRequestConfig = reclaimProofRequest.toJsonString();
+    return res.json({ reclaimProofRequestConfig });
+  } catch (error) {
+    console.error('[Reclaim] Failed to build config:', error);
+    return res.status(500).json({ error: error.message || 'Failed to build Reclaim config' });
+  }
+});
+
+/**
+ * Reclaim: verify proofs (server-side)
+ * Docs: https://docs.reclaimprotocol.org/js-sdk/verifying-proofs
+ */
+app.post('/api/reclaim/verify', noAuth, async (req, res) => {
+  try {
+    const proofs = req.body?.proofs;
+    if (!proofs) {
+      return res.status(400).json({ error: 'Missing body.proofs' });
+    }
+
+    const { verifyProof } = await import('@reclaimprotocol/js-sdk');
+    const isValid = await verifyProof(proofs);
+
+    // Best-effort context extraction (structure varies by provider/SDK)
+    const proof0 = Array.isArray(proofs) ? proofs[0] : proofs;
+    const claimData = proof0?.claimData || proof0?.claim || proof0?.claimInfo || null;
+    const contextStr = claimData?.context || proof0?.context || null;
+
+    let context = null;
+    if (contextStr && typeof contextStr === 'string') {
+      try {
+        context = JSON.parse(contextStr);
+      } catch (_) {
+        context = { raw: contextStr };
+      }
+    }
+
+    return res.json({ isValid, context });
+  } catch (error) {
+    console.error('[Reclaim] verify failed:', error);
+    return res.status(500).json({ error: error.message || 'Failed to verify proofs' });
+  }
+});
+
+/**
+ * Reclaim: optional server-to-server callback endpoint.
+ * If you enable `setAppCallbackUrl` on the request, Reclaim will POST proofs here.
+ */
+app.post('/api/reclaim/callback', noAuth, async (req, res) => {
+  try {
+    const body = req.body;
+    const proofs =
+      typeof body === 'string'
+        ? JSON.parse(body)
+        : typeof body?.proofs === 'string'
+        ? JSON.parse(body.proofs)
+        : body?.proofs || body;
+
+    const { verifyProof } = await import('@reclaimprotocol/js-sdk');
+    const isValid = await verifyProof(proofs);
+
+    return res.json({ ok: true, isValid });
+  } catch (error) {
+    console.error('[Reclaim] callback failed:', error);
+    return res.status(400).json({ ok: false, error: error.message || 'Invalid callback payload' });
   }
 });
 
@@ -330,5 +485,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔑 API Key: ${API_KEY ? 'Configured' : 'Not configured (public access)'}`);
   console.log(`\n📖 Endpoints:`);
   console.log(`   GET  /api/health`);
+  console.log(`   GET  /api/reclaim/config`);
+  console.log(`   POST /api/reclaim/verify`);
+  console.log(`   POST /api/reclaim/callback (optional)`);
   console.log(`   POST /api/proof/generate`);
 });
