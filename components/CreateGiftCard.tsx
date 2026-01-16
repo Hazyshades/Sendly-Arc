@@ -18,10 +18,24 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { toast } from 'sonner';
 import { useAccount, useWalletClient } from 'wagmi';
-import { createWalletClient, custom, createPublicClient, http } from 'viem';
-import { arcTestnet } from '../utils/web3/wagmiConfig';
+import { createWalletClient, custom, createPublicClient, http, formatUnits, parseUnits } from 'viem';
+import { arcTestnet, tempoTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
-import { CONTRACT_ADDRESS, USDC_ADDRESS, EURC_ADDRESS, ERC20ABI, VAULT_CONTRACT_ADDRESS, TWITCH_VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS, TIKTOK_VAULT_CONTRACT_ADDRESS, INSTAGRAM_VAULT_CONTRACT_ADDRESS } from '../utils/web3/constants';
+import {
+  CONTRACT_ADDRESS,
+  USDC_ADDRESS,
+  EURC_ADDRESS,
+  ERC20ABI,
+  VAULT_CONTRACT_ADDRESS,
+  TWITCH_VAULT_CONTRACT_ADDRESS,
+  TELEGRAM_VAULT_CONTRACT_ADDRESS,
+  TIKTOK_VAULT_CONTRACT_ADDRESS,
+  INSTAGRAM_VAULT_CONTRACT_ADDRESS,
+  TEMPO_PATHUSD_ADDRESS,
+  TEMPO_ALPHAUSD_ADDRESS,
+  TEMPO_BETAUSD_ADDRESS,
+  TEMPO_THETAUSD_ADDRESS,
+} from '../utils/web3/constants';
 import pinataService from '../utils/pinata';
 import imageGenerator from '../utils/imageGenerator';
 import { createTwitterCardMapping } from '../utils/twitter';
@@ -42,7 +56,7 @@ interface GiftCardData {
   recipientAddress: string;
   recipientUsername: string;
   amount: string;
-  currency: 'USDC' | 'EURC';
+  currency: CurrencySymbol;
   design: 'pink' | 'blue' | 'green' | 'custom';
   message: string;
   secretMessage: string;
@@ -56,6 +70,27 @@ interface GiftCardData {
 }
 
 type PlatformIcon = 'wallet' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
+type CurrencySymbol = 'USDC' | 'EURC' | 'PATHUSD' | 'ALPHAUSD' | 'BETAUSD' | 'THETAUSD';
+
+const ARC_CURRENCIES: CurrencySymbol[] = ['USDC', 'EURC'];
+const TEMPO_CURRENCIES: CurrencySymbol[] = ['PATHUSD', 'ALPHAUSD', 'BETAUSD', 'THETAUSD'];
+
+const CURRENCY_CONFIG: Record<CurrencySymbol, { tokenAddress: string; decimals: number }> = {
+  USDC: { tokenAddress: USDC_ADDRESS, decimals: 6 },
+  EURC: { tokenAddress: EURC_ADDRESS, decimals: 6 },
+  // Tempo predeploy stablecoins behave like 6-decimal tokens (as shown in Tempo explorer/faucet UI)
+  PATHUSD: { tokenAddress: TEMPO_PATHUSD_ADDRESS, decimals: 6 },
+  ALPHAUSD: { tokenAddress: TEMPO_ALPHAUSD_ADDRESS, decimals: 6 },
+  BETAUSD: { tokenAddress: TEMPO_BETAUSD_ADDRESS, decimals: 6 },
+  THETAUSD: { tokenAddress: TEMPO_THETAUSD_ADDRESS, decimals: 6 },
+};
+
+function formatTokenAmount(amount: bigint, decimals: number): string {
+  const full = formatUnits(amount, decimals);
+  const [intPart, fracPart] = full.split('.');
+  if (!fracPart) return full;
+  return `${intPart}.${fracPart.slice(0, 6)}`;
+}
 
 const RECIPIENT_OPTIONS: Array<{
   value: 'address' | 'twitter' | 'twitch' | 'telegram' | 'tiktok' | 'instagram';
@@ -197,6 +232,9 @@ export function CreateGiftCard() {
   const { address, isConnected, connector } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { authenticated, user: privyUser } = usePrivy();
+  const connectedChainId = walletClient?.chain?.id;
+  const isTempoNetwork = connectedChainId === tempoTestnet.id;
+  const availableCurrencies = isTempoNetwork ? TEMPO_CURRENCIES : ARC_CURRENCIES;
   const [walletName, setWalletName] = useState<string>('Web3 Wallet');
   const navigate = useNavigate();
   const [hasDeveloperWallet, setHasDeveloperWallet] = useState(false);
@@ -310,6 +348,22 @@ export function CreateGiftCard() {
   const updateFormData = (field: keyof GiftCardData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  // Keep selected currency consistent with the currently connected network
+  useEffect(() => {
+    setFormData(prev => {
+      const allowed = (isTempoNetwork ? TEMPO_CURRENCIES : ARC_CURRENCIES) as CurrencySymbol[];
+      if (allowed.includes(prev.currency)) return prev;
+      return { ...prev, currency: isTempoNetwork ? 'PATHUSD' : 'USDC' };
+    });
+  }, [isTempoNetwork]);
+
+  // Tempo flow is MetaMask-only right now (DeveloperWalletService is ARC-TESTNET)
+  useEffect(() => {
+    if (isTempoNetwork && walletSource === 'developer') {
+      setWalletSource('metamask');
+    }
+  }, [isTempoNetwork, walletSource]);
 
 
   // Checking for the presence of a Internal wallet for social networks
@@ -566,10 +620,18 @@ export function CreateGiftCard() {
       );
 
       // Step 3: Check token balance and prepare for creation
-      const tokenAddress = formData.currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
-      
-      const amountWei = (parseFloat(formData.amount) * 1000000).toString(); // 6 decimals for USDC/EURC
-      
+      const tokenMeta = CURRENCY_CONFIG[formData.currency];
+      const tokenAddress = tokenMeta.tokenAddress;
+
+      let amountUnits: bigint;
+      try {
+        amountUnits = parseUnits(formData.amount, tokenMeta.decimals);
+      } catch {
+        setError('Please enter a valid amount');
+        setIsCreating(false);
+        return;
+      }
+
       // Check balance for Internal wallet
       if (useDeveloperWallet) {
         const publicClient = createPublicClient({
@@ -584,9 +646,9 @@ export function CreateGiftCard() {
           args: [createAddress as `0x${string}`]
         }) as bigint;
         
-        const balanceFormatted = (Number(balance) / 1000000).toFixed(6);
+        const balanceFormatted = formatTokenAmount(balance, tokenMeta.decimals);
         
-        if (BigInt(balance) < BigInt(amountWei)) {
+        if (balance < amountUnits) {
           const errorMsg = `Insufficient ${formData.currency} balance. You have ${balanceFormatted} ${formData.currency}, but need ${formData.amount} ${formData.currency}. Wallet: ${createAddress?.slice(0, 6)}...${createAddress?.slice(-4)}`;
           setError(errorMsg);
           setIsCreating(false);
@@ -606,7 +668,7 @@ export function CreateGiftCard() {
           args: [createAddress as `0x${string}`, spenderAddress as `0x${string}`]
         }) as bigint;
 
-        if (currentAllowance < BigInt(amountWei)) {
+        if (currentAllowance < amountUnits) {
           toast.info(`Approving ${formData.currency} for contract...`);
 
         // Determine privyUserId - if wallet was created with user_id = MetaMask address (and no privy_user_id),
@@ -643,7 +705,7 @@ export function CreateGiftCard() {
             walletAddress: developerWallet.wallet_address,
             contractAddress: tokenAddress,
             functionName: 'approve',
-            args: [spenderAddress, BigInt(amountWei)],
+            args: [spenderAddress, amountUnits],
             blockchain: 'ARC-TESTNET',
             privyUserId: privyUserIdForTx,
             socialPlatform: developerWallet.social_platform || undefined,
@@ -694,23 +756,23 @@ export function CreateGiftCard() {
         
         if (formData.recipientType === 'twitter') {
           functionName = 'createGiftCardForTwitter';
-          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+          args = [normalizedUsername, amountUnits, tokenAddress, metadataUri, formData.message];
         } else if (formData.recipientType === 'twitch') {
           functionName = 'createGiftCardForTwitch';
-          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+          args = [normalizedUsername, amountUnits, tokenAddress, metadataUri, formData.message];
         } else if (formData.recipientType === 'telegram') {
           functionName = 'createGiftCardForTelegram';
-          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+          args = [normalizedUsername, amountUnits, tokenAddress, metadataUri, formData.message];
         } else if (formData.recipientType === 'tiktok') {
           functionName = 'createGiftCardForTikTok';
-          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+          args = [normalizedUsername, amountUnits, tokenAddress, metadataUri, formData.message];
         } else if (formData.recipientType === 'instagram') {
           functionName = 'createGiftCardForInstagram';
-          args = [normalizedUsername, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+          args = [normalizedUsername, amountUnits, tokenAddress, metadataUri, formData.message];
         } else {
           // Address recipient
           functionName = 'createGiftCard';
-          args = [formData.recipientAddress, BigInt(amountWei), tokenAddress, metadataUri, formData.message];
+          args = [formData.recipientAddress, amountUnits, tokenAddress, metadataUri, formData.message];
         }
         
         // Get social platform info for transaction
@@ -1630,14 +1692,17 @@ export function CreateGiftCard() {
               <Label>Currency</Label>
               <Select
                 value={formData.currency}
-                onValueChange={(value: 'USDC' | 'EURC') => updateFormData('currency', value)}
+                onValueChange={(value: CurrencySymbol) => updateFormData('currency', value)}
               >
                 <SelectTrigger className="mt-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="USDC">USDC</SelectItem>
-                  <SelectItem value="EURC">EURC</SelectItem>
+                  {availableCurrencies.map((symbol) => (
+                    <SelectItem key={symbol} value={symbol}>
+                      {symbol}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1695,27 +1760,34 @@ export function CreateGiftCard() {
 
           {/* Action Buttons */}
           <div className="space-y-2">
-            <Button 
-              variant="outline"
-              className="w-full"
-              size="sm"
-              onClick={openCircleBridge}
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Top up {formData.currency} on Arc (Circle Bridge)
-            </Button>
-            <Button 
-              variant="outline"
-              className="w-full"
-              size="sm"
-              onClick={() => {
-                const bridgeUrl = generateBridgeUrlFromArc('base-sepolia', formData.currency);
-                navigate(bridgeUrl);
-              }}
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Bridge {formData.currency} to Base Sepolia
-            </Button>
+            {!isTempoNetwork && (
+              <>
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  onClick={openCircleBridge}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Top up {formData.currency} on Arc (Circle Bridge)
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  onClick={() => {
+                    if (formData.currency !== 'USDC' && formData.currency !== 'EURC') {
+                      return;
+                    }
+                    const bridgeUrl = generateBridgeUrlFromArc('base-sepolia', formData.currency);
+                    navigate(bridgeUrl);
+                  }}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Bridge {formData.currency} to Base Sepolia
+                </Button>
+              </>
+            )}
             <Button 
               className="w-full" 
               size="lg" 

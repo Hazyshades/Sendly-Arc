@@ -19,7 +19,7 @@ interface Transaction {
   id: string;
   type: 'sent' | 'received' | 'redeemed';
   amount: string;
-  currency: 'USDC' | 'EURC' | 'USYC';
+  currency: 'USDC' | 'EURC' | 'USYC' | 'PATHUSD' | 'ALPHAUSD' | 'BETAUSD' | 'THETAUSD';
   counterpart: string;
   message: string;
   status: 'completed' | 'pending' | 'failed';
@@ -35,7 +35,7 @@ interface Analytics {
   cardsSent: number;
   cardsReceived: number;
   averageAmount: string;
-  topCurrency: 'USDC' | 'EURC' | 'USYC';
+  topCurrency: 'USDC' | 'EURC' | 'USYC' | 'PATHUSD' | 'ALPHAUSD' | 'BETAUSD' | 'THETAUSD';
 }
 
 export function TransactionHistory() {
@@ -192,18 +192,23 @@ export function TransactionHistory() {
       let cardsSent = 0;
       let cardsReceived = 0;
       let cardsRedeemed = 0;
-      const currencyCounts: Record<'USDC' | 'EURC' | 'USYC', number> = {
+      const currencyCounts: Record<
+        'USDC' | 'EURC' | 'USYC' | 'PATHUSD' | 'ALPHAUSD' | 'BETAUSD' | 'THETAUSD',
+        number
+      > = {
         USDC: 0,
         EURC: 0,
         USYC: 0,
+        PATHUSD: 0,
+        ALPHAUSD: 0,
+        BETAUSD: 0,
+        THETAUSD: 0,
       };
 
       allCards.forEach((card: any) => {
         const amount = parseFloat(card.amount);
-        const symbol = card.token as 'USDC' | 'EURC' | 'USYC';
-        if (symbol === 'USDC' || symbol === 'EURC' || symbol === 'USYC') {
-          currencyCounts[symbol]++;
-        }
+        const symbol = card.token as keyof typeof currencyCounts;
+        if (symbol in currencyCounts) currencyCounts[symbol]++;
 
         if (card.type === 'sent') {
           totalSent += amount;
@@ -221,7 +226,15 @@ export function TransactionHistory() {
 
       const averageAmount = (cardsSent + cardsReceived) > 0 ? 
         ((totalSent + totalReceived) / (cardsSent + cardsReceived)).toFixed(2) : '0';
-      const currencyOrder: Array<keyof typeof currencyCounts> = ['USDC', 'EURC', 'USYC'];
+      const currencyOrder: Array<keyof typeof currencyCounts> = [
+        'USDC',
+        'EURC',
+        'USYC',
+        'PATHUSD',
+        'ALPHAUSD',
+        'BETAUSD',
+        'THETAUSD',
+      ];
       const topCurrency = currencyOrder.reduce((prev, curr) => {
         return currencyCounts[curr] > currencyCounts[prev] ? curr : prev;
       }, currencyOrder[0]);

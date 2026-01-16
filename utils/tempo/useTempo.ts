@@ -4,7 +4,7 @@ import { TEMPO_CONTRACTS } from './client';
 import { formatEther } from 'viem';
 
 export function useTempo() {
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
@@ -29,7 +29,7 @@ export function useTempo() {
         ],
         functionName: 'balanceOf',
         args: [address],
-      });
+      }) as bigint;
 
       return formatEther(balance);
     } catch (error) {
@@ -42,7 +42,7 @@ export function useTempo() {
   const sendTempoTransaction = async (
     to: string,
     data: `0x${string}`,
-    feeToken?: string
+    _feeToken?: string
   ) => {
     if (!walletClient || !isTempoNetwork) {
       throw new Error('Кошелек не подключен или неверная сеть');

@@ -10,6 +10,12 @@
     "preview": "vite preview",
     "circle:create-wallet": "node scripts/circleCreateWallet.mjs",
     "deploy:tempo": "node contracts/deploy/deployToTempo.mjs",
+    "deploy:tempo:twitter": "node contracts/deploy/deployTwitterVaultToTempo.mjs",
+    "deploy:tempo:twitch": "node contracts/deploy/deployTwitchVaultToTempo.mjs",
+    "deploy:tempo:telegram": "node contracts/deploy/deployTelegramVaultToTempo.mjs",
+    "deploy:tempo:all": "node contracts/tempo_deploy/deployAllTempoContracts.mjs",
+    "compile:tempo": "node compileTempo.mjs",
+    "test:tempo": "node contracts/tempo_deploy/testTempoContracts.mjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {

@@ -25,8 +25,14 @@ export async function createGiftCard(
     throw new Error('Wallet client не имеет аккаунта');
   }
 
-  // Создаем контракт GiftCard с walletClient для записи
-  const contract = getGiftCardContract(contractAddress, walletClient);
+  const account = walletClient.account;
+
+  // Создаем контракт GiftCard с walletClient для записи (гарантированно write-enabled)
+  const contract = getContract({
+    address: contractAddress,
+    abi: GiftCardABI,
+    client: { public: tempoClient, wallet: walletClient },
+  });
 
   // Сначала нужно одобрить токен
   const tokenContract = getContract({
@@ -47,7 +53,7 @@ export async function createGiftCard(
   });
 
   // Одобрение токена
-  await tokenContract.write.approve([contractAddress, amount]);
+  await tokenContract.write.approve([contractAddress, amount], { account });
 
   // Создание подарочной карты
   const hash = await contract.write.createGiftCard([
@@ -56,7 +62,7 @@ export async function createGiftCard(
     token,
     metadataURI,
     message,
-  ]);
+  ], { account });
 
   return hash;
 }

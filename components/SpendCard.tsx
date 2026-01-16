@@ -25,7 +25,7 @@ import { DeveloperWalletService } from '../utils/circle/developerWalletService';
 interface RedeemableCard {
   tokenId: string;
   amount: string;
-  currency: 'USDC' | 'EURC' | 'USYC';
+  currency: 'USDC' | 'EURC' | 'USYC' | 'PATHUSD' | 'ALPHAUSD' | 'BETAUSD' | 'THETAUSD';
   design: string;
   message: string;
   secretMessage?: string;

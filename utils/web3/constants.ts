@@ -7,12 +7,15 @@ console.log('VITE_ARC_USDC_ADDRESS from env:', import.meta.env.VITE_ARC_USDC_ADD
 console.log('VITE_ARC_CONTRACT_ADDRESS from env:', import.meta.env.VITE_ARC_CONTRACT_ADDRESS);
 console.log('All VITE_ variables:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
 
-// Base/Arc Contract Addresses (env-first; Arc variables preferred)
+// Base/Arc/Tempo Contract Addresses (env-first; Tempo variables preferred if set, then Arc)
+// Tempo addresses take priority if they are set
 export const CONTRACT_ADDRESS =
+  import.meta.env.VITE_TEMPO_GIFTCARD_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_CONTRACT_ADDRESS ||
   import.meta.env.VITE_CONTRACT_ADDRESS ||
   "0x7f5c9e8548002134cde6093f2ca3ff5b8bd26982";
 export const USDC_ADDRESS =
+  import.meta.env.VITE_TEMPO_PATHUSD_ADDRESS ||
   import.meta.env.VITE_ARC_USDC_ADDRESS ||
   import.meta.env.VITE_USDC_ADDRESS ||
   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
@@ -26,26 +29,36 @@ export const USYC_ADDRESS =
   "0xe9185F0c5F296Ed1797AaE4238D26CCaBEadb86C";
 
 export const VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_TEMPO_TWITTER_VAULT_ADDRESS ||
+  import.meta.env.VITE_TEMPO_TWITTER_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_TWITTER_VAULT_ADDRESS ||
   import.meta.env.VITE_ARC_VAULT_CONTRACT_ADDRESS ||
   "0xF8A0870530bb7CD1D658742A079f85E91dFC8E3C";
 
 export const TWITCH_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_TEMPO_TWITCH_VAULT_ADDRESS ||
+  import.meta.env.VITE_TEMPO_TWITCH_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_TWITCH_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_TWITCH_VAULT_ADDRESS ||
   "0xA27E6Cef4e9d794EE0356461fe65437Bb5f7cbE3";
 
 export const TELEGRAM_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_TEMPO_TELEGRAM_VAULT_ADDRESS ||
+  import.meta.env.VITE_TEMPO_TELEGRAM_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_TELEGRAM_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_TELEGRAM_VAULT_ADDRESS ||
   "0x619A49213860A0448736880c4f456bCDfB96D938";
 
 export const TIKTOK_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_TEMPO_TIKTOK_VAULT_ADDRESS ||
+  import.meta.env.VITE_TEMPO_TIKTOK_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_TIKTOK_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_TIKTOK_VAULT_ADDRESS ||
   "0xA4A44F97B8778B4Da8b9562d56A94BfCc0fB9893";
 
 export const INSTAGRAM_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_TEMPO_INSTAGRAM_VAULT_ADDRESS ||
+  import.meta.env.VITE_TEMPO_INSTAGRAM_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_INSTAGRAM_VAULT_CONTRACT_ADDRESS ||
   import.meta.env.VITE_ARC_INSTAGRAM_VAULT_ADDRESS ||
   "0x3332dEf130Ea17C69B9dFe8F06be1162526873df";

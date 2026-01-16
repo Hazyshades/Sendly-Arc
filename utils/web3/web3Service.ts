@@ -1,5 +1,5 @@
-import { createPublicClient, http } from 'viem';
-import { arcTestnet } from './wagmiConfig';
+import { createPublicClient, http, formatUnits, parseUnits } from 'viem';
+import { arcTestnet, tempoTestnet } from './wagmiConfig';
 import {
   CONTRACT_ADDRESS,
   VAULT_CONTRACT_ADDRESS,
@@ -10,6 +10,10 @@ import {
   USDC_ADDRESS,
   EURC_ADDRESS,
   USYC_ADDRESS,
+  TEMPO_PATHUSD_ADDRESS,
+  TEMPO_ALPHAUSD_ADDRESS,
+  TEMPO_BETAUSD_ADDRESS,
+  TEMPO_THETAUSD_ADDRESS,
   GiftCardABI,
   TwitterCardVaultABI,
   TwitchCardVaultABI,
@@ -27,7 +31,7 @@ import type { GiftCardInfo, BlockchainGiftCardInfo } from '../../src/types/web3'
 
 export type { GiftCardInfo, BlockchainGiftCardInfo };
 
-type SupportedTokenSymbol = 'USDC' | 'EURC' | 'USYC';
+type SupportedTokenSymbol = 'USDC' | 'EURC' | 'USYC' | 'PATHUSD' | 'ALPHAUSD' | 'BETAUSD' | 'THETAUSD';
 
 export class Web3Service {
   private walletClient: any = null;
@@ -40,7 +44,50 @@ export class Web3Service {
   private cacheExpiry = 300000; // 5 minutes cache
 
   constructor() {
-    this.createPublicClient();
+    // Public client will be created when wallet is initialized
+    // For now, create with default ARC chain
+    this.publicClient = createPublicClient({
+      chain: arcTestnet,
+      transport: http(ARC_RPC_URLS[0] || 'https://rpc.testnet.arc.network', {
+        retryCount: 1,
+        retryDelay: 1000,
+        timeout: 8000,
+      }),
+    });
+  }
+
+  // Определяет, является ли адрес токеном Tempo (не поддерживает стандартные ERC20 функции)
+  private isTempoToken(tokenAddress: string): boolean {
+    const addr = tokenAddress.toLowerCase();
+    return addr.startsWith('0x20c') || 
+           addr.startsWith('0x20fc') ||
+           addr.startsWith('0xfeec') ||
+           addr.startsWith('0xdec') ||
+           addr.startsWith('0x403c');
+  }
+
+  // Получает текущую сеть (ARC или Tempo)
+  private async getCurrentChain(): Promise<{ chain: any; chainId: number }> {
+    if (!this.walletClient) {
+      // Fallback to ARC if no wallet
+      return { chain: arcTestnet, chainId: arcTestnet.id };
+    }
+
+    try {
+      const chainId = await this.walletClient.getChainId();
+      
+      if (chainId === tempoTestnet.id) {
+        return { chain: tempoTestnet, chainId: tempoTestnet.id };
+      } else if (chainId === arcTestnet.id) {
+        return { chain: arcTestnet, chainId: arcTestnet.id };
+      }
+      
+      // Default to ARC if unknown chain
+      return { chain: arcTestnet, chainId: arcTestnet.id };
+    } catch (error) {
+      console.warn('Could not get chain ID, defaulting to ARC:', error);
+      return { chain: arcTestnet, chainId: arcTestnet.id };
+    }
   }
 
   private getTokenSymbolFromAddress(tokenAddress: string): SupportedTokenSymbol {
@@ -51,6 +98,14 @@ export class Web3Service {
       return 'EURC';
     } else if (normalizedAddress === USYC_ADDRESS.toLowerCase()) {
       return 'USYC';
+    } else if (normalizedAddress === TEMPO_PATHUSD_ADDRESS.toLowerCase()) {
+      return 'PATHUSD';
+    } else if (normalizedAddress === TEMPO_ALPHAUSD_ADDRESS.toLowerCase()) {
+      return 'ALPHAUSD';
+    } else if (normalizedAddress === TEMPO_BETAUSD_ADDRESS.toLowerCase()) {
+      return 'BETAUSD';
+    } else if (normalizedAddress === TEMPO_THETAUSD_ADDRESS.toLowerCase()) {
+      return 'THETAUSD';
     }
     return 'USDC'; // Default fallback
   }
@@ -63,17 +118,50 @@ export class Web3Service {
         return EURC_ADDRESS;
       case 'USYC':
         return USYC_ADDRESS;
+      case 'PATHUSD':
+        return TEMPO_PATHUSD_ADDRESS;
+      case 'ALPHAUSD':
+        return TEMPO_ALPHAUSD_ADDRESS;
+      case 'BETAUSD':
+        return TEMPO_BETAUSD_ADDRESS;
+      case 'THETAUSD':
+        return TEMPO_THETAUSD_ADDRESS;
       default:
         return USDC_ADDRESS;
     }
   }
 
-  private createPublicClient() {
-    const rpcUrl = ARC_RPC_URLS[this.currentRpcIndex];
-    console.log(`Creating public client with RPC: ${rpcUrl}`);
+  private getTokenDecimals(tokenType: SupportedTokenSymbol): number {
+    switch (tokenType) {
+      case 'PATHUSD':
+      case 'ALPHAUSD':
+      case 'BETAUSD':
+      case 'THETAUSD':
+        // Tempo predeploy stablecoins are 6-decimal in practice (matches explorer/faucet balances)
+        return 6;
+      case 'USDC':
+      case 'EURC':
+      case 'USYC':
+      default:
+        return 6;
+    }
+  }
+
+  private async createPublicClient() {
+    const { chain, chainId } = await this.getCurrentChain();
+    
+    // Определяем RPC URL в зависимости от сети
+    let rpcUrl: string;
+    if (chainId === tempoTestnet.id) {
+      rpcUrl = import.meta.env.VITE_TEMPO_RPC_URL || 'https://rpc.moderato.tempo.xyz';
+    } else {
+      rpcUrl = ARC_RPC_URLS[this.currentRpcIndex];
+    }
+    
+    console.log(`Creating public client with RPC: ${rpcUrl} for chain ${chainId}`);
     
     this.publicClient = createPublicClient({
-      chain: arcTestnet,
+      chain: chain,
       transport: http(rpcUrl, {
         retryCount: 1,
         retryDelay: 1000,
@@ -108,6 +196,9 @@ export class Web3Service {
     
     // Ensure we're on the correct chain
     await this.ensureCorrectChain();
+
+    // Create public client for the currently connected chain (ARC or Tempo)
+    await this.createPublicClient();
   }
 
   private async ensureCorrectChain(): Promise<void> {
@@ -115,45 +206,25 @@ export class Web3Service {
 
     try {
       const currentChain = await this.walletClient.getChainId();
-      const targetChainId = arcTestnet.id;
-
-      if (currentChain !== targetChainId) {
-        console.log(`Current chain ID: ${currentChain}, switching to Arc Testnet (${targetChainId})...`);
-        try {
-          await this.walletClient.switchChain({ id: targetChainId });
-          console.log('Successfully switched to Arc Testnet');
-          
-          // Wait for chain switch to be fully processed
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Verify chain switch was successful
-          const verifiedChain = await this.walletClient.getChainId();
-          if (verifiedChain !== targetChainId) {
-            throw new Error(`Failed to switch to Arc Testnet. Current chain: ${verifiedChain}`);
-          }
-        } catch (error: any) {
-          // If switchChain fails, it might be because the chain is not added
-          // In that case, add the chain first
-          if (error.code === 4902 || error.message?.includes('Unrecognized chain') || error.code === -32603) {
-            console.log('Chain not added, adding Arc Testnet...');
-            await this.walletClient.addChain({ chain: arcTestnet });
-            
-            // Wait a bit before switching
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            await this.walletClient.switchChain({ id: targetChainId });
-            
-            // Verify chain switch was successful
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const verifiedChain = await this.walletClient.getChainId();
-            if (verifiedChain !== targetChainId) {
-              throw new Error(`Failed to switch to Arc Testnet after adding. Current chain: ${verifiedChain}`);
-            }
-          } else {
-            throw error;
-          }
-        }
+      
+      // Проверяем, поддерживается ли текущая сеть (ARC или Tempo)
+      const isSupportedChain = currentChain === arcTestnet.id || currentChain === tempoTestnet.id;
+      
+      if (!isSupportedChain) {
+        // Если сеть не поддерживается, просим пользователя переключиться вручную
+        const supportedChains = `Arc Testnet (Chain ID: ${arcTestnet.id}) or Tempo Testnet (Chain ID: ${tempoTestnet.id})`;
+        throw new Error(
+          `Unsupported network. Please switch to ${supportedChains} in your wallet. ` +
+          `Current network: Chain ID ${currentChain}`
+        );
       }
+      
+      // Логируем текущую сеть для отладки
+      const networkName = currentChain === arcTestnet.id ? 'Arc Testnet' : 'Tempo Testnet';
+      console.log(`✓ Connected to ${networkName} (Chain ID: ${currentChain})`);
+
+      // Ensure the public client matches the connected chain so receipt polling hits the right RPC
+      await this.createPublicClient();
     } catch (error) {
       console.error('Error ensuring correct chain:', error);
       throw error; // Throw error to be caught by caller
@@ -164,6 +235,9 @@ export class Web3Service {
   private async safeRequest<T>(requestFn: () => Promise<T>): Promise<T> {
     let lastError: any;
     const originalRpcIndex = this.currentRpcIndex;
+
+    const { chainId } = await this.getCurrentChain();
+    const isTempoNetwork = chainId === tempoTestnet.id;
     
     // first try with current RPC
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -171,7 +245,10 @@ export class Web3Service {
         return await requestFn();
       } catch (error: any) {
         lastError = error;
-        console.log(`Attempt ${attempt + 1}/${this.maxRetries + 1} failed with RPC ${ARC_RPC_URLS[this.currentRpcIndex]}:`, error.message);
+        const rpcLabel = isTempoNetwork
+          ? (import.meta.env.VITE_TEMPO_RPC_URL || 'https://rpc.moderato.tempo.xyz')
+          : ARC_RPC_URLS[this.currentRpcIndex];
+        console.log(`Attempt ${attempt + 1}/${this.maxRetries + 1} failed with RPC ${rpcLabel}:`, error.message);
         
         // if this is critical error or requires authentication, switch to another RPC immediately
         if (error.message?.includes('503') || error.message?.includes('502') || error.message?.includes('500') || 
@@ -201,30 +278,33 @@ export class Web3Service {
       }
     }
     
-    // if all attempts with current RPC failed, try other RPCs
-    console.log(`All attempts failed with current RPC, trying other RPCs...`);
-    for (let rpcAttempt = 0; rpcAttempt < Math.min(ARC_RPC_URLS.length - 1, 2); rpcAttempt++) {
-      await this.switchToNextRpc();
-      
-      for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-        try {
-          return await requestFn();
-        } catch (error: any) {
-          lastError = error;
-          console.log(`Attempt ${attempt + 1}/${this.maxRetries + 1} failed with RPC ${ARC_RPC_URLS[this.currentRpcIndex]}:`, error.message);
-          
-          if (attempt < this.maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            continue;
+    // On Tempo, don't rotate ARC RPC endpoints (they are for a different chain).
+    if (!isTempoNetwork) {
+      // if all attempts with current RPC failed, try other RPCs
+      console.log(`All attempts failed with current RPC, trying other RPCs...`);
+      for (let rpcAttempt = 0; rpcAttempt < Math.min(ARC_RPC_URLS.length - 1, 2); rpcAttempt++) {
+        await this.switchToNextRpc();
+        
+        for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+          try {
+            return await requestFn();
+          } catch (error: any) {
+            lastError = error;
+            console.log(`Attempt ${attempt + 1}/${this.maxRetries + 1} failed with RPC ${ARC_RPC_URLS[this.currentRpcIndex]}:`, error.message);
+            
+            if (attempt < this.maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              continue;
+            }
+            
+            break;
           }
-          
-          break;
         }
       }
     }
     
     // if all RPCs are not working, revert to original
-    if (this.currentRpcIndex !== originalRpcIndex) {
+    if (!isTempoNetwork && this.currentRpcIndex !== originalRpcIndex) {
       console.log(`All RPCs failed, reverting to original RPC`);
       this.currentRpcIndex = originalRpcIndex;
       this.createPublicClient();
@@ -322,8 +402,8 @@ export class Web3Service {
             console.warn(`Could not get creator for card ${tokenId}:`, error);
           }
           
-          const amount = this.formatAmount(giftCardInfo.amount);
           const token = this.getTokenSymbolFromAddress(giftCardInfo.token);
+          const amount = this.formatAmount(giftCardInfo.amount, token);
           
           return {
             tokenId: tokenId.toString(),
@@ -451,8 +531,8 @@ export class Web3Service {
             console.warn(`Could not get creator for card ${tokenId}:`, error);
           }
           
-          const amount = this.formatAmount(giftCardInfo.amount);
           const token = this.getTokenSymbolFromAddress(giftCardInfo.token);
+          const amount = this.formatAmount(giftCardInfo.amount, token);
           
           return {
             tokenId: tokenId.toString(),
@@ -824,8 +904,8 @@ export class Web3Service {
             args: [BigInt(tokenId)],
           });
           
-          const amount = this.formatAmount(giftCardInfo.amount);
           const token = this.getTokenSymbolFromAddress(giftCardInfo.token);
+          const amount = this.formatAmount(giftCardInfo.amount, token);
           
           return {
             tokenId,
@@ -864,8 +944,8 @@ export class Web3Service {
             console.warn(`Could not check redeemed status for Twitter card ${tokenId}`);
           }
           
-          const amount = this.formatAmount(log.args.amount);
           const token = this.getTokenSymbolFromAddress(log.args.token);
+          const amount = this.formatAmount(log.args.amount, token);
           
           return {
             tokenId,
@@ -904,8 +984,8 @@ export class Web3Service {
             console.warn(`Could not check redeemed status for Twitch card ${tokenId}`);
           }
           
-          const amount = this.formatAmount(log.args.amount);
           const token = this.getTokenSymbolFromAddress(log.args.token);
+          const amount = this.formatAmount(log.args.amount, token);
           
           return {
             tokenId,
@@ -945,8 +1025,8 @@ export class Web3Service {
           console.warn(`Could not check redeemed status for Telegram card ${tokenId}`);
         }
         
-        const amount = this.formatAmount(log.args.amount);
         const token = this.getTokenSymbolFromAddress(log.args.token);
+        const amount = this.formatAmount(log.args.amount, token);
         
         return {
           tokenId,
@@ -1166,12 +1246,14 @@ export class Web3Service {
       throw new Error('Wallet not connected');
     }
 
-    // Ensure we're on the correct chain before approving
+    // Ensure we're on a supported chain before approving
     await this.ensureCorrectChain();
+
+    // Get current chain
+    const { chain, chainId } = await this.getCurrentChain();
 
     // Get chain ID from wallet client (most reliable source)
     const walletChainId = await this.walletClient.getChainId();
-    const targetChainId = arcTestnet.id;
     
     // Check directly from provider for logging/debugging only
     // Note: window.ethereum may return stale chain ID, so we only trust walletChainId
@@ -1191,7 +1273,7 @@ export class Web3Service {
           providerName = 'Rainbow';
         }
         
-        console.log(`Provider: ${providerName}, Chain ID: ${providerChainId}, Wallet chain ID: ${walletChainId}, Target: ${targetChainId}`);
+        console.log(`Provider: ${providerName}, Chain ID: ${providerChainId}, Wallet chain ID: ${walletChainId}`);
         
         // Warn if provider chain ID doesn't match, but don't fail
         if (providerChainId !== walletChainId) {
@@ -1202,57 +1284,64 @@ export class Web3Service {
       }
     }
     
-    // Only check walletChainId (most reliable source from wagmi/viem)
-    // window.ethereum may return stale chain ID, so we don't rely on it
-    if (walletChainId !== targetChainId) {
-      console.error(`Chain ID mismatch: wallet=${walletChainId}, expected=${targetChainId}`);
-      throw new Error(`Please switch to Arc Testnet (Chain ID: ${targetChainId}) in your wallet. Current: ${walletChainId}`);
-    }
-
-    // Coinbase Wallet may have issues with Arc Testnet - show warning
-    if (providerName === 'Coinbase Wallet') {
-      console.warn('⚠️ Using Coinbase Wallet with Arc Testnet. If you encounter "invalid chain ID" errors, try using MetaMask or Rainbow Wallet instead.');
+    // Проверяем, что сеть поддерживается (ARC или Tempo)
+    const isSupportedChain = walletChainId === arcTestnet.id || walletChainId === tempoTestnet.id;
+    if (!isSupportedChain) {
+      console.error(`Chain ID mismatch: wallet=${walletChainId}, supported chains: ARC (${arcTestnet.id}) or Tempo (${tempoTestnet.id})`);
+      throw new Error(`Please switch to Arc Testnet (Chain ID: ${arcTestnet.id}) or Tempo Testnet (Chain ID: ${tempoTestnet.id}). Current: ${walletChainId}`);
     }
 
     // Add delay to ensure chain switch is fully processed
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
-      const amountWei = this.parseAmount(amount);
+      const tokenSymbol = this.getTokenSymbolFromAddress(tokenAddress);
+      const amountWei = this.parseAmount(amount, tokenSymbol);
       
       // On ARC, USDC at 0x3600000000000000000000000000000000000000 has ERC20 interface
       // ERC20 functions (approve, transferFrom) work directly on native USDC balance
       
-      // Check current allowance using readContract
-      const allowance = await this.safeRequest(async () => {
-        return await this.publicClient.readContract({
-          address: tokenAddress as `0x${string}`,
-          abi: ERC20ABI,
-          functionName: 'allowance',
-          args: [this.account as `0x${string}`, CONTRACT_ADDRESS as `0x${string}`],
+      // Check current allowance using readContract (skip for Tempo tokens)
+      let allowance = BigInt(0);
+      try {
+        allowance = await this.safeRequest(async () => {
+          return await this.publicClient.readContract({
+            address: tokenAddress as `0x${string}`,
+            abi: ERC20ABI,
+            functionName: 'allowance',
+            args: [this.account as `0x${string}`, CONTRACT_ADDRESS as `0x${string}`],
+          });
         });
-      });
+      } catch (error: any) {
+        // Если allowance не поддерживается (например, для некоторых токенов), пропускаем проверку
+        if (error?.message?.includes('returned no data') || 
+            error?.message?.includes('does not have the function') ||
+            error?.message?.includes('is not a contract')) {
+          console.warn(`allowance not supported for token ${tokenAddress}, skipping allowance check:`, error.message);
+          allowance = BigInt(0); // Assume no allowance, will try to approve
+        } else {
+          throw error;
+        }
+      }
 
       if (BigInt(allowance) < BigInt(amountWei)) {
-        console.log(`Approving ${amountWei} tokens on chain ${targetChainId}...`);
+        console.log(`Approving ${amountWei} tokens on chain ${chainId}...`);
         console.log(`Token address: ${tokenAddress}, Spender: ${CONTRACT_ADDRESS}`);
         
         // Re-verify chain ID one more time right before transaction
         const finalCheck = await this.walletClient.getChainId();
-        if (finalCheck !== targetChainId) {
-          throw new Error(`Chain ID changed before approval: expected ${targetChainId}, got ${finalCheck}`);
+        if (finalCheck !== chainId) {
+          throw new Error(`Chain ID changed before approval: expected ${chainId}, got ${finalCheck}`);
         }
         
         // Use writeContract with explicit chain parameter
-        // Coinbase Wallet may require explicit chain specification
         console.log('Sending approve transaction...');
         console.log('WalletClient chain:', await this.walletClient.getChainId());
-        console.log('ArcTestnet chain ID:', arcTestnet.id);
-        console.log('Target chain ID:', targetChainId);
+        console.log('Target chain:', chain.name, chainId);
         
-        // Try with explicit chain parameter - this ensures chain ID is included in transaction
+        // Use the current chain (ARC or Tempo)
         const hash = await this.walletClient.writeContract({
-          chain: arcTestnet,
+          chain: chain,
           address: tokenAddress as `0x${string}`,
           abi: ERC20ABI,
           functionName: 'approve',
@@ -1285,12 +1374,19 @@ export class Web3Service {
       throw new Error('Wallet not connected');
     }
 
-    // Ensure we're on the correct chain before creating gift card
+    // Ensure we're on a supported chain before creating gift card
     await this.ensureCorrectChain();
 
     try {
+      // Get current chain info for logging
+      const currentChainInfo = await this.getCurrentChain();
+      const networkName = currentChainInfo.chainId === arcTestnet.id ? 'Arc Testnet' : 'Tempo Testnet';
+      console.log(`📝 Creating gift card on ${networkName} (Chain ID: ${currentChainInfo.chainId})`);
+      
       const tokenAddress = this.getTokenAddressFromSymbol(tokenType);
-      const amountWei = this.parseAmount(amount);
+      const amountWei = this.parseAmount(amount, tokenType);
+      
+      console.log(`💰 Token: ${tokenType}, Address: ${tokenAddress}, Amount: ${amountWei}`);
 
       // Validate token address
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
@@ -1303,86 +1399,253 @@ export class Web3Service {
       // The ERC20 interface directly affects native USDC balance movements
       // ERC20 interface uses 6 decimals, native balance uses 18 decimals
       
-      // Check balance using ERC20 interface (6 decimals precision)
-      const balance = await this.safeRequest(async () => {
-        return await this.publicClient.readContract({
+      // Best-effort ERC20 balance check.
+      // Some Tempo predeploys MAY still support ERC20-compatible balanceOf, so we try it first.
+      try {
+        const balance = await this.safeRequest(async () => {
+          return await this.publicClient.readContract({
+            address: tokenAddress as `0x${string}`,
+            abi: ERC20ABI,
+            functionName: 'balanceOf',
+            args: [this.account as `0x${string}`],
+          });
+        });
+
+        const balanceBigInt = BigInt(balance as any);
+        if (balanceBigInt < BigInt(amountWei)) {
+          throw new Error(
+            `Insufficient ${tokenType} balance. ` +
+              `Required: ${amount} ${tokenType}, ` +
+              `Available: ${this.formatAmount(balanceBigInt, tokenType)} ${tokenType}.`
+          );
+        }
+      } catch (error: any) {
+        // If balanceOf is not supported, log warning but continue (estimateGas will still detect failure).
+        if (
+          error?.message?.includes('returned no data') ||
+          error?.message?.includes('does not have the function') ||
+          error?.message?.includes('is not a contract')
+        ) {
+          console.warn(`balanceOf not supported for token ${tokenAddress}, skipping balance check:`, error.message);
+        } else {
+          // Re-throw other errors (like insufficient balance)
+          throw error;
+        }
+      }
+
+      // Get current chain for transaction
+      const { chain, chainId } = await this.getCurrentChain();
+      
+      // Create gift card with explicit chain parameter (uses current chain - ARC or Tempo)
+      // For Tempo tokens, we might need to handle differently
+      const isTempoNetwork = chainId === tempoTestnet.id;
+      const isTempoTokenAddr = this.isTempoToken(tokenAddress);
+      
+      // Approve tokens
+      // For Tempo tokens, we still need to approve even though they don't support standard ERC20
+      // The contract will try to call transferFrom, which requires approval
+      if (isTempoNetwork && isTempoTokenAddr) {
+        console.log(`⚠️ Attempting to approve Tempo token ${tokenAddress} for contract ${CONTRACT_ADDRESS}`);
+        console.log(`Note: Tempo tokens may not support standard ERC20 approve, but contract requires it`);
+        
+        // Approve is required for GiftCard contract to pull tokens (spender = contract)
+        await this.approveToken(tokenAddress, amount);
+      } else {
+        await this.approveToken(tokenAddress, amount);
+      }
+
+      // Best-effort allowance check right after approval (helps diagnose Tempo failures).
+      try {
+        const allowance = await this.publicClient.readContract({
           address: tokenAddress as `0x${string}`,
           abi: ERC20ABI,
-          functionName: 'balanceOf',
-          args: [this.account as `0x${string}`],
+          functionName: 'allowance',
+          args: [this.account as `0x${string}`, CONTRACT_ADDRESS as `0x${string}`],
         });
-      });
-
-      if (BigInt(balance) < BigInt(amountWei)) {
-        throw new Error(`Insufficient ${tokenType} balance`);
+        const allowanceBigInt = BigInt(allowance as any);
+        if (allowanceBigInt < BigInt(amountWei)) {
+          throw new Error(
+            `Insufficient ${tokenType} allowance for GiftCard contract. ` +
+              `Required: ${amount} ${tokenType}, ` +
+              `Allowance: ${this.formatAmount(allowanceBigInt, tokenType)} ${tokenType}. ` +
+              `Please approve ${tokenType} for ${CONTRACT_ADDRESS} and try again.`
+          );
+        }
+      } catch (e: any) {
+        // Non-fatal: some Tempo tokens might not expose allowance in a standard way.
+        if (
+          e?.message?.includes('returned no data') ||
+          e?.message?.includes('does not have the function') ||
+          e?.message?.includes('is not a contract')
+        ) {
+          console.warn(`allowance not supported for token ${tokenAddress}, skipping allowance check:`, e.message);
+        } else {
+          // If allowance call reverted for other reasons, keep going to estimateGas.
+          console.warn('Could not verify allowance:', e?.message || e);
+        }
       }
-
-      // Approve tokens
-      await this.approveToken(tokenAddress, amount);
-
+      
       // Verify chain ID one more time before creating gift card
       const finalChainCheck = await this.walletClient.getChainId();
-      if (finalChainCheck !== arcTestnet.id) {
-        throw new Error(`Chain ID mismatch before creating gift card: expected ${arcTestnet.id}, got ${finalChainCheck}`);
+      if (finalChainCheck !== chainId) {
+        throw new Error(`Chain ID mismatch before creating gift card: expected ${chainId}, got ${finalChainCheck}`);
       }
-
-      // Create gift card with explicit chain parameter
-      const hash = await this.walletClient.writeContract({
-        chain: arcTestnet,
-        address: CONTRACT_ADDRESS as `0x${string}`,
-        abi: GiftCardABI,
-        functionName: 'createGiftCard',
-        args: [
-          recipient as `0x${string}`,
-          BigInt(amountWei),
-          tokenAddress as `0x${string}`,
-          metadata,
-          message
-        ],
-        account: this.account as `0x${string}`,
-      });
-
-      const receipt = await this.safeRequest(async () => {
-        return await this.publicClient.waitForTransactionReceipt({ hash });
-      });
-
-      // Check transaction status - if it failed, throw an error
-      if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
-        throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${hash}`);
-      }
-
-      // Get token ID from Transfer event (emitted by ERC721 on mint)
-      // Transfer(from=0x0, to=recipient, tokenId) - topics: [signature, from, to, tokenId]
-      const transferEventSignature = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-      const zeroAddress = '0x0000000000000000000000000000000000000000';
-      const zeroAddressTopic = '0x' + zeroAddress.slice(2).padStart(64, '0');
       
-      let tokenId = '1'; // Default fallback
-      const transferEvent = receipt.logs.find((log: any) => 
-        log.topics[0] === transferEventSignature &&
-        log.topics[1]?.toLowerCase() === zeroAddressTopic.toLowerCase() &&
-        log.address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()
-      );
+      if (isTempoNetwork && isTempoTokenAddr) {
+        console.log(`⚠️ Creating gift card with Tempo token ${tokenAddress} on Tempo network`);
+        console.log(`Contract address: ${CONTRACT_ADDRESS}`);
+        console.log(`Recipient: ${recipient}, Amount: ${amountWei}`);
+        
+        // Check if token is supported by contract
+        try {
+          console.log('🔍 Checking if token is supported by contract...');
+          const isSupported = await this.publicClient.readContract({
+            address: CONTRACT_ADDRESS as `0x${string}`,
+            abi: [
+              {
+                "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "name": "supportedTokens",
+                "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+                "stateMutability": "view",
+                "type": "function"
+              }
+            ],
+            functionName: 'supportedTokens',
+            args: [tokenAddress as `0x${string}`],
+          });
+          console.log(`Token ${tokenAddress} is ${isSupported ? 'supported' : 'NOT supported'} by contract`);
+          
+          if (!isSupported) {
+            throw new Error(
+              `Token ${tokenAddress} (PATHUSD) is not supported by the contract at ${CONTRACT_ADDRESS}. ` +
+              `The contract was deployed with specific tokens. Please use one of the supported tokens.`
+            );
+          }
+        } catch (checkError: any) {
+          if (checkError?.message?.includes('not supported')) {
+            throw checkError;
+          }
+          console.warn('⚠️ Could not check token support:', checkError.message);
+        }
+        
+        // Try to estimate gas first to see if the contract can handle this call
+        try {
+          console.log('🔍 Estimating gas for transaction...');
+          const gasEstimate = await this.publicClient.estimateContractGas({
+            address: CONTRACT_ADDRESS as `0x${string}`,
+            abi: GiftCardABI,
+            functionName: 'createGiftCard',
+            args: [
+              recipient as `0x${string}`,
+              BigInt(amountWei),
+              tokenAddress as `0x${string}`,
+              metadata,
+              message
+            ],
+            account: this.account as `0x${string}`,
+          });
+          console.log(`✅ Gas estimate: ${gasEstimate.toString()}`);
+        } catch (estimateError: any) {
+          console.error('❌ Gas estimation failed:', estimateError);
+          // If estimate reverted, the tx will revert too — fail early with a helpful message.
+          const selector = estimateError?.cause?.signature || estimateError?.signature;
+          const hint =
+            selector === '0x13be252b'
+              ? 'Token transfer failed (likely missing approval or insufficient balance).'
+              : 'Contract call reverted during gas estimation.';
 
-      if (transferEvent && transferEvent.topics[3]) {
-        // tokenId is in topics[3] as uint256
-        tokenId = BigInt(transferEvent.topics[3]).toString();
-        console.log('Extracted tokenId from Transfer event:', tokenId);
-      } else {
-        console.warn('Transfer event not found, using default tokenId 1');
-        console.log('Available logs:', receipt.logs.map((log: any) => ({
-          address: log.address,
-          topics: log.topics,
-          data: log.data
-        })));
+          throw new Error(
+            `Cannot create gift card on Tempo: ${hint} ` +
+              `Token: ${tokenAddress}, Amount: ${amountWei}. ` +
+              `Original: ${estimateError?.shortMessage || estimateError?.message || 'reverted'}`
+          );
+        }
       }
+      
+      try {
+        const hash = await this.walletClient.writeContract({
+          chain: chain,
+          address: CONTRACT_ADDRESS as `0x${string}`,
+          abi: GiftCardABI,
+          functionName: 'createGiftCard',
+          args: [
+            recipient as `0x${string}`,
+            BigInt(amountWei),
+            tokenAddress as `0x${string}`,
+            metadata,
+            message
+          ],
+          account: this.account as `0x${string}`,
+        });
+        
+        console.log(`✅ Transaction sent: ${hash}`);
+        
+        const receipt = await this.safeRequest(async () => {
+          return await this.publicClient.waitForTransactionReceipt({
+            hash,
+            timeout: isTempoNetwork ? 180_000 : 60_000,
+            pollingInterval: isTempoNetwork ? 2_000 : 1_000,
+          });
+        });
 
-      // Clear sent cards cache so new card appears immediately in list
-      const cacheKey = `sentGiftCards_${this.account}`;
-      this.cache.delete(cacheKey);
-      console.log('Cleared sent gift cards cache after creating new card');
+        // Check transaction status - if it failed, throw an error
+        if (receipt.status === 'reverted' || (typeof receipt.status === 'number' && receipt.status === 0)) {
+          throw new Error(`Transaction failed: ERC20 transfer amount exceeds balance or other contract error. Transaction hash: ${hash}`);
+        }
 
-      return { tokenId, txHash: hash };
+        // Get token ID from Transfer event (emitted by ERC721 on mint)
+        // Transfer(from=0x0, to=recipient, tokenId) - topics: [signature, from, to, tokenId]
+        const transferEventSignature = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+        const zeroAddress = '0x0000000000000000000000000000000000000000';
+        const zeroAddressTopic = '0x' + zeroAddress.slice(2).padStart(64, '0');
+        
+        let tokenId = '1'; // Default fallback
+        const transferEvent = receipt.logs.find((log: any) => 
+          log.topics[0] === transferEventSignature &&
+          log.topics[1]?.toLowerCase() === zeroAddressTopic.toLowerCase() &&
+          log.address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()
+        );
+
+        if (transferEvent && transferEvent.topics[3]) {
+          // tokenId is in topics[3] as uint256
+          tokenId = BigInt(transferEvent.topics[3]).toString();
+          console.log('Extracted tokenId from Transfer event:', tokenId);
+        } else {
+          console.warn('Transfer event not found, using default tokenId 1');
+          console.log('Available logs:', receipt.logs.map((log: any) => ({
+            address: log.address,
+            topics: log.topics,
+            data: log.data
+          })));
+        }
+
+        // Clear sent cards cache so new card appears immediately in list
+        const cacheKey = `sentGiftCards_${this.account}`;
+        this.cache.delete(cacheKey);
+        console.log('Cleared sent gift cards cache after creating new card');
+
+        return { tokenId, txHash: hash };
+      } catch (error: any) {
+        // More detailed error handling for Tempo
+        if (isTempoNetwork) {
+          console.error('Error creating gift card on Tempo:', error);
+          
+          // Check if it's a contract error
+          if (error?.message?.includes('Internal JSON-RPC error') || 
+              error?.message?.includes('reverted') ||
+              error?.code === -32603) {
+            throw new Error(
+              `Failed to create gift card on Tempo network. ` +
+              `The contract may not support token ${tokenAddress} or there's insufficient balance. ` +
+              `Please check: 1) Contract address ${CONTRACT_ADDRESS} is correct for Tempo, ` +
+              `2) Token ${tokenAddress} is supported by the contract, ` +
+              `3) You have sufficient balance. ` +
+              `Original error: ${error.message || 'Internal JSON-RPC error'}`
+            );
+          }
+        }
+        throw error;
+      }
     } catch (error) {
       console.error('Error creating gift card:', error);
       throw error;
@@ -1507,7 +1770,7 @@ export class Web3Service {
         });
       });
       
-      const formattedBalance = this.formatAmount(BigInt(balance));
+      const formattedBalance = this.formatAmount(BigInt(balance), tokenType);
       this.setCache(cacheKey, formattedBalance);
       return formattedBalance;
     } catch (error) {
@@ -1540,7 +1803,7 @@ export class Web3Service {
 
     try {
       const tokenAddress = this.getTokenAddressFromSymbol(tokenType);
-      const amountWei = this.parseAmount(amount);
+      const amountWei = this.parseAmount(amount, tokenType);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
         throw new Error(`${tokenType} address is not configured`);
@@ -1562,7 +1825,7 @@ export class Web3Service {
 
       const amountBigInt = BigInt(amountWei);
       if (balance < amountBigInt) {
-        throw new Error(`Insufficient ${tokenType} balance. Required: ${amount}, Available: ${this.formatAmount(balance)}`);
+        throw new Error(`Insufficient ${tokenType} balance. Required: ${amount}, Available: ${this.formatAmount(balance, tokenType)}`);
       }
 
       // Send transfer transaction
@@ -1588,14 +1851,14 @@ export class Web3Service {
     }
   }
 
-  private parseAmount(amount: string): string {
-    // Convert amount to wei (6 decimals for supported stablecoins)
-    return (parseFloat(amount) * 1000000).toString();
+  private parseAmount(amount: string, tokenType?: SupportedTokenSymbol): string {
+    const decimals = tokenType ? this.getTokenDecimals(tokenType) : 6;
+    return parseUnits(amount, decimals).toString();
   }
 
-  private formatAmount(amountWei: bigint): string {
-    // Convert wei to amount (6 decimals for supported stablecoins)
-    return (Number(amountWei) / 1000000).toString();
+  private formatAmount(amountWei: bigint, tokenType?: SupportedTokenSymbol): string {
+    const decimals = tokenType ? this.getTokenDecimals(tokenType) : 6;
+    return formatUnits(amountWei, decimals);
   }
 
   // Method to clear cache
@@ -1619,7 +1882,7 @@ export class Web3Service {
 
     try {
       const tokenAddress = this.getTokenAddressFromSymbol(currency);
-      const amountWei = this.parseAmount(amount);
+      const amountWei = this.parseAmount(amount, currency);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
         throw new Error(`${currency} address is not configured`);
@@ -1646,7 +1909,7 @@ export class Web3Service {
 
       const amountBigInt = BigInt(amountWei);
       if (balance < amountBigInt) {
-        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance)}`);
+        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance, currency)}`);
       }
 
       const allowance = await this.safeRequest(async () => {
@@ -1887,7 +2150,7 @@ export class Web3Service {
 
     try {
       const tokenAddress = this.getTokenAddressFromSymbol(currency);
-      const amountWei = this.parseAmount(amount);
+      const amountWei = this.parseAmount(amount, currency);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
         throw new Error(`${currency} address is not configured`);
@@ -1913,7 +2176,7 @@ export class Web3Service {
 
       const amountBigInt = BigInt(amountWei);
       if (balance < amountBigInt) {
-        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance)}`);
+        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance, currency)}`);
       }
 
       const allowance = await this.safeRequest(async () => {
@@ -2078,7 +2341,7 @@ export class Web3Service {
 
     try {
       const tokenAddress = this.getTokenAddressFromSymbol(currency);
-      const amountWei = this.parseAmount(amount);
+      const amountWei = this.parseAmount(amount, currency);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
         throw new Error(`${currency} address is not configured`);
@@ -2104,7 +2367,7 @@ export class Web3Service {
 
       const amountBigInt = BigInt(amountWei);
       if (balance < amountBigInt) {
-        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance)}`);
+        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance, currency)}`);
       }
 
       const allowance = await this.safeRequest(async () => {
@@ -2269,7 +2532,7 @@ export class Web3Service {
 
     try {
       const tokenAddress = this.getTokenAddressFromSymbol(currency);
-      const amountWei = this.parseAmount(amount);
+      const amountWei = this.parseAmount(amount, currency);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
         throw new Error(`${currency} address is not configured`);
@@ -2295,7 +2558,7 @@ export class Web3Service {
 
       const amountBigInt = BigInt(amountWei);
       if (balance < amountBigInt) {
-        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance)}`);
+        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance, currency)}`);
       }
 
       const allowance = await this.safeRequest(async () => {
@@ -2460,7 +2723,7 @@ export class Web3Service {
 
     try {
       const tokenAddress = this.getTokenAddressFromSymbol(currency);
-      const amountWei = this.parseAmount(amount);
+      const amountWei = this.parseAmount(amount, currency);
 
       if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
         throw new Error(`${currency} address is not configured`);
@@ -2486,7 +2749,7 @@ export class Web3Service {
 
       const amountBigInt = BigInt(amountWei);
       if (balance < amountBigInt) {
-        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance)}`);
+        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${this.formatAmount(balance, currency)}`);
       }
 
       const allowance = await this.safeRequest(async () => {

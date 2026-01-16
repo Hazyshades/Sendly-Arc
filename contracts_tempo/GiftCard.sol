@@ -5,13 +5,30 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./TwitterCardVault.sol";
 import "./TwitchCardVault.sol";
 import "./TelegramCardVault.sol";
 import "./TikTokCardVault.sol";
 import "./InstagramCardVault.sol";
 
+/**
+ * @dev Tempo TIP-20 tokens may prefer memo-enabled transfer methods and may not return a boolean.
+ * We use low-level calls to support:
+ * - TIP-20 `transferFromWithMemo` / `transferWithMemo` (if implemented)
+ * - Standard-ish ERC20 `transferFrom` / `transfer`, including "no return value" tokens via SafeERC20
+ *
+ * Ref: https://docs.tempo.xyz/
+ */
+interface ITIP20 {
+    // Return value is optional on-chain; callers should treat "no return data" as success.
+    function transferFromWithMemo(address from, address to, uint256 amount, bytes32 memo) external returns (bool);
+    function transferWithMemo(address to, uint256 amount, bytes32 memo) external returns (bool);
+}
+
 contract GiftCard is ERC721Enumerable, Ownable {
+    using SafeERC20 for IERC20;
+
     struct GiftCardInfo {
         uint256 amount;
         address token;
@@ -49,6 +66,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
     event GiftCardCreated(
         uint256 tokenId,
         address recipient,
+        address sender,
         uint256 amount,
         address token,
         string uri,
@@ -137,6 +155,68 @@ contract GiftCard is ERC721Enumerable, Ownable {
         nextTokenId = 1;
     }
 
+    function _tryTip20TransferFromWithMemo(
+        address token,
+        address from,
+        address to,
+        uint256 amount
+    ) internal returns (bool) {
+        // bytes32(0) is an empty memo
+        (bool success, bytes memory returndata) = token.call(
+            abi.encodeWithSelector(ITIP20.transferFromWithMemo.selector, from, to, amount, bytes32(0))
+        );
+
+        if (!success) {
+            return false;
+        }
+
+        // TIP-20 may return no data
+        if (returndata.length == 0) {
+            return true;
+        }
+
+        return abi.decode(returndata, (bool));
+    }
+
+    function _tryTip20TransferWithMemo(
+        address token,
+        address to,
+        uint256 amount
+    ) internal returns (bool) {
+        (bool success, bytes memory returndata) = token.call(
+            abi.encodeWithSelector(ITIP20.transferWithMemo.selector, to, amount, bytes32(0))
+        );
+
+        if (!success) {
+            return false;
+        }
+
+        if (returndata.length == 0) {
+            return true;
+        }
+
+        return abi.decode(returndata, (bool));
+    }
+
+    function _pullToken(address token, uint256 amount) internal {
+        bool tip20Ok = _tryTip20TransferFromWithMemo(token, msg.sender, address(this), amount);
+        if (tip20Ok) {
+            return;
+        }
+
+        // Fallback: standard-ish ERC20 transferFrom (SafeERC20 handles "no bool return" tokens)
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+    }
+
+    function _pushToken(address token, address to, uint256 amount) internal {
+        bool tip20Ok = _tryTip20TransferWithMemo(token, to, amount);
+        if (tip20Ok) {
+            return;
+        }
+
+        IERC20(token).safeTransfer(to, amount);
+    }
+
     function createGiftCard(
         address _recipient,
         uint256 _amount,
@@ -148,14 +228,14 @@ contract GiftCard is ERC721Enumerable, Ownable {
         require(supportedTokens[_token], "unsupported token");
         require(_amount > 0, "amount=0");
 
-        // pull token from sender
-        require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "transferFrom failed");
+        // Pull token from sender (Tempo TIP-20 compatible)
+        _pullToken(_token, _amount);
 
         uint256 tokenId = nextTokenId++;
         _safeMint(_recipient, tokenId);
         giftCards[tokenId] = GiftCardInfo({amount: _amount, token: _token, redeemed: false, message: _message});
 
-        emit GiftCardCreated(tokenId, _recipient, _amount, _token, _metadataURI, _message);
+        emit GiftCardCreated(tokenId, _recipient, msg.sender, _amount, _token, _metadataURI, _message);
         return tokenId;
     }
 
@@ -166,7 +246,8 @@ contract GiftCard is ERC721Enumerable, Ownable {
         require(ownerOf(tokenId) == msg.sender, "not owner");
 
         info.redeemed = true;
-        require(IERC20(info.token).transfer(msg.sender, info.amount), "transfer failed");
+        // Send token to redeemer (Tempo TIP-20 compatible)
+        _pushToken(info.token, msg.sender, info.amount);
 
         emit GiftCardRedeemed(tokenId, msg.sender, info.amount, info.token);
     }
@@ -197,8 +278,8 @@ contract GiftCard is ERC721Enumerable, Ownable {
         require(supportedTokens[_token], "unsupported token");
         require(_amount > 0, "amount=0");
 
-        // Pull token from sender
-        require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "transferFrom failed");
+        // Pull token from sender (Tempo TIP-20 compatible)
+        _pullToken(_token, _amount);
 
         uint256 tokenId = nextTokenId++;
         
@@ -209,7 +290,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
         // Register card with vault
         vaultContract.depositCardForUsername(tokenId, _username, msg.sender);
 
-        emit GiftCardCreated(tokenId, address(vaultContract), _amount, _token, _metadataURI, _message);
+        emit GiftCardCreated(tokenId, address(vaultContract), msg.sender, _amount, _token, _metadataURI, _message);
         emit GiftCardCreatedForTwitter(tokenId, _username, msg.sender, _amount, _token, _metadataURI, _message);
         
         return tokenId;
@@ -236,8 +317,8 @@ contract GiftCard is ERC721Enumerable, Ownable {
         require(supportedTokens[_token], "unsupported token");
         require(_amount > 0, "amount=0");
 
-        // Pull token from sender
-        require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "transferFrom failed");
+        // Pull token from sender (Tempo TIP-20 compatible)
+        _pullToken(_token, _amount);
 
         uint256 tokenId = nextTokenId++;
         
@@ -248,7 +329,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
         // Register card with vault
         twitchVaultContract.depositCardForUsername(tokenId, _username, msg.sender);
 
-        emit GiftCardCreated(tokenId, address(twitchVaultContract), _amount, _token, _metadataURI, _message);
+        emit GiftCardCreated(tokenId, address(twitchVaultContract), msg.sender, _amount, _token, _metadataURI, _message);
         emit GiftCardCreatedForTwitch(tokenId, _username, msg.sender, _amount, _token, _metadataURI, _message);
         
         return tokenId;
@@ -275,7 +356,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
         require(supportedTokens[_token], "unsupported token");
         require(_amount > 0, "amount=0");
 
-        require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "transferFrom failed");
+        _pullToken(_token, _amount);
 
         uint256 tokenId = nextTokenId++;
 
@@ -284,7 +365,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
 
         telegramVaultContract.depositCardForUsername(tokenId, _username, msg.sender);
 
-        emit GiftCardCreated(tokenId, address(telegramVaultContract), _amount, _token, _metadataURI, _message);
+        emit GiftCardCreated(tokenId, address(telegramVaultContract), msg.sender, _amount, _token, _metadataURI, _message);
         emit GiftCardCreatedForTelegram(tokenId, _username, msg.sender, _amount, _token, _metadataURI, _message);
 
         return tokenId;
@@ -311,7 +392,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
         require(supportedTokens[_token], "unsupported token");
         require(_amount > 0, "amount=0");
 
-        require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "transferFrom failed");
+        _pullToken(_token, _amount);
 
         uint256 tokenId = nextTokenId++;
 
@@ -320,7 +401,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
 
         tiktokVaultContract.depositCardForUsername(tokenId, _username, msg.sender);
 
-        emit GiftCardCreated(tokenId, address(tiktokVaultContract), _amount, _token, _metadataURI, _message);
+        emit GiftCardCreated(tokenId, address(tiktokVaultContract), msg.sender, _amount, _token, _metadataURI, _message);
         emit GiftCardCreatedForTikTok(tokenId, _username, msg.sender, _amount, _token, _metadataURI, _message);
 
         return tokenId;
@@ -347,7 +428,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
         require(supportedTokens[_token], "unsupported token");
         require(_amount > 0, "amount=0");
 
-        require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "transferFrom failed");
+        _pullToken(_token, _amount);
 
         uint256 tokenId = nextTokenId++;
 
@@ -356,7 +437,7 @@ contract GiftCard is ERC721Enumerable, Ownable {
 
         instagramVaultContract.depositCardForUsername(tokenId, _username, msg.sender);
 
-        emit GiftCardCreated(tokenId, address(instagramVaultContract), _amount, _token, _metadataURI, _message);
+        emit GiftCardCreated(tokenId, address(instagramVaultContract), msg.sender, _amount, _token, _metadataURI, _message);
         emit GiftCardCreatedForInstagram(tokenId, _username, msg.sender, _amount, _token, _metadataURI, _message);
 
         return tokenId;
