@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
 import { Trophy, RefreshCw, Users, Copy, CheckCircle2, Search, Twitter, Zap, Wallet, TrendingUp, Twitch, Send } from 'lucide-react';
 import { CardHeader, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -135,7 +135,9 @@ export function Leaderboard() {
   const { address } = useAccount();
   const normalizedAccount = address?.toLowerCase() ?? null;
   const userEntryRef = useRef<HTMLDivElement>(null);
-  const hasScrolledToUser = useRef(false);
+  const autoScrollPendingRef = useRef(false);
+  const autoScrollAttemptsRef = useRef(0);
+  const MAX_AUTO_SCROLL_ATTEMPTS = 6;
 
   const loadEntries = useCallback(
     async (options?: { preserveData?: boolean; recalculate?: boolean }) => {
@@ -175,24 +177,15 @@ export function Leaderboard() {
     []
   );
 
-  const scrollToUserEntry = useCallback(() => {
-    if (userEntryRef.current) {
-      userEntryRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-      hasScrolledToUser.current = true;
-    } else {
-      setTimeout(() => {
-        if (userEntryRef.current) {
-          userEntryRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-          hasScrolledToUser.current = true;
-        }
-      }, 200);
+  const scrollToUserEntry = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (!userEntryRef.current) {
+      return false;
     }
+    userEntryRef.current.scrollIntoView({
+      behavior,
+      block: 'start',
+    });
+    return true;
   }, []);
 
   useEffect(() => {
@@ -202,33 +195,6 @@ export function Leaderboard() {
     }
   }, [hasFetchedOnce, loadEntries]);
 
-  useEffect(() => {
-    if (!normalizedAccount || !entries.length || loading || hasScrolledToUser.current) {
-      return;
-    }
-
-    const userIndex = entries.findIndex(
-      (entry) => entry.senderAddress?.toLowerCase() === normalizedAccount
-    );
-
-    if (userIndex === -1) {
-      hasScrolledToUser.current = true;
-      return;
-    }
-
-    const userPage = Math.floor(userIndex / ITEMS_PER_PAGE) + 1;
-
-    if (currentPage !== userPage) {
-      setCurrentPage(userPage);
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      scrollToUserEntry();
-    }, 200);
-
-    return () => clearTimeout(timeoutId);
-  }, [entries, normalizedAccount, loading, currentPage, scrollToUserEntry]);
 
   // Calculate global ranks based on full entries list (before filtering)
   // Ranks are calculated based on current sortBy to maintain consistency
@@ -429,6 +395,68 @@ export function Leaderboard() {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const displayedEntries = useMemo(() => filteredAndSortedEntries.slice(startIndex, endIndex), [filteredAndSortedEntries, startIndex, endIndex]);
 
+  const userIndex = useMemo(() => {
+    if (!normalizedAccount) return -1;
+    return filteredAndSortedEntries.findIndex(
+      (entry) => entry.senderAddress?.toLowerCase() === normalizedAccount
+    );
+  }, [filteredAndSortedEntries, normalizedAccount]);
+
+  const userPage = useMemo(() => {
+    if (userIndex === -1) return null;
+    return Math.floor(userIndex / ITEMS_PER_PAGE) + 1;
+  }, [userIndex]);
+
+  useEffect(() => {
+    if (loading || userPage === null) {
+      return;
+    }
+
+    autoScrollPendingRef.current = true;
+    autoScrollAttemptsRef.current = 0;
+
+    if (currentPage !== userPage) {
+      setCurrentPage(userPage);
+    }
+  }, [currentPage, loading, userPage]);
+
+  useLayoutEffect(() => {
+    if (
+      loading ||
+      userPage === null ||
+      currentPage !== userPage ||
+      !autoScrollPendingRef.current
+    ) {
+      return;
+    }
+
+    let timeoutId: number | undefined;
+
+    const tryScroll = () => {
+      const didScroll = scrollToUserEntry('smooth');
+      if (didScroll) {
+        autoScrollPendingRef.current = false;
+        return;
+      }
+
+      autoScrollAttemptsRef.current += 1;
+      if (autoScrollAttemptsRef.current < MAX_AUTO_SCROLL_ATTEMPTS) {
+        timeoutId = window.setTimeout(tryScroll, 200);
+      } else {
+        autoScrollPendingRef.current = false;
+      }
+    };
+
+    // Retry briefly until the row ref is ready to avoid missing the focus.
+    tryScroll();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [currentPage, loading, scrollToUserEntry, userPage, displayedEntries.length]);
+
   // Calculate pagination pages to display
   const paginationPages = useMemo(() => {
     const pages: (number | 'ellipsis')[] = [];
@@ -607,7 +635,8 @@ export function Leaderboard() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    hasScrolledToUser.current = false;
+    autoScrollPendingRef.current = true;
+    autoScrollAttemptsRef.current = 0;
     try {
       // Sync leaderboard_stats_graph_true from gift_cards_graph
       console.log('[Leaderboard] Syncing leaderboard_stats_graph_true...');
@@ -771,7 +800,7 @@ export function Leaderboard() {
           </div>
 
           {/* Statistics cards - dynamic based on metric view with smooth transition */}
-          <div className="relative min-h-[120px] overflow-hidden">
+          <div className="relative min-h-[60px] overflow-hidden">
             <div 
               key={metricView}
               className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500"
@@ -1079,7 +1108,7 @@ export function Leaderboard() {
                 <div
                   key={entry.id}
                   ref={isCurrentUser ? userEntryRef : null}
-                  className={`group flex flex-col gap-3 rounded-2xl border p-3 md:p-4 transition-all hover:shadow-lg hover:scale-[1.01] ${
+                  className={`group flex flex-col gap-3 rounded-2xl border p-3 md:p-4 transition-all hover:shadow-lg hover:scale-[1.01] scroll-mt-24 ${
                     isCurrentUser 
                       ? 'bg-[#f0f9ff] border-[#bae6fd] ring-2 ring-blue-200' 
                       : globalRank <= 3
