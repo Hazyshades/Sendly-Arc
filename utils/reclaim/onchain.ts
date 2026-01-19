@@ -41,7 +41,14 @@ export function toOnchainReclaimProof(proof: ReclaimProof): ReclaimOnchainProof 
     );
   }
 
-  if (!Array.isArray(proof.signatures) || proof.signatures.length === 0) {
+  const signatures =
+    Array.isArray(proof?.signatures) && proof.signatures.length > 0
+      ? proof.signatures
+      : Array.isArray(proof?.signedClaim?.signatures)
+        ? proof.signedClaim.signatures
+        : [];
+
+  if (signatures.length === 0) {
     throw new Error('Reclaim proof is missing signatures');
   }
 
@@ -58,7 +65,7 @@ export function toOnchainReclaimProof(proof: ReclaimProof): ReclaimOnchainProof 
         timestampS: toUint32(resolvedClaimData.timestampS, 'timestampS'),
         epoch: toUint32(resolvedClaimData.epoch, 'epoch'),
       },
-      signatures: proof.signatures.map((s) => String(s) as `0x${string}`),
+      signatures: signatures.map((s) => String(s) as `0x${string}`),
     },
   };
 }

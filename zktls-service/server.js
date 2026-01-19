@@ -32,12 +32,120 @@ const RECLAIM_APP_SECRET = process.env.RECLAIM_APP_SECRET;
 // Optional callback URL for server-to-server proof delivery
 const RECLAIM_APP_CALLBACK_URL = process.env.RECLAIM_APP_CALLBACK_URL; // e.g. https://your-domain.com/api/reclaim/callback
 
+// Privy (server-side OAuth token fetch)
+const PRIVY_APP_ID = process.env.PRIVY_APP_ID;
+const PRIVY_API_BASE_URL = process.env.PRIVY_API_BASE_URL || 'https://auth.privy.io';
+
+// Twitter OAuth (server-side code exchange)
+const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID;
+const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET;
+// Twitter OAuth 1.0a (API key/secret)
+const TWITTER_API_KEY = process.env.TWITTER_API_KEY;
+const TWITTER_API_SECRET = process.env.TWITTER_API_SECRET;
+
+const oauth1RequestSecrets = new Map();
+
+function percentEncode(value) {
+  return encodeURIComponent(value)
+    .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function buildOAuth1Header({ method, url, consumerKey, consumerSecret, token, tokenSecret, extraParams = {} }) {
+  const parsedUrl = new URL(url);
+  const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
+
+  const oauthParams = {
+    oauth_consumer_key: consumerKey,
+    oauth_nonce: crypto.randomBytes(16).toString('hex'),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_version: '1.0',
+  };
+
+  if (token) oauthParams.oauth_token = token;
+  Object.entries(extraParams).forEach(([key, value]) => {
+    if (value != null) {
+      oauthParams[key] = String(value);
+    }
+  });
+
+  const queryParams = [];
+  parsedUrl.searchParams.forEach((value, key) => {
+    queryParams.push([key, value]);
+  });
+
+  const allParams = [
+    ...queryParams,
+    ...Object.entries(oauthParams).filter(([key]) => key !== 'oauth_signature'),
+  ];
+
+  allParams.sort((a, b) => {
+    if (a[0] === b[0]) {
+      return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
+    }
+    return a[0] < b[0] ? -1 : 1;
+  });
+
+  const paramString = allParams
+    .map(([key, value]) => `${percentEncode(key)}=${percentEncode(value)}`)
+    .join('&');
+
+  const baseString = [
+    method.toUpperCase(),
+    percentEncode(baseUrl),
+    percentEncode(paramString),
+  ].join('&');
+
+  const signingKey = `${percentEncode(consumerSecret)}&${percentEncode(tokenSecret || '')}`;
+  const signature = crypto
+    .createHmac('sha1', signingKey)
+    .update(baseString)
+    .digest('base64');
+
+  oauthParams.oauth_signature = signature;
+
+  const header = 'OAuth ' + Object.keys(oauthParams)
+    .sort()
+    .map((key) => `${percentEncode(key)}="${percentEncode(oauthParams[key])}"`)
+    .join(', ');
+
+  return { header, oauthParams };
+}
+
 // Provider IDs (configure per env; twitter default from Reclaim Dev Tool)
 const RECLAIM_PROVIDER_ID_TWITTER =
   process.env.RECLAIM_PROVIDER_ID_TWITTER || 'e6fe962d-8b4e-4ce5-abcc-3d21c88bd64a';
 const RECLAIM_PROVIDER_ID_TELEGRAM = process.env.RECLAIM_PROVIDER_ID_TELEGRAM;
 const RECLAIM_PROVIDER_ID_INSTAGRAM = process.env.RECLAIM_PROVIDER_ID_INSTAGRAM;
 const RECLAIM_PROVIDER_ID_TIKTOK = process.env.RECLAIM_PROVIDER_ID_TIKTOK;
+
+async function fetchPrivyOAuthTokens(privyAccessToken) {
+  if (!PRIVY_APP_ID) {
+    throw new Error('Missing PRIVY_APP_ID');
+  }
+  const url = `${PRIVY_API_BASE_URL.replace(/\/$/, '')}/api/v1/users/me`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'privy-app-id': PRIVY_APP_ID,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${privyAccessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Privy /users/me failed: ${res.status} ${body}`);
+  }
+
+  const json = await res.json();
+  const oauthTokens = json?.oauth_tokens || json?.user?.oauth_tokens || null;
+  if (!oauthTokens) {
+    return [];
+  }
+  return Array.isArray(oauthTokens) ? oauthTokens : [oauthTokens];
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -267,6 +375,527 @@ app.post('/api/reclaim/verify', noAuth, async (req, res) => {
 });
 
 /**
+ * Reclaim zkFetch: generate frontend session signature (server-side).
+ * Docs: https://docs.reclaimprotocol.org/zkfetch/installation
+ */
+app.post('/api/reclaim/zkfetch/signature', noAuth, async (req, res) => {
+  try {
+    if (!RECLAIM_APP_ID || !RECLAIM_APP_SECRET) {
+      return res.status(500).json({
+        error: 'Reclaim is not configured on backend',
+        required: ['RECLAIM_APP_ID', 'RECLAIM_APP_SECRET'],
+      });
+    }
+
+    const { allowedUrls, expiresAt } = req.body || {};
+    if (!Array.isArray(allowedUrls) || allowedUrls.length === 0) {
+      return res.status(400).json({ error: 'Missing body.allowedUrls (array)' });
+    }
+
+    const sanitizedUrls = allowedUrls
+      .map((url) => String(url).trim())
+      .filter((url) => url.length > 0);
+
+    if (sanitizedUrls.length === 0) {
+      return res.status(400).json({ error: 'allowedUrls must contain at least one non-empty URL' });
+    }
+
+    const { generateSessionSignature } = await import('@reclaimprotocol/zk-fetch');
+    const signature = await generateSessionSignature({
+      applicationId: RECLAIM_APP_ID,
+      applicationSecret: RECLAIM_APP_SECRET,
+      allowedUrls: sanitizedUrls,
+      expiresAt: typeof expiresAt === 'number' ? expiresAt : undefined,
+    });
+
+    return res.json({ signature });
+  } catch (error) {
+    console.error('[Reclaim] zkFetch signature failed:', error);
+    return res.status(500).json({ error: error.message || 'Failed to generate zkFetch signature' });
+  }
+});
+
+/**
+ * Twitter OAuth: exchange authorization code for access token (server-side).
+ */
+app.post('/api/twitter/oauth/exchange', noAuth, async (req, res) => {
+  try {
+    if (!TWITTER_CLIENT_ID) {
+      return res.status(500).json({ error: 'Missing TWITTER_CLIENT_ID' });
+    }
+
+    const { code, redirectUri, codeVerifier } = req.body || {};
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Missing body.code (string)' });
+    }
+    if (!redirectUri || typeof redirectUri !== 'string') {
+      return res.status(400).json({ error: 'Missing body.redirectUri (string)' });
+    }
+
+    const params = new URLSearchParams();
+    params.set('grant_type', 'authorization_code');
+    params.set('client_id', TWITTER_CLIENT_ID);
+    params.set('code', code);
+    params.set('redirect_uri', redirectUri);
+    if (codeVerifier && typeof codeVerifier === 'string') {
+      params.set('code_verifier', codeVerifier);
+    }
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
+    };
+
+    if (TWITTER_CLIENT_SECRET) {
+      const basic = Buffer.from(`${TWITTER_CLIENT_ID}:${TWITTER_CLIENT_SECRET}`).toString('base64');
+      headers.Authorization = `Basic ${basic}`;
+    }
+
+    const tokenRes = await fetch('https://api.x.com/2/oauth2/token', {
+      method: 'POST',
+      headers,
+      body: params.toString(),
+    });
+
+    const bodyText = await tokenRes.text().catch(() => '');
+    if (!tokenRes.ok) {
+      console.error('[Twitter OAuth] token exchange failed:', {
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+      return res.status(tokenRes.status).json({
+        error: 'Twitter token exchange failed',
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+    }
+
+    let tokenJson;
+    try {
+      tokenJson = JSON.parse(bodyText);
+    } catch (parseError) {
+      return res.status(500).json({ error: 'Failed to parse Twitter token response' });
+    }
+
+    return res.json({
+      success: true,
+      accessToken: tokenJson.access_token,
+      refreshToken: tokenJson.refresh_token,
+      scope: tokenJson.scope,
+      tokenType: tokenJson.token_type,
+      expiresIn: tokenJson.expires_in,
+    });
+  } catch (error) {
+    console.error('[Twitter OAuth] exchange failed:', error);
+    return res.status(500).json({ error: error.message || 'Twitter OAuth exchange failed' });
+  }
+});
+
+/**
+ * Twitter OAuth 1.0a: request token
+ */
+app.post('/api/twitter/oauth1/request-token', noAuth, async (req, res) => {
+  try {
+    if (!TWITTER_API_KEY || !TWITTER_API_SECRET) {
+      return res.status(500).json({ error: 'Missing TWITTER_API_KEY or TWITTER_API_SECRET' });
+    }
+
+    const { callbackUrl } = req.body || {};
+    if (!callbackUrl || typeof callbackUrl !== 'string') {
+      return res.status(400).json({ error: 'Missing body.callbackUrl (string)' });
+    }
+
+    const url = 'https://api.x.com/oauth/request_token';
+    const { header } = buildOAuth1Header({
+      method: 'POST',
+      url,
+      consumerKey: TWITTER_API_KEY,
+      consumerSecret: TWITTER_API_SECRET,
+      extraParams: { oauth_callback: callbackUrl },
+    });
+
+    const tokenRes = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: header },
+    });
+
+    const bodyText = await tokenRes.text().catch(() => '');
+    if (!tokenRes.ok) {
+      console.error('[Twitter OAuth1] request token failed:', {
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+      return res.status(tokenRes.status).json({
+        error: 'Twitter OAuth1 request token failed',
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+    }
+
+    const params = new URLSearchParams(bodyText);
+    const oauthToken = params.get('oauth_token');
+    const oauthTokenSecret = params.get('oauth_token_secret');
+    if (!oauthToken || !oauthTokenSecret) {
+      return res.status(500).json({ error: 'Missing oauth_token in response' });
+    }
+
+    oauth1RequestSecrets.set(oauthToken, oauthTokenSecret);
+
+    return res.json({
+      success: true,
+      oauthToken,
+    });
+  } catch (error) {
+    console.error('[Twitter OAuth1] request token error:', error);
+    return res.status(500).json({ error: error.message || 'Twitter OAuth1 request token failed' });
+  }
+});
+
+/**
+ * Twitter OAuth 1.0a: access token exchange
+ */
+app.post('/api/twitter/oauth1/access-token', noAuth, async (req, res) => {
+  try {
+    if (!TWITTER_API_KEY || !TWITTER_API_SECRET) {
+      return res.status(500).json({ error: 'Missing TWITTER_API_KEY or TWITTER_API_SECRET' });
+    }
+
+    const { oauthToken, oauthVerifier } = req.body || {};
+    if (!oauthToken || typeof oauthToken !== 'string') {
+      return res.status(400).json({ error: 'Missing body.oauthToken (string)' });
+    }
+    if (!oauthVerifier || typeof oauthVerifier !== 'string') {
+      return res.status(400).json({ error: 'Missing body.oauthVerifier (string)' });
+    }
+
+    const tokenSecret = oauth1RequestSecrets.get(oauthToken);
+    if (!tokenSecret) {
+      return res.status(400).json({ error: 'Unknown oauthToken; restart OAuth1 flow' });
+    }
+
+    const url = 'https://api.x.com/oauth/access_token';
+    const { header } = buildOAuth1Header({
+      method: 'POST',
+      url,
+      consumerKey: TWITTER_API_KEY,
+      consumerSecret: TWITTER_API_SECRET,
+      token: oauthToken,
+      tokenSecret,
+      extraParams: { oauth_verifier: oauthVerifier },
+    });
+
+    const bodyParams = new URLSearchParams();
+    bodyParams.set('oauth_verifier', oauthVerifier);
+
+    const tokenRes = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: header,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: bodyParams.toString(),
+    });
+
+    const bodyText = await tokenRes.text().catch(() => '');
+    if (!tokenRes.ok) {
+      console.error('[Twitter OAuth1] access token failed:', {
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+      return res.status(tokenRes.status).json({
+        error: 'Twitter OAuth1 access token failed',
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+    }
+
+    oauth1RequestSecrets.delete(oauthToken);
+
+    const params = new URLSearchParams(bodyText);
+    return res.json({
+      success: true,
+      oauthToken: params.get('oauth_token'),
+      oauthTokenSecret: params.get('oauth_token_secret'),
+      userId: params.get('user_id'),
+      screenName: params.get('screen_name'),
+    });
+  } catch (error) {
+    console.error('[Twitter OAuth1] access token error:', error);
+    return res.status(500).json({ error: error.message || 'Twitter OAuth1 access token failed' });
+  }
+});
+
+/**
+ * Twitter diagnostics: check access to user-context v2 endpoints.
+ */
+app.post('/api/twitter/diagnose', noAuth, async (req, res) => {
+  try {
+    const { accessToken, username } = req.body || {};
+    if (!accessToken || typeof accessToken !== 'string') {
+      return res.status(400).json({ error: 'Missing body.accessToken (string)' });
+    }
+
+    const diagnostics = {};
+
+    const userHeaders = { Authorization: `Bearer ${accessToken}` };
+    const meUrl = 'https://api.x.com/2/users/me?user.fields=username';
+    const meRes = await fetch(meUrl, { method: 'GET', headers: userHeaders });
+    const meBody = await meRes.text().catch(() => '');
+    diagnostics.userContextMe = {
+      status: meRes.status,
+      body: meBody.slice(0, 2000),
+      headers: {
+        accessLevel: meRes.headers.get('x-access-level') || null,
+        requestId: meRes.headers.get('x-request-id') || null,
+        wwwAuthenticate: meRes.headers.get('www-authenticate') || null,
+      },
+    };
+
+    if (username && typeof username === 'string') {
+      const safeUsername = encodeURIComponent(username);
+      const byUsernameUrl = `https://api.x.com/2/users/by/username/${safeUsername}`;
+      const userByRes = await fetch(byUsernameUrl, { method: 'GET', headers: userHeaders });
+      const userByBody = await userByRes.text().catch(() => '');
+      diagnostics.userContextByUsername = {
+        status: userByRes.status,
+        body: userByBody.slice(0, 2000),
+        headers: {
+          accessLevel: userByRes.headers.get('x-access-level') || null,
+          requestId: userByRes.headers.get('x-request-id') || null,
+          wwwAuthenticate: userByRes.headers.get('www-authenticate') || null,
+        },
+      };
+    }
+
+    if (TWITTER_CLIENT_ID && TWITTER_CLIENT_SECRET && username && typeof username === 'string') {
+      const params = new URLSearchParams();
+      params.set('grant_type', 'client_credentials');
+
+      const basic = Buffer.from(`${TWITTER_CLIENT_ID}:${TWITTER_CLIENT_SECRET}`).toString('base64');
+      const appTokenRes = await fetch('https://api.x.com/2/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+          'Authorization': `Basic ${basic}`,
+        },
+        body: params.toString(),
+      });
+      const appTokenBody = await appTokenRes.text().catch(() => '');
+
+      let appAccessToken = '';
+      try {
+        const parsed = JSON.parse(appTokenBody);
+        appAccessToken = parsed?.access_token || '';
+      } catch (_) {
+        appAccessToken = '';
+      }
+
+      diagnostics.appOnlyToken = {
+        status: appTokenRes.status,
+        body: appTokenBody.slice(0, 2000),
+      };
+
+      if (appAccessToken) {
+        const safeUsername = encodeURIComponent(username);
+        const byUsernameUrl = `https://api.x.com/2/users/by/username/${safeUsername}`;
+        const appByRes = await fetch(byUsernameUrl, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${appAccessToken}` },
+        });
+        const appByBody = await appByRes.text().catch(() => '');
+        diagnostics.appOnlyByUsername = {
+          status: appByRes.status,
+          body: appByBody.slice(0, 2000),
+          headers: {
+            accessLevel: appByRes.headers.get('x-access-level') || null,
+            requestId: appByRes.headers.get('x-request-id') || null,
+            wwwAuthenticate: appByRes.headers.get('www-authenticate') || null,
+          },
+        };
+      }
+    }
+
+    console.log('[Twitter Diagnose] result:', JSON.stringify(diagnostics, null, 2));
+    return res.json({ ok: true, diagnostics });
+  } catch (error) {
+    console.error('[Twitter Diagnose] failed:', error);
+    return res.status(500).json({ error: error.message || 'Twitter diagnose failed' });
+  }
+});
+
+/**
+ * Reclaim zkFetch: generate proof on backend (browser-safe).
+ * Avoids .node/native dependencies in frontend bundlers.
+ */
+app.post('/api/reclaim/zkfetch/prove', noAuth, async (req, res) => {
+  try {
+    if (!RECLAIM_APP_ID || !RECLAIM_APP_SECRET) {
+      return res.status(500).json({
+        error: 'Reclaim is not configured on backend',
+        required: ['RECLAIM_APP_ID', 'RECLAIM_APP_SECRET'],
+      });
+    }
+
+    const { requestUrl, accessToken, platform, username, paymentId, recipient, responseMatches, oauth1 } = req.body || {};
+    if (!requestUrl || typeof requestUrl !== 'string') {
+      return res.status(400).json({ error: 'Missing body.requestUrl (string)' });
+    }
+    if (!recipient || typeof recipient !== 'string') {
+      return res.status(400).json({ error: 'Missing body.recipient (string)' });
+    }
+
+    const oauth1Token = oauth1?.token;
+    const oauth1TokenSecret = oauth1?.tokenSecret;
+    const useOAuth1 = typeof oauth1Token === 'string' && typeof oauth1TokenSecret === 'string';
+
+    let effectiveAccessToken = typeof accessToken === 'string' ? accessToken : '';
+    if (!effectiveAccessToken) {
+      const authHeader = req.headers['authorization'];
+      if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const privyAccessToken = authHeader.slice('Bearer '.length).trim();
+        if (!privyAccessToken) {
+          return res.status(401).json({ error: 'Missing Privy access token' });
+        }
+
+        try {
+          const oauthTokens = await fetchPrivyOAuthTokens(privyAccessToken);
+          const twitterToken =
+            oauthTokens.find((t) => t?.provider === 'twitter' || t?.provider === 'twitter_oauth') || oauthTokens[0];
+          effectiveAccessToken = twitterToken?.access_token || '';
+        } catch (privyError) {
+          console.error('[Reclaim] Failed to fetch Privy OAuth tokens:', privyError);
+          return res.status(401).json({ error: 'Privy OAuth token retrieval failed' });
+        }
+      }
+    }
+
+    if (!effectiveAccessToken && !useOAuth1) {
+      return res.status(401).json({ error: 'Missing Twitter OAuth access token' });
+    }
+
+    const effectiveRequestUrl =
+      requestUrl ||
+      (useOAuth1
+        ? 'https://api.x.com/1.1/account/verify_credentials.json?include_email=false&skip_status=true'
+        : 'https://api.x.com/2/users/me?user.fields=username');
+
+    const allowedUrls = [effectiveRequestUrl];
+    const contextMessage = JSON.stringify({
+      platform,
+      username,
+      paymentId,
+      recipient,
+    });
+
+    // Preflight check: verify Twitter token before invoking zkFetch
+    try {
+      let preflightHeaders = {
+        accept: 'application/json',
+      };
+      if (useOAuth1) {
+        const { header } = buildOAuth1Header({
+          method: 'GET',
+          url: effectiveRequestUrl,
+          consumerKey: TWITTER_API_KEY,
+          consumerSecret: TWITTER_API_SECRET,
+          token: oauth1Token,
+          tokenSecret: oauth1TokenSecret,
+        });
+        preflightHeaders.Authorization = header;
+      } else {
+        preflightHeaders.Authorization = `Bearer ${effectiveAccessToken}`;
+      }
+
+      const preflightRes = await fetch(effectiveRequestUrl, {
+        method: 'GET',
+        headers: preflightHeaders,
+      });
+      if (!preflightRes.ok) {
+        const body = await preflightRes.text().catch(() => '');
+        const headers = {
+          accessLevel: preflightRes.headers.get('x-access-level') || null,
+          rateLimitRemaining: preflightRes.headers.get('x-rate-limit-remaining') || null,
+          rateLimitReset: preflightRes.headers.get('x-rate-limit-reset') || null,
+          requestId: preflightRes.headers.get('x-request-id') || null,
+          wwwAuthenticate: preflightRes.headers.get('www-authenticate') || null,
+        };
+        console.error('[Reclaim] Twitter preflight error:', {
+          status: preflightRes.status,
+          headers,
+          body: body.slice(0, 1000),
+        });
+        return res.status(preflightRes.status).json({
+          error: 'Twitter API returned an error for provided access token',
+          status: preflightRes.status,
+          headers,
+          body: body.slice(0, 1000),
+        });
+      }
+    } catch (preflightError) {
+      console.error('[Reclaim] Twitter preflight failed:', preflightError);
+      return res.status(502).json({
+        error: 'Failed to validate Twitter access token',
+      });
+    }
+
+    const { generateSessionSignature, ReclaimClient } = await import('@reclaimprotocol/zk-fetch');
+    const signature = await generateSessionSignature({
+      applicationId: RECLAIM_APP_ID,
+      applicationSecret: RECLAIM_APP_SECRET,
+      allowedUrls,
+    });
+
+    const client = new ReclaimClient(RECLAIM_APP_ID, signature);
+    let requestHeaders = { accept: 'application/json' };
+    let proofHeaders = {};
+    if (useOAuth1) {
+      const { header } = buildOAuth1Header({
+        method: 'GET',
+        url: effectiveRequestUrl,
+        consumerKey: TWITTER_API_KEY,
+        consumerSecret: TWITTER_API_SECRET,
+        token: oauth1Token,
+        tokenSecret: oauth1TokenSecret,
+      });
+      proofHeaders = { Authorization: header };
+    } else {
+      proofHeaders = { Authorization: `Bearer ${effectiveAccessToken}` };
+    }
+
+    const proof = await client.zkFetch(
+      effectiveRequestUrl,
+      {
+        method: 'GET',
+        headers: requestHeaders,
+        context: {
+          contextAddress: recipient,
+          contextMessage,
+        },
+      },
+      {
+        headers: proofHeaders,
+        responseMatches: Array.isArray(responseMatches) && responseMatches.length > 0
+          ? responseMatches
+          : [
+              {
+                type: 'regex',
+                value: useOAuth1
+                  ? '"screen_name":"(?<username>[^"]+)"'
+                  : '"username":"(?<username>[^"]+)"',
+              },
+            ],
+      }
+    );
+
+    return res.json({ proof });
+  } catch (error) {
+    console.error('[Reclaim] zkFetch prove failed:', error);
+    return res.status(500).json({ error: error.message || 'Failed to generate zkFetch proof' });
+  }
+});
+
+/**
  * Reclaim: optional server-to-server callback endpoint.
  * If you enable `setAppCallbackUrl` on the request, Reclaim will POST proofs here.
  */
@@ -487,6 +1116,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   GET  /api/health`);
   console.log(`   GET  /api/reclaim/config`);
   console.log(`   POST /api/reclaim/verify`);
+  console.log(`   POST /api/reclaim/zkfetch/signature`);
+  console.log(`   POST /api/reclaim/zkfetch/prove`);
+  console.log(`   POST /api/twitter/oauth/exchange`);
+  console.log(`   POST /api/twitter/oauth1/request-token`);
+  console.log(`   POST /api/twitter/oauth1/access-token`);
+  console.log(`   POST /api/twitter/diagnose`);
   console.log(`   POST /api/reclaim/callback (optional)`);
   console.log(`   POST /api/proof/generate`);
 });

@@ -53,3 +53,28 @@ export async function verifyReclaimProofs(proofs: ReclaimProof[] | any): Promise
   return (await res.json()) as { isValid: boolean; context: any };
 }
 
+export async function fetchZkFetchSignature(input: {
+  allowedUrls: string[];
+  expiresAt?: number;
+}): Promise<string> {
+  const baseUrl = getReclaimApiBaseUrl().replace(/\/$/, '');
+  const res = await fetch(`${baseUrl}/api/reclaim/zkfetch/signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      allowedUrls: input.allowedUrls,
+      expiresAt: input.expiresAt,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Reclaim zkFetch signature failed: ${res.status} ${text}`);
+  }
+
+  const json = (await res.json()) as { signature?: string };
+  if (!json.signature) {
+    throw new Error('Reclaim zkFetch signature response is missing signature');
+  }
+  return json.signature;
+}

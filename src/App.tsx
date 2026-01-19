@@ -15,6 +15,7 @@ import { BridgeRoute } from '../pages/BridgeRoute';
 import { GatewayRoute } from '../pages/GatewayRoute';
 import { TwitchCallbackRoute } from '../pages/TwitchCallbackRoute';
 import { TwitterCallbackRoute } from '../pages/TwitterCallbackRoute';
+import { TwitterOAuth1CallbackRoute } from '../pages/TwitterOAuth1CallbackRoute';
 import { CircleMintRoute } from '../pages/CircleMintRoute';
 import { LeaderboardRoute } from '../pages/LeaderboardRoute';
 import { BlogRoute } from '../pages/BlogRoute';
@@ -62,6 +63,7 @@ function AppRouter() {
       <Route path="/gateway" element={<GatewayRoute />} />
       <Route path="/auth/twitch/callback" element={<TwitchCallbackRoute />} />
       <Route path="/auth/twitter/callback" element={<TwitterCallbackRoute />} />
+      <Route path="/auth/twitter-oauth1/callback" element={<TwitterOAuth1CallbackRoute />} />
       <Route path="/reclaim/callback" element={<ReclaimCallbackRoute />} />
       <Route path="/zksend" element={<ZkSendRoute />} />
       <Route path="/Circle-Mint" element={<CircleMintRoute />} />
