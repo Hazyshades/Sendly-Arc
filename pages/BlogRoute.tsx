@@ -182,40 +182,17 @@ export function BlogRoute() {
           </div>
         )}
 
-        {/* CTA Section */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-3xl p-12 text-center text-white shadow-2xl">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Stay Updated
-          </h2>
-          <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-            Subscribe to our updates to be the first to know about new features and capabilities of Sendly
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href="https://x.com/Leonissx"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white text-purple-600 hover:bg-purple-50 px-8 py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
-            >
-              Follow on Twitter
-              <ArrowRight className="w-5 h-5" />
-            </a>
-          </div>
-        </div>
+  
+       
       </main>
 
       {/* Simple Footer */}
       <footer className="bg-white border-t border-gray-200 mt-16">
         <div className="container mx-auto px-6 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center gap-3 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-blue-400 rounded-lg flex items-center justify-center">
-                <Gift className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-gray-900 font-semibold">Sendly</span>
-            </div>
+            
             <div className="text-sm text-gray-500">
-              © 2025 Sendly. All rights reserved.
+              © 2026 Sendly. All rights reserved.
             </div>
           </div>
         </div>
