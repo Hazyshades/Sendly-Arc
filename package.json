@@ -51,6 +51,8 @@
     "@reclaimprotocol/js-sdk": "^4.7.1",
     "@reclaimprotocol/verifier-solidity-sdk": "^1.0.4",
     "@reclaimprotocol/zk-fetch": "^0.8.0",
+    "@semaphore-protocol/contracts": "^4.14.1",
+    "@zk-kit/lean-imt.sol": "2.0.1",
     "@solana/kit": "^3.0.3",
     "@supabase/supabase-js": "^2.39.0",
     "@tanstack/react-query": "^5.85.0",

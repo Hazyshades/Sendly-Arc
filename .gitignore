@@ -54,6 +54,7 @@ tmp/
 /artifacts/
 /cache/
 /contracts/
+/contracts_tempo
 .cursorignore
 /.git backup/
 /supabase/
