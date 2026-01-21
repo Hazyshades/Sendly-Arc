@@ -35,6 +35,11 @@ export function PendingPayments() {
     'http://localhost:3001';
 
   const [platform, setPlatform] = useState<'twitter' | 'telegram' | 'instagram' | 'tiktok'>('twitter');
+  const reclaimMinSignaturesRaw = Number(import.meta.env.VITE_RECLAIM_MIN_SIGNATURES ?? 2);
+  const reclaimMinSignatures =
+    Number.isFinite(reclaimMinSignaturesRaw) && reclaimMinSignaturesRaw > 0
+      ? Math.floor(reclaimMinSignaturesRaw)
+      : 2;
   const [username, setUsername] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [privyAccessToken, setPrivyAccessToken] = useState<string | null>(null);
@@ -432,8 +437,15 @@ export function PendingPayments() {
         (Array.isArray((proofsArray[0] as any)?.signedClaim?.signatures) &&
           (proofsArray[0] as any).signedClaim.signatures) ||
         [];
-      if (signatures.length < 2) {
-        throw new Error(`Reclaim proof signatures are incomplete (got ${signatures.length}). Regenerate proof.`);
+      console.log('[zkSEND] Reclaim proof signatures length:', signatures.length, {
+        epoch: (proofsArray[0] as any)?.claimData?.epoch ?? (proofsArray[0] as any)?.epoch,
+        provider: (proofsArray[0] as any)?.claimData?.provider ?? (proofsArray[0] as any)?.provider,
+        taskId: (proofsArray[0] as any)?.taskId ?? null,
+      });
+      if (signatures.length < reclaimMinSignatures) {
+        throw new Error(
+          `Reclaim proof signatures are incomplete (got ${signatures.length}, need ${reclaimMinSignatures}). Regenerate proof.`
+        );
       }
 
       const verify = await verifyReclaimProofs(proofsArray);
