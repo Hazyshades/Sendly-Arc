@@ -14,20 +14,18 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
 
 import type { ZkSendPlatform } from './ZkSendPanel';
 
 type Props = {
   platform: ZkSendPlatform;
-  onPlatformChange: (platform: ZkSendPlatform) => void;
   username: string;
-  onUsernameChange: (username: string) => void;
+  isIdentityValid: boolean;
   onGoToPending?: () => void;
 };
 
-export function SendPaymentForm({ platform, onPlatformChange, username, onUsernameChange, onGoToPending }: Props) {
+export function SendPaymentForm({ platform, username, isIdentityValid, onGoToPending }: Props) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
 
@@ -89,78 +87,58 @@ export function SendPaymentForm({ platform, onPlatformChange, username, onUserna
     }
   };
 
+  const canSubmit = isIdentityValid && amount && Number(amount) > 0 && isConnected && !!address && !!walletClient;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Create payment</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <Label>Amount</Label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                inputMode="decimal"
-                placeholder="0.00"
-                aria-label="Amount"
-                className="sm:flex-1"
-              />
-              <ToggleGroup
-                type="single"
-                value={tokenType}
-                onValueChange={(v) => (v ? setTokenType(v as 'USDC' | 'EURC') : null)}
-                variant="outline"
-                className="w-full sm:w-[220px]"
-                aria-label="Token"
-              >
-                <ToggleGroupItem value="USDC" aria-label="USDC">
-                  USDC
-                </ToggleGroupItem>
-                <ToggleGroupItem value="EURC" aria-label="EURC">
-                  EURC
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-            <div className="text-xs text-muted-foreground">Example: 10 {tokenType}</div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Platform</Label>
-            <Select value={platform} onValueChange={(v) => onPlatformChange(v as ZkSendPlatform)}>
-              <SelectTrigger aria-label="Platform">
-                <SelectValue placeholder="Select platform" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="twitter">Twitter / X</SelectItem>
-                <SelectItem value="twitch">Twitch</SelectItem>
-                <SelectItem value="github">GitHub</SelectItem>
-                <SelectItem value="instagram">Instagram</SelectItem>
-                <SelectItem value="tiktok">TikTok</SelectItem>
-                <SelectItem value="gmail">Gmail</SelectItem>
-                <SelectItem value="linkedin">LinkedIn</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Username</Label>
+        <div className="space-y-2">
+          <Label>Amount</Label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input
-              value={username}
-              onChange={(e) => onUsernameChange(e.target.value)}
-              placeholder="@username"
-              aria-label="Username"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              inputMode="decimal"
+              placeholder="0.00"
+              aria-label="Amount"
+              className="sm:flex-1"
+              disabled={!isIdentityValid}
             />
+            <ToggleGroup
+              type="single"
+              value={tokenType}
+              onValueChange={(v) => (v ? setTokenType(v as 'USDC' | 'EURC') : null)}
+              variant="outline"
+              className="w-full sm:w-[220px]"
+              aria-label="Token"
+              disabled={!isIdentityValid}
+            >
+              <ToggleGroupItem value="USDC" aria-label="USDC">
+                USDC
+              </ToggleGroupItem>
+              <ToggleGroupItem value="EURC" aria-label="EURC">
+                EURC
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
+          <div className="text-xs text-muted-foreground">Example: 10 {tokenType}</div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {!isIdentityValid && (
+          <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+            Please select platform and enter username above to create a payment
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
           <Button
             onClick={onSubmit}
-            disabled={loading}
+            disabled={!canSubmit || loading}
             size="lg"
-            className="w-full sm:w-auto bg-emerald-600 text-white hover:bg-emerald-600/90"
+            className="w-full sm:w-auto bg-emerald-600 text-white hover:bg-emerald-600/90 disabled:opacity-50"
           >
             {loading ? 'Creating...' : 'Create payment'}
           </Button>

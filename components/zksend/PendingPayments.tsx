@@ -18,8 +18,6 @@ import { usePrivySafe } from '../../utils/privy/usePrivySafe';
 
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
 
 import type { ZkSendPlatform } from './ZkSendPanel';
 
@@ -37,10 +35,10 @@ type Props = {
   platform: ZkSendPlatform;
   username: string;
   isActive?: boolean;
-  onEditIdentity?: () => void;
+  isIdentityValid?: boolean;
 };
 
-export function PendingPayments({ platform, username, isActive, onEditIdentity }: Props) {
+export function PendingPayments({ platform, username, isActive, isIdentityValid = false }: Props) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { authenticated, getAccessToken } = usePrivySafe();
@@ -63,7 +61,6 @@ export function PendingPayments({ platform, username, isActive, onEditIdentity }
   const [reclaimProofs, setReclaimProofs] = useState<ReclaimProof[] | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     if (accessToken) return;
@@ -691,19 +688,7 @@ export function PendingPayments({ platform, username, isActive, onEditIdentity }
         <CardTitle>Connections & pending</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-xl border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">Identity</div>
-            <div className="text-xs text-muted-foreground">
-              {platform} · {username || '— enter username in Create tab'}
-            </div>
-          </div>
-          {onEditIdentity ? (
-            <Button type="button" variant="outline" onClick={onEditIdentity} className="w-full sm:w-auto">
-              Edit
-            </Button>
-          ) : null}
-        </div>
+
 
         {platform === 'twitter' ? (
           <div className="space-y-3">
@@ -711,7 +696,7 @@ export function PendingPayments({ platform, username, isActive, onEditIdentity }
               type="button"
               size="lg"
               onClick={connectTwitter}
-              disabled={connectingTwitter}
+              disabled={connectingTwitter || !isIdentityValid}
               className="w-full"
             >
               {connectingTwitter ? 'Connecting...' : accessToken ? 'Reconnect Twitter / X' : 'Connect Twitter / X'}
@@ -725,31 +710,6 @@ export function PendingPayments({ platform, username, isActive, onEditIdentity }
                 </Button>
               </div>
             ) : null}
-
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowAdvanced((v) => !v)}
-              className="w-full sm:w-auto"
-            >
-              {showAdvanced ? 'Hide advanced' : 'Advanced'}
-            </Button>
-
-            {showAdvanced ? (
-              <div className="space-y-2 rounded-xl border bg-background p-3">
-                <Label>Access token (manual)</Label>
-                <Input
-                  value={accessToken}
-                  onChange={(e) => setAccessToken(e.target.value)}
-                  placeholder="Will be kept only in your browser"
-                  type="password"
-                  aria-label="Twitter access token"
-                />
-                <div className="text-xs text-muted-foreground">
-                  Used for zkFetch web-proof. Prefer “Connect Twitter / X” above.
-                </div>
-              </div>
-            ) : null}
           </div>
         ) : platform === 'twitch' ? (
           <div className="space-y-3">
@@ -757,7 +717,7 @@ export function PendingPayments({ platform, username, isActive, onEditIdentity }
               type="button"
               size="lg"
               onClick={connectTwitch}
-              disabled={connectingTwitch}
+              disabled={connectingTwitch || !isIdentityValid}
               className="w-full"
             >
               {connectingTwitch ? 'Connecting...' : twitchAccessToken ? 'Reconnect Twitch' : 'Connect Twitch'}
@@ -779,7 +739,12 @@ export function PendingPayments({ platform, username, isActive, onEditIdentity }
               For this platform you’ll generate a Reclaim proof (no OAuth needed).
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" onClick={startReclaimFlow} disabled={proofLoading}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={startReclaimFlow}
+                disabled={proofLoading || !isIdentityValid}
+              >
                 {proofLoading ? 'Generating...' : reclaimProofs?.length ? 'Regenerate proof' : 'Generate proof'}
               </Button>
               {reclaimProofs?.length ? <div className="text-xs text-muted-foreground self-center">Proof ready</div> : null}
@@ -792,7 +757,13 @@ export function PendingPayments({ platform, username, isActive, onEditIdentity }
           <div className="text-xs text-muted-foreground">
             {isActive ? 'Pending payments auto-load when this tab opens.' : 'Open this tab to auto-load pending payments.'}
           </div>
-          <Button type="button" variant="outline" onClick={loadPending} disabled={loadingList} className="w-full sm:w-auto">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadPending}
+            disabled={loadingList || !isIdentityValid}
+            className="w-full sm:w-auto"
+          >
             {loadingList ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
