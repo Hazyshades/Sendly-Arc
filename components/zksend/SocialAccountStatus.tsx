@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useTwitterConnection } from '../../hooks/useTwitterConnection';
 import { useTwitchConnection } from '../../hooks/useTwitchConnection';
+import { useGmailConnection } from '../../hooks/useGmailConnection';
 import { useZkSendContext } from '../../contexts/ZkSendContext';
 import { PlatformSelectModal } from './PlatformSelectModal';
 import {
@@ -38,18 +39,19 @@ const platformLabels: Record<ZkSendPlatform, string> = {
   gmail: 'Gmail',
 };
 
-const platformsRequiringOAuth: ZkSendPlatform[] = ['twitter', 'twitch'];
+const platformsRequiringOAuth: ZkSendPlatform[] = ['twitter', 'twitch', 'gmail'];
 
 export function SocialAccountStatus() {
   const { platform, setPlatform, setActiveTab } = useZkSendContext();
   const { accessToken: twitterToken, isConnected: isTwitterConnected, clearing: clearingTwitter, disconnect: disconnectTwitter } = useTwitterConnection();
   const { isConnected: isTwitchConnected, clearing: clearingTwitch, disconnect: disconnectTwitch } = useTwitchConnection();
+  const { isConnected: isGmailConnected, clearing: clearingGmail, disconnect: disconnectGmail } = useGmailConnection();
   const [username, setUsername] = useState<string | null>(null);
   const [loadingUsername, setLoadingUsername] = useState(false);
   const [showPlatformModal, setShowPlatformModal] = useState(false);
   const navigate = useNavigate();
 
-  const isConnected = platform === 'twitter' ? isTwitterConnected : platform === 'twitch' ? isTwitchConnected : true; // Reclaim platforms don't need OAuth
+  const isConnected = platform === 'twitter' ? isTwitterConnected : platform === 'twitch' ? isTwitchConnected : platform === 'gmail' ? isGmailConnected : true; // Reclaim platforms don't need OAuth
   const needsConnection = platformsRequiringOAuth.includes(platform) && !isConnected;
 
   useEffect(() => {
@@ -86,6 +88,8 @@ export function SocialAccountStatus() {
       disconnectTwitter();
     } else if (platform === 'twitch') {
       disconnectTwitch();
+    } else if (platform === 'gmail') {
+      disconnectGmail();
     }
   };
 
@@ -97,7 +101,7 @@ export function SocialAccountStatus() {
 
   const PlatformIcon = platformIcons[platform];
   const platformLabel = platformLabels[platform];
-  const clearing = platform === 'twitter' ? clearingTwitter : platform === 'twitch' ? clearingTwitch : false;
+  const clearing = platform === 'twitter' ? clearingTwitter : platform === 'twitch' ? clearingTwitch : platform === 'gmail' ? clearingGmail : false;
 
   const handleRefreshPending = () => {
     navigate('/zksend');
@@ -158,6 +162,7 @@ export function SocialAccountStatus() {
     if (platform === 'github') return 'bg-gray-800';
     if (platform === 'instagram') return 'bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500';
     if (platform === 'linkedin') return 'bg-blue-600';
+    if (platform === 'gmail') return 'bg-red-600';
     return 'bg-gray-600';
   };
 

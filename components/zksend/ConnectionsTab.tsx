@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { useZkSendContext } from '../../contexts/ZkSendContext';
 import { useTwitterConnection } from '../../hooks/useTwitterConnection';
 import { useTwitchConnection } from '../../hooks/useTwitchConnection';
+import { useGmailConnection } from '../../hooks/useGmailConnection';
 import { fetchReclaimProofRequestConfig } from '../../utils/reclaim/api';
 import { normalizeSocialUsername } from '../../utils/reclaim/identity';
 import { PlatformSelectModal } from './PlatformSelectModal';
@@ -36,7 +37,7 @@ const platformLabels: Record<ZkSendPlatform, string> = {
   gmail: 'Gmail',
 };
 
-const platformsRequiringOAuth: ZkSendPlatform[] = ['twitter', 'twitch'];
+const platformsRequiringOAuth: ZkSendPlatform[] = ['twitter', 'twitch', 'gmail'];
 
 function normalizeProofs(proof: unknown): ReclaimProof[] {
   if (typeof proof === 'string') {
@@ -60,15 +61,16 @@ export function ConnectionsTab({ username, isIdentityValid }: Props) {
   const { address } = useAccount();
   const { isConnected: isTwitterConnected, connecting: connectingTwitter, clearing: clearingTwitter, connect: connectTwitter, disconnect: disconnectTwitter } = useTwitterConnection();
   const { isConnected: isTwitchConnected, connecting: connectingTwitch, clearing: clearingTwitch, connect: connectTwitch, disconnect: disconnectTwitch } = useTwitchConnection();
+  const { isConnected: isGmailConnected, connecting: connectingGmail, clearing: clearingGmail, connect: connectGmail, disconnect: disconnectGmail } = useGmailConnection();
   const [showPlatformModal, setShowPlatformModal] = useState(false);
   const [proofLoading, setProofLoading] = useState(false);
 
-  const isConnected = platform === 'twitter' ? isTwitterConnected : platform === 'twitch' ? isTwitchConnected : true;
+  const isConnected = platform === 'twitter' ? isTwitterConnected : platform === 'twitch' ? isTwitchConnected : platform === 'gmail' ? isGmailConnected : true;
   const needsOAuth = platformsRequiringOAuth.includes(platform);
   const PlatformIcon = platformIcons[platform];
   const platformLabel = platformLabels[platform];
-  const connecting = platform === 'twitter' ? connectingTwitter : platform === 'twitch' ? connectingTwitch : false;
-  const clearing = platform === 'twitter' ? clearingTwitter : platform === 'twitch' ? clearingTwitch : false;
+  const connecting = platform === 'twitter' ? connectingTwitter : platform === 'twitch' ? connectingTwitch : platform === 'gmail' ? connectingGmail : false;
+  const clearing = platform === 'twitter' ? clearingTwitter : platform === 'twitch' ? clearingTwitch : platform === 'gmail' ? clearingGmail : false;
 
   const handleConnect = async () => {
     try {
@@ -76,6 +78,8 @@ export function ConnectionsTab({ username, isIdentityValid }: Props) {
         await connectTwitter();
       } else if (platform === 'twitch') {
         await connectTwitch();
+      } else if (platform === 'gmail') {
+        await connectGmail();
       }
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('refresh-pending-payments'));
@@ -91,6 +95,8 @@ export function ConnectionsTab({ username, isIdentityValid }: Props) {
       disconnectTwitter();
     } else if (platform === 'twitch') {
       disconnectTwitch();
+    } else if (platform === 'gmail') {
+      disconnectGmail();
     }
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('identity-updated'));

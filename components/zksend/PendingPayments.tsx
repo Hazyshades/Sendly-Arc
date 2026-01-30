@@ -26,6 +26,7 @@ import { connectTwitch, clearTwitchToken } from './Oauth/twitch';
 import { connectGithub, clearGithubToken } from './Oauth/github';
 import { connectInstagram, clearInstagramToken } from './Oauth/instagram';
 import { connectTiktok, clearTiktokToken } from './Oauth/tiktok';
+import { connectGmail, clearGmailToken } from './Oauth/gmail';
 
 type PaymentRow = {
   paymentId: string;
@@ -67,12 +68,14 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
   const [githubAccessToken, setGithubAccessToken] = useState('');
   const [instagramAccessToken, setInstagramAccessToken] = useState('');
   const [tiktokAccessToken, setTiktokAccessToken] = useState('');
+  const [gmailAccessToken, setGmailAccessToken] = useState('');
   const [privyAccessToken, setPrivyAccessToken] = useState<string | null>(null);
   const [connectingTwitter, setConnectingTwitter] = useState(false);
   const [connectingTwitch, setConnectingTwitch] = useState(false);
   const [connectingGithub, setConnectingGithub] = useState(false);
   const [connectingInstagram, setConnectingInstagram] = useState(false);
   const [connectingTiktok, setConnectingTiktok] = useState(false);
+  const [connectingGmail, setConnectingGmail] = useState(false);
   const [clearingToken, setClearingToken] = useState(false);
   const [reclaimProofs, setReclaimProofs] = useState<ReclaimProof[] | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
@@ -162,6 +165,22 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
       console.warn('[zkSEND] Failed to load TikTok token:', error);
     }
   }, [tiktokAccessToken]);
+
+  useEffect(() => {
+    if (gmailAccessToken) return;
+    try {
+      const stored =
+        localStorage.getItem('gmail_oauth_token') ||
+        localStorage.getItem('gmail_oauth') ||
+        localStorage.getItem('gmail_access_token');
+      if (!stored) return;
+      if (typeof stored === 'string' && stored.length > 0) {
+        setGmailAccessToken(stored);
+      }
+    } catch (error) {
+      console.warn('[zkSEND] Failed to load Gmail token:', error);
+    }
+  }, [gmailAccessToken]);
 
   useEffect(() => {
     // Privy is disabled for zk.localhost to prevent OAuth interception
@@ -366,6 +385,28 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
     try {
       clearTiktokToken();
       setTiktokAccessToken('');
+    } finally {
+      setClearingToken(false);
+    }
+  };
+
+  const handleConnectGmail = async () => {
+    setConnectingGmail(true);
+    try {
+      const token = await connectGmail();
+      if (token) {
+        setGmailAccessToken(token);
+      }
+    } finally {
+      setConnectingGmail(false);
+    }
+  };
+
+  const handleClearGmailToken = () => {
+    setClearingToken(true);
+    try {
+      clearGmailToken();
+      setGmailAccessToken('');
     } finally {
       setClearingToken(false);
     }
@@ -729,6 +770,19 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
               className="w-full"
             >
               {connectingTiktok ? 'Connecting...' : tiktokAccessToken ? 'Reconnect TikTok' : 'Connect TikTok'}
+            </Button>
+
+          </div>
+        ) : platform === 'gmail' ? (
+          <div className="space-y-3">
+            <Button
+              type="button"
+              size="lg"
+              onClick={handleConnectGmail}
+              disabled={connectingGmail || !isIdentityValid}
+              className="w-full"
+            >
+              {connectingGmail ? 'Connecting...' : gmailAccessToken ? 'Reconnect Gmail' : 'Connect Gmail'}
             </Button>
 
           </div>

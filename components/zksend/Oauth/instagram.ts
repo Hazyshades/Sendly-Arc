@@ -19,6 +19,8 @@ export const requestInstagramOAuthTokenFlow = async (): Promise<string | null> =
 
     sessionStorage.setItem('instagram_oauth_state', state);
     sessionStorage.setItem('instagram_oauth_redirect', window.location.href);
+    localStorage.setItem('instagram_oauth_state', state);
+    localStorage.setItem('instagram_oauth_redirect', window.location.href);
 
     const authUrl = `https://api.instagram.com/oauth/authorize?client_id=${encodeURIComponent(
       instagramClientId
@@ -107,6 +109,8 @@ export const clearInstagramToken = (): void => {
     localStorage.removeItem('instagram_oauth');
     localStorage.removeItem('instagram_oauth_token');
     localStorage.removeItem('instagram_access_token');
+    localStorage.removeItem('instagram_oauth_state');
+    localStorage.removeItem('instagram_oauth_redirect');
     sessionStorage.removeItem('instagram_oauth_state');
     sessionStorage.removeItem('instagram_oauth_redirect');
     sessionStorage.removeItem('instagram_code_verifier');

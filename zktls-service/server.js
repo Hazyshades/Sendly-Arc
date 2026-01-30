@@ -47,6 +47,12 @@ const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 // GitHub OAuth (server-side code exchange)
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+// Instagram OAuth (server-side code exchange)
+const INSTAGRAM_CLIENT_ID = process.env.INSTAGRAM_CLIENT_ID;
+const INSTAGRAM_CLIENT_SECRET = process.env.INSTAGRAM_CLIENT_SECRET;
+// Google/Gmail OAuth (server-side code exchange)
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 const oauth1RequestSecrets = new Map();
 
@@ -621,6 +627,158 @@ app.post('/api/github/oauth/exchange', noAuth, async (req, res) => {
   } catch (error) {
     console.error('[GitHub OAuth] exchange failed:', error);
     return res.status(500).json({ error: error.message || 'GitHub OAuth exchange failed' });
+  }
+});
+
+/**
+ * Instagram OAuth: exchange authorization code for access token (server-side).
+ */
+app.post('/api/instagram/oauth/exchange', noAuth, async (req, res) => {
+  try {
+    if (!INSTAGRAM_CLIENT_ID || !INSTAGRAM_CLIENT_SECRET) {
+      return res.status(500).json({ error: 'Missing INSTAGRAM_CLIENT_ID or INSTAGRAM_CLIENT_SECRET' });
+    }
+
+    const { code, redirectUri } = req.body || {};
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Missing body.code (string)' });
+    }
+    if (!redirectUri || typeof redirectUri !== 'string') {
+      return res.status(400).json({ error: 'Missing body.redirectUri (string)' });
+    }
+
+    const params = new URLSearchParams();
+    params.set('client_id', INSTAGRAM_CLIENT_ID);
+    params.set('client_secret', INSTAGRAM_CLIENT_SECRET);
+    params.set('code', code);
+    params.set('grant_type', 'authorization_code');
+    params.set('redirect_uri', redirectUri);
+
+    const tokenRes = await fetch('https://api.instagram.com/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    const bodyText = await tokenRes.text().catch(() => '');
+    if (!tokenRes.ok) {
+      console.error('[Instagram OAuth] token exchange failed:', {
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+      return res.status(tokenRes.status).json({
+        error: 'Instagram token exchange failed',
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+    }
+
+    let tokenJson;
+    try {
+      tokenJson = JSON.parse(bodyText);
+    } catch (parseError) {
+      return res.status(500).json({ error: 'Failed to parse Instagram token response' });
+    }
+
+    if (tokenJson.error) {
+      console.error('[Instagram OAuth] API error:', tokenJson);
+      return res.status(400).json({
+        error: tokenJson.error_message || tokenJson.error || 'Instagram token exchange failed',
+      });
+    }
+
+    if (!tokenJson.access_token) {
+      return res.status(500).json({ error: 'No access_token in Instagram response' });
+    }
+
+    return res.json({
+      success: true,
+      accessToken: tokenJson.access_token,
+    });
+  } catch (error) {
+    console.error('[Instagram OAuth] exchange failed:', error);
+    return res.status(500).json({ error: error.message || 'Instagram OAuth exchange failed' });
+  }
+});
+
+/**
+ * Gmail OAuth: exchange authorization code for access token (server-side).
+ */
+app.post('/api/gmail/oauth/exchange', noAuth, async (req, res) => {
+  try {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      return res.status(500).json({ error: 'Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET' });
+    }
+
+    const { code, redirectUri, codeVerifier } = req.body || {};
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Missing body.code (string)' });
+    }
+    if (!redirectUri || typeof redirectUri !== 'string') {
+      return res.status(400).json({ error: 'Missing body.redirectUri (string)' });
+    }
+
+    const params = new URLSearchParams();
+    params.set('client_id', GOOGLE_CLIENT_ID);
+    params.set('client_secret', GOOGLE_CLIENT_SECRET);
+    params.set('code', code);
+    params.set('grant_type', 'authorization_code');
+    params.set('redirect_uri', redirectUri);
+    if (codeVerifier && typeof codeVerifier === 'string') {
+      params.set('code_verifier', codeVerifier);
+    }
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    const bodyText = await tokenRes.text().catch(() => '');
+    if (!tokenRes.ok) {
+      console.error('[Gmail OAuth] token exchange failed:', {
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+      return res.status(tokenRes.status).json({
+        error: 'Gmail token exchange failed',
+        status: tokenRes.status,
+        body: bodyText.slice(0, 1000),
+      });
+    }
+
+    let tokenJson;
+    try {
+      tokenJson = JSON.parse(bodyText);
+    } catch (parseError) {
+      return res.status(500).json({ error: 'Failed to parse Gmail token response' });
+    }
+
+    if (tokenJson.error) {
+      console.error('[Gmail OAuth] API error:', tokenJson);
+      return res.status(400).json({
+        error: tokenJson.error_description || tokenJson.error || 'Gmail token exchange failed',
+      });
+    }
+
+    if (!tokenJson.access_token) {
+      return res.status(500).json({ error: 'No access_token in Gmail response' });
+    }
+
+    return res.json({
+      success: true,
+      accessToken: tokenJson.access_token,
+      scope: tokenJson.scope,
+      tokenType: tokenJson.token_type || 'bearer',
+      refreshToken: tokenJson.refresh_token || undefined,
+    });
+  } catch (error) {
+    console.error('[Gmail OAuth] exchange failed:', error);
+    return res.status(500).json({ error: error.message || 'Gmail OAuth exchange failed' });
   }
 });
 
@@ -1312,6 +1470,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   POST /api/reclaim/zkfetch/prove`);
   console.log(`   POST /api/twitter/oauth/exchange`);
   console.log(`   POST /api/github/oauth/exchange`);
+  console.log(`   POST /api/instagram/oauth/exchange`);
   console.log(`   POST /api/twitter/oauth1/request-token`);
   console.log(`   POST /api/twitter/oauth1/access-token`);
   console.log(`   POST /api/twitter/diagnose`);
