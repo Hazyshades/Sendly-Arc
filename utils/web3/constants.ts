@@ -2236,6 +2236,48 @@ export const ZkSendABI = [
   },
   {
     type: 'function',
+    name: 'claimPayments',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: '_paymentIds', type: 'uint256[]' },
+      {
+        name: '_proof',
+        type: 'tuple',
+        components: [
+          {
+            name: 'claimInfo',
+            type: 'tuple',
+            components: [
+              { name: 'provider', type: 'string' },
+              { name: 'parameters', type: 'string' },
+              { name: 'context', type: 'string' },
+            ],
+          },
+          {
+            name: 'signedClaim',
+            type: 'tuple',
+            components: [
+              {
+                name: 'claim',
+                type: 'tuple',
+                components: [
+                  { name: 'identifier', type: 'bytes32' },
+                  { name: 'owner', type: 'address' },
+                  { name: 'timestampS', type: 'uint32' },
+                  { name: 'epoch', type: 'uint32' },
+                ],
+              },
+              { name: 'signatures', type: 'bytes[]' },
+            ],
+          },
+        ],
+      },
+      { name: '_recipient', type: 'address' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
     name: 'getPendingPayments',
     stateMutability: 'view',
     inputs: [{ name: '_socialIdentityHash', type: 'bytes32' }],

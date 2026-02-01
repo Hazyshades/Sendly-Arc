@@ -1822,6 +1822,40 @@ export class Web3Service {
     return hash;
   }
 
+  async claimZkSendPayments(input: {
+    paymentIds: (string | number)[];
+    proof: any;
+    recipient: `0x${string}`;
+  }): Promise<string> {
+    if (!this.walletClient || !this.account) {
+      throw new Error('Wallet not connected');
+    }
+    await this.ensureCorrectChain();
+
+    if (!ZKSEND_CONTRACT_ADDRESS || ZKSEND_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') {
+      throw new Error('ZKSEND_CONTRACT_ADDRESS is not configured');
+    }
+
+    const hash = await this.walletClient.writeContract({
+      chain: arcTestnet,
+      address: ZKSEND_CONTRACT_ADDRESS as `0x${string}`,
+      abi: ZkSendABI,
+      functionName: 'claimPayments',
+      args: [
+        input.paymentIds.map((id) => BigInt(id)),
+        input.proof,
+        input.recipient,
+      ],
+      account: this.account as `0x${string}`,
+    });
+
+    await this.safeRequest(async () => {
+      return await this.publicClient.waitForTransactionReceipt({ hash });
+    });
+
+    return hash;
+  }
+
   // Twitter Vault functions
   async createCardForTwitter(
     username: string,

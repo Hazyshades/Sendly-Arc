@@ -23,14 +23,18 @@ contract ZkSend is Ownable, ReentrancyGuard {
     
     // zkTLS Verifier contract address
     address public verifierContract;
-    
+
+    // Fee: 0.1% in basis points (10 / 10_000)
+    uint256 public constant FEE_BPS = 10;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
+
     // Payment structure
     struct Payment {
         uint256 paymentId;
         address sender;
         bytes32 socialIdentityHash; // keccak256(platform:username)
         string platform; // "twitter", "telegram", etc.
-        uint256 amount;
+        uint256 amount; // amount recipient receives on claim (sender paid amount + fee)
         address token;
         address recipient; // Set when claimed
         bool claimed;
@@ -66,7 +70,15 @@ contract ZkSend is Ownable, ReentrancyGuard {
     );
     
     event VerifierContractUpdated(address indexed oldVerifier, address indexed newVerifier);
-    
+
+    event FeePaid(
+        uint256 indexed paymentId,
+        address indexed sender,
+        address indexed feeRecipient,
+        uint256 feeAmount,
+        address token
+    );
+
     /**
      * @notice Constructor
      * @param _usdcAddress USDC token address
@@ -86,12 +98,20 @@ contract ZkSend is Ownable, ReentrancyGuard {
         eurcToken = IERC20(_eurcAddress);
         verifierContract = _verifierAddress;
     }
-    
+
     /**
-     * @notice Create a payment to a social username
+     * @notice Calculate 0.1% fee on amount (paid by sender, sent to owner).
+     */
+    function _calculateFee(uint256 _amount) internal pure returns (uint256) {
+        return (_amount * FEE_BPS) / BPS_DENOMINATOR;
+    }
+
+    /**
+     * @notice Create a payment to a social username.
+     * Sender pays amount + 0.1% fee; recipient receives full amount on claim. Fee goes to owner.
      * @param _socialIdentityHash Hash of platform:username (keccak256("platform:username"))
      * @param _platform Platform name (e.g., "twitter", "telegram")
-     * @param _amount Amount of tokens to send
+     * @param _amount Amount of tokens the recipient will receive (fee is extra, paid by sender)
      * @param _token Token address (USDC or EURC)
      * @return paymentId The ID of the created payment
      */
@@ -108,14 +128,25 @@ contract ZkSend is Ownable, ReentrancyGuard {
             _token == address(usdcToken) || _token == address(eurcToken),
             "Unsupported token"
         );
-        
-        // Transfer tokens from sender to contract
+
+        uint256 fee = _calculateFee(_amount);
+        uint256 totalFromSender = _amount + fee;
+
+        // Transfer amount + fee from sender to contract
         require(
-            IERC20(_token).transferFrom(msg.sender, address(this), _amount),
+            IERC20(_token).transferFrom(msg.sender, address(this), totalFromSender),
             "Transfer failed"
         );
-        
-        // Create payment
+
+        // Send fee to owner
+        if (fee > 0) {
+            require(
+                IERC20(_token).transfer(owner(), fee),
+                "Fee transfer failed"
+            );
+        }
+
+        // Create payment (amount = what recipient receives)
         uint256 paymentId = nextPaymentId++;
         payments[paymentId] = Payment({
             paymentId: paymentId,
@@ -129,10 +160,10 @@ contract ZkSend is Ownable, ReentrancyGuard {
             createdAt: block.timestamp,
             claimedAt: 0
         });
-        
+
         // Add to identity mapping
         paymentsByIdentity[_socialIdentityHash].push(paymentId);
-        
+
         emit PaymentCreated(
             paymentId,
             msg.sender,
@@ -141,7 +172,10 @@ contract ZkSend is Ownable, ReentrancyGuard {
             _amount,
             _token
         );
-        
+        if (fee > 0) {
+            emit FeePaid(paymentId, msg.sender, owner(), fee, _token);
+        }
+
         return paymentId;
     }
     
@@ -189,7 +223,58 @@ contract ZkSend is Ownable, ReentrancyGuard {
             payment.token
         );
     }
-    
+
+    /**
+     * @notice Claim multiple payments in one transaction using a single Reclaim proof
+     * @dev All payments must belong to the same social identity (same socialIdentityHash).
+     *      Proof is verified once; then all listed payments are transferred to recipient.
+     * @param _paymentIds Array of payment IDs to claim (e.g. [2, 5, 10])
+     * @param _proof Reclaim Protocol proof (same proof used for all payments)
+     * @param _recipient Wallet address to receive the tokens
+     */
+    function claimPayments(
+        uint256[] calldata _paymentIds,
+        Reclaim.Proof memory _proof,
+        address _recipient
+    ) external nonReentrant {
+        require(_paymentIds.length > 0, "No payments");
+        require(_recipient != address(0), "Invalid recipient");
+
+        Payment storage first = payments[_paymentIds[0]];
+        require(first.paymentId != 0, "Payment not found");
+        require(!first.claimed, "Payment already claimed");
+        bytes32 identityHash = first.socialIdentityHash;
+
+        // Verify proof once for this identity
+        bool verified = verifyZkTLSProof(_proof, identityHash, _recipient);
+        require(verified, "Proof verification failed");
+
+        for (uint256 i = 0; i < _paymentIds.length; i++) {
+            uint256 pid = _paymentIds[i];
+            Payment storage payment = payments[pid];
+            require(payment.paymentId != 0, "Payment not found");
+            require(!payment.claimed, "Payment already claimed");
+            require(payment.socialIdentityHash == identityHash, "Identity mismatch");
+
+            payment.claimed = true;
+            payment.recipient = _recipient;
+            payment.claimedAt = block.timestamp;
+
+            require(
+                IERC20(payment.token).transfer(_recipient, payment.amount),
+                "Transfer to recipient failed"
+            );
+
+            emit PaymentClaimed(
+                pid,
+                _recipient,
+                payment.socialIdentityHash,
+                payment.amount,
+                payment.token
+            );
+        }
+    }
+
     /**
      * @notice Verify zkTLS proof using Reclaim Protocol Verifier
      * @dev Calls the Reclaim Protocol Verifier contract to verify the proof
