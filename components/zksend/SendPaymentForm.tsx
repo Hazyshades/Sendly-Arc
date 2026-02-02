@@ -95,6 +95,7 @@ export function SendPaymentForm({
             senderAddress: address,
             recipientIdentityHash: socialIdentityHash,
             platform: normalizedPlatform,
+            recipientUsername: username,
             amount,
             currency: tokenType,
             txHash,

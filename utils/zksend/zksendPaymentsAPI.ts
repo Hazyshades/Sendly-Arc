@@ -13,6 +13,8 @@ export interface ZkSendPaymentRecord {
   sender_address: string;
   recipient_identity_hash: string;
   social_platform: string;
+  recipient_username: string | null;
+  recipient_username_raw: string | null;
   amount: string;
   currency: string;
   recipient_wallet: string | null;
@@ -28,6 +30,10 @@ export interface CreateZkSendPaymentInput {
   senderAddress: string;
   recipientIdentityHash: string;
   platform: string;
+  /** Recipient username (e.g. @alice or alice). Stored normalized + raw in DB. */
+  recipientUsername?: string | null;
+  /** Optional: exact string as entered by user for recipient_username_raw. */
+  recipientUsernameRaw?: string | null;
   amount: string;
   currency: string;
   txHash?: string | null;
@@ -38,6 +44,8 @@ export interface ClaimZkSendPaymentInput {
   senderAddress: string;
   recipientIdentityHash: string;
   platform: string;
+  recipientUsername?: string | null;
+  recipientUsernameRaw?: string | null;
   amount: string;
   currency: string;
   recipientWallet: string;

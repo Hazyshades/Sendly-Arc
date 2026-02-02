@@ -34,7 +34,7 @@ const config = {
   },
   etherscan: {
     apiKey: {
-      arcTestnet: "empty", // Blockscout не требует реальный ключ
+      arcTestnet: "empty",
     },
     customChains: [
       {
