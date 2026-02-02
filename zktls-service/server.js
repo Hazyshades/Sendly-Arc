@@ -650,22 +650,26 @@ app.post('/api/linkedin/oauth/exchange', noAuth, async (req, res) => {
       return res.status(400).json({ error: 'Missing body.redirectUri (string)' });
     }
 
-    const params = new URLSearchParams();
-    params.set('grant_type', 'authorization_code');
-    params.set('code', code);
-    params.set('redirect_uri', redirectUri);
-    params.set('client_id', LINKEDIN_CLIENT_ID);
-    params.set('client_secret', LINKEDIN_CLIENT_SECRET);
+    // Build body with explicit encoding so client_secret values containing + or =
+    // are not misinterpreted (e.g. + as space in application/x-www-form-urlencoded).
+    const bodyParts = [
+      'grant_type=authorization_code',
+      'code=' + encodeURIComponent(code),
+      'redirect_uri=' + encodeURIComponent(redirectUri),
+      'client_id=' + encodeURIComponent(LINKEDIN_CLIENT_ID),
+      'client_secret=' + encodeURIComponent(LINKEDIN_CLIENT_SECRET),
+    ];
     if (codeVerifier && typeof codeVerifier === 'string') {
-      params.set('code_verifier', codeVerifier);
+      bodyParts.push('code_verifier=' + encodeURIComponent(codeVerifier));
     }
+    const body = bodyParts.join('&');
 
     const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: params.toString(),
+      body,
     });
 
     const bodyText = await tokenRes.text().catch(() => '');

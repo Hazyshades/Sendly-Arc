@@ -1136,7 +1136,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
                 Payment claimed. View transaction: {lastClaimedTxHash.slice(0, 10)}...
               </a>
             ) : (
-              'No pending payments (or not loaded yet).'
+              'No pending payments.'
             )}
           </div>
         ) : (
