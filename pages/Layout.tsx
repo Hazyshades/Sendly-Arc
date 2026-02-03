@@ -27,15 +27,21 @@ export function Layout({ children }: LayoutProps) {
   const zk = isZkHost();
   const zkLocal = isZkLocalhost();
 
-  const navigationItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: '🎤' },
-    { path: '/create', label: 'Create', icon: '➕' },
-    ...(zk ? [{ path: '/zksend', label: 'zkTLS', icon: '⚡' }] : []),
-    { path: '/my', label: 'My Cards', icon: '🎴' },
-    { path: '/spend', label: 'Spend', icon: '💳' },
-    { path: '/history', label: 'History', icon: '📜' },
-    { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
-  ];
+  const navigationItems = zk
+    ? [
+        { path: '/dashboard', label: 'Dashboard', icon: '🎤' },
+        { path: '/zksend', label: 'Payments', icon: '⚡' },
+        { path: '/history', label: 'History', icon: '📜' },
+        { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+      ]
+    : [
+        { path: '/dashboard', label: 'Dashboard', icon: '🎤' },
+        { path: '/create', label: 'Create', icon: '➕' },
+        { path: '/my', label: 'My Cards', icon: '🎴' },
+        { path: '/spend', label: 'Spend', icon: '💳' },
+        { path: '/history', label: 'History', icon: '📜' },
+        { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+      ];
 
   const isActive = (path: string) => location.pathname === path;
 

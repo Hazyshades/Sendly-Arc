@@ -68,3 +68,5 @@ tmp/
 
 .cursor/
 /contracts_reclaim_protocol/
+
+/zktls-service/supabase

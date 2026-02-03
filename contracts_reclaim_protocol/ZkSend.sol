@@ -24,6 +24,9 @@ contract ZkSend is Ownable, ReentrancyGuard {
     // zkTLS Verifier contract address
     address public verifierContract;
 
+    // Fee recipient (if set; otherwise fees go to owner)
+    address public feeRecipient;
+
     // Fee: 0.1% in basis points (10 / 10_000)
     uint256 public constant FEE_BPS = 10;
     uint256 public constant BPS_DENOMINATOR = 10_000;
@@ -70,6 +73,8 @@ contract ZkSend is Ownable, ReentrancyGuard {
     );
     
     event VerifierContractUpdated(address indexed oldVerifier, address indexed newVerifier);
+
+    event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
 
     event FeePaid(
         uint256 indexed paymentId,
@@ -138,10 +143,11 @@ contract ZkSend is Ownable, ReentrancyGuard {
             "Transfer failed"
         );
 
-        // Send fee to owner
+        // Send fee to feeRecipient or owner
         if (fee > 0) {
+            address recipient = feeRecipient != address(0) ? feeRecipient : owner();
             require(
-                IERC20(_token).transfer(owner(), fee),
+                IERC20(_token).transfer(recipient, fee),
                 "Fee transfer failed"
             );
         }
@@ -173,7 +179,8 @@ contract ZkSend is Ownable, ReentrancyGuard {
             _token
         );
         if (fee > 0) {
-            emit FeePaid(paymentId, msg.sender, owner(), fee, _token);
+            address recipient = feeRecipient != address(0) ? feeRecipient : owner();
+            emit FeePaid(paymentId, msg.sender, recipient, fee, _token);
         }
 
         return paymentId;
@@ -375,6 +382,16 @@ contract ZkSend is Ownable, ReentrancyGuard {
         address oldVerifier = verifierContract;
         verifierContract = _newVerifier;
         emit VerifierContractUpdated(oldVerifier, _newVerifier);
+    }
+
+    /**
+     * @notice Set or update fee recipient address (only owner).
+     * @param _feeRecipient New fee recipient; use address(0) to send fees to owner again.
+     */
+    function setFeeRecipient(address _feeRecipient) external onlyOwner {
+        address oldRecipient = feeRecipient;
+        feeRecipient = _feeRecipient;
+        emit FeeRecipientUpdated(oldRecipient, _feeRecipient);
     }
     
     /**

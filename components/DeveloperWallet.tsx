@@ -998,10 +998,10 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
       </CardTitle>
 
       {/* Description — center of the card */}
-      <CardDescription className="text-center text-sm text-gray-600 -mt-1">
+      <CardDescription className="text-left text-sm text-gray-600 -mt-1">
         {shouldShowConnectMessage
           ? 'Please connect your wallet or social account to use platform functionality.'
-          : 'To use platform functionality via Telegram, please create an internal wallet.'}
+          : 'To use Circle functionality, please create an internal wallet.'}
       </CardDescription>
     </div>
   </CardHeader>
@@ -1010,14 +1010,13 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">Why is this needed?</h4>
             <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Send transactions through the Telegram bot</li>
+              <li>• Send transactions through Circle Wallet</li>
               <li>• No need to sign each transaction</li>
               <li>• Design a flexible flow for your funds</li>
-              <li>• Assign tasks to the agent with</li>
             </ul>
           </div>
 
-          <div className="space-y-2">
+         {/* <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Blockchain:</span>
               <span className="font-medium">{getBlockchainName(blockchain)}</span>
@@ -1026,8 +1025,8 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
               <span className="text-gray-600">Account type:</span>
               <span className="font-medium">EOA (Externally Owned Account)</span>
             </div>
-          </div>
-
+          </div> 
+*/}
           <Button
             onClick={createWallet}
             disabled={loading}
@@ -1048,8 +1047,8 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
 
           <p className="text-xs text-gray-500 text-center">
             {isConnected 
-              ? `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your EVM address and Telegram`
-              : `The wallet will be created on ${getBlockchainName(blockchain)} blockchain and linked to your social account`}
+              ? `The wallet will be created on Arc Testnet blockchain and linked to your EVM address`
+              : `The wallet will be created on Arc Testnet blockchain and linked to your social account`}
           </p>
         </CardContent>
       )}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Trophy, RefreshCw, Users, Copy, CheckCircle2, Search, Twitter, Zap, Wallet, TrendingUp, Twitch, Send } from 'lucide-react';
 import { CardHeader, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -31,7 +31,9 @@ import { getLeaderboardSendersGraph, syncLeaderboardGraph, updateZnsDomainsGraph
 import { useAccount } from 'wagmi';
 import { toast } from 'sonner';
 import { getContractBalance, getContractTransactionsCount } from '../utils/web3/contractBalance';
-import { CONTRACT_ADDRESS } from '../utils/web3/constants';
+import { CONTRACT_ADDRESS, ZKSEND_CONTRACT_ADDRESS } from '../utils/web3/constants';
+import { isZkHost } from '../utils/runtime/zkHost';
+import { getZkSendLeaderboardEntriesFromStats } from '../utils/supabase/zksendPayments';
 
 const ITEMS_PER_PAGE = 30;
 
@@ -134,13 +136,19 @@ export function Leaderboard() {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const { address } = useAccount();
   const normalizedAccount = address?.toLowerCase() ?? null;
-  const userEntryRef = useRef<HTMLDivElement>(null);
-  const hasScrolledToUser = useRef(false);
+
+  const zkSendFilter = useMemo(
+    () => ({
+      chainId: String(import.meta.env.VITE_ARC_CHAIN_ID ?? 5042002),
+      contractAddress: (ZKSEND_CONTRACT_ADDRESS ?? '').toLowerCase(),
+    }),
+    []
+  );
 
   const loadEntries = useCallback(
     async (options?: { preserveData?: boolean; recalculate?: boolean }) => {
       const preserveData = options?.preserveData ?? false;
-      
+
       if (preserveData) {
         setIsRefreshing(true);
       } else {
@@ -148,22 +156,23 @@ export function Leaderboard() {
       }
 
       try {
-        // Use leaderboard_stats_graph_true table
-        const data = await getLeaderboardSendersGraph({ limit: 100000 });
-        console.log(`[Leaderboard] Loaded ${data.length} entries from leaderboard_stats_graph_true`);
-        
-        // Validate data format
+        const data = isZkHost()
+          ? await getZkSendLeaderboardEntriesFromStats(zkSendFilter)
+          : await getLeaderboardSendersGraph({ limit: 100000 });
+        const source = isZkHost() ? 'zksend_leaderboard_stats' : 'leaderboard_stats_graph_true';
+        console.log(`[Leaderboard] Loaded ${data.length} entries from ${source}`);
+
         if (!Array.isArray(data)) {
           throw new Error('Invalid data format: expected array');
         }
-        
+
         setEntries(data);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch leaderboard', err);
         const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
         setError(errorMessage);
-        setEntries([]); // Clear entries on error to prevent rendering issues
+        setEntries([]);
       } finally {
         if (preserveData) {
           setIsRefreshing(false);
@@ -172,28 +181,8 @@ export function Leaderboard() {
         }
       }
     },
-    []
+    [zkSendFilter]
   );
-
-  const scrollToUserEntry = useCallback(() => {
-    if (userEntryRef.current) {
-      userEntryRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-      hasScrolledToUser.current = true;
-    } else {
-      setTimeout(() => {
-        if (userEntryRef.current) {
-          userEntryRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-          hasScrolledToUser.current = true;
-        }
-      }, 200);
-    }
-  }, []);
 
   useEffect(() => {
     if (!hasFetchedOnce) {
@@ -201,34 +190,6 @@ export function Leaderboard() {
       setHasFetchedOnce(true);
     }
   }, [hasFetchedOnce, loadEntries]);
-
-  useEffect(() => {
-    if (!normalizedAccount || !entries.length || loading || hasScrolledToUser.current) {
-      return;
-    }
-
-    const userIndex = entries.findIndex(
-      (entry) => entry.senderAddress?.toLowerCase() === normalizedAccount
-    );
-
-    if (userIndex === -1) {
-      hasScrolledToUser.current = true;
-      return;
-    }
-
-    const userPage = Math.floor(userIndex / ITEMS_PER_PAGE) + 1;
-
-    if (currentPage !== userPage) {
-      setCurrentPage(userPage);
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      scrollToUserEntry();
-    }, 200);
-
-    return () => clearTimeout(timeoutId);
-  }, [entries, normalizedAccount, loading, currentPage, scrollToUserEntry]);
 
   // Calculate global ranks based on full entries list (before filtering)
   // Ranks are calculated based on current sortBy to maintain consistency
@@ -607,55 +568,53 @@ export function Leaderboard() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    hasScrolledToUser.current = false;
     try {
-      // Sync leaderboard_stats_graph_true from gift_cards_graph
-      console.log('[Leaderboard] Syncing leaderboard_stats_graph_true...');
-      const syncResult = await syncLeaderboardGraph();
-      if (syncResult.success) {
-        console.log(`[Leaderboard] Synced ${syncResult.entries_count || 0} entries`);
-      } else {
-        console.error('[Leaderboard] Sync failed:', syncResult.message);
-      }
-      
-      // Update ZNS domains for leaderboard_stats_graph_true
-      console.log('[Leaderboard] Starting ZNS domains update...');
-      try {
-        const znsResult = await updateZnsDomainsGraph();
-        console.log('[Leaderboard] ZNS update result:', znsResult);
-        if (znsResult.success) {
-          console.log(`[Leaderboard] Updated ZNS domains: ${znsResult.records_updated || 0} records`);
-          if (znsResult.records_updated && znsResult.records_updated > 0) {
-            toast.success(`Updated ${znsResult.records_updated} ZNS domains`);
-          } else {
-            console.log('[Leaderboard] No ZNS domains found or updated');
-          }
+      if (!isZkHost()) {
+        // Sync leaderboard_stats_graph_true from gift_cards_graph
+        console.log('[Leaderboard] Syncing leaderboard_stats_graph_true...');
+        const syncResult = await syncLeaderboardGraph();
+        if (syncResult.success) {
+          console.log(`[Leaderboard] Synced ${syncResult.entries_count || 0} entries`);
         } else {
-          console.error('[Leaderboard] ZNS update failed:', znsResult.message);
-          toast.error(`ZNS update failed: ${znsResult.message || 'Unknown error'}`);
+          console.error('[Leaderboard] Sync failed:', syncResult.message);
         }
-      } catch (znsError) {
-        console.error('[Leaderboard] Exception during ZNS update:', znsError);
-        toast.error(`ZNS update error: ${znsError instanceof Error ? znsError.message : 'Unknown error'}`);
+
+        // Update ZNS domains for leaderboard_stats_graph_true
+        console.log('[Leaderboard] Starting ZNS domains update...');
+        try {
+          const znsResult = await updateZnsDomainsGraph();
+          console.log('[Leaderboard] ZNS update result:', znsResult);
+          if (znsResult.success) {
+            console.log(`[Leaderboard] Updated ZNS domains: ${znsResult.records_updated || 0} records`);
+            if (znsResult.records_updated && znsResult.records_updated > 0) {
+              toast.success(`Updated ${znsResult.records_updated} ZNS domains`);
+            } else {
+              console.log('[Leaderboard] No ZNS domains found or updated');
+            }
+          } else {
+            console.error('[Leaderboard] ZNS update failed:', znsResult.message);
+            toast.error(`ZNS update failed: ${znsResult.message || 'Unknown error'}`);
+          }
+        } catch (znsError) {
+          console.error('[Leaderboard] Exception during ZNS update:', znsError);
+          toast.error(`ZNS update error: ${znsError instanceof Error ? znsError.message : 'Unknown error'}`);
+        }
+
+        // Refresh contract balance for TVL and transactions count for Gas view
+        try {
+          const balance = await getContractBalance(CONTRACT_ADDRESS);
+          setContractTvl(balance);
+        } catch (error) {
+          console.error('[Leaderboard] Failed to refresh contract balance:', error);
+        }
+        try {
+          const count = await getContractTransactionsCount(CONTRACT_ADDRESS);
+          setContractTransactionsCount(count);
+        } catch (error) {
+          console.error('[Leaderboard] Failed to refresh contract transactions count:', error);
+        }
       }
-      
-      // Refresh contract balance for TVL
-      try {
-        const balance = await getContractBalance(CONTRACT_ADDRESS);
-        setContractTvl(balance);
-      } catch (error) {
-        console.error('[Leaderboard] Failed to refresh contract balance:', error);
-      }
-      
-      // Refresh contract transactions count for Gas view
-      try {
-        const count = await getContractTransactionsCount(CONTRACT_ADDRESS);
-        setContractTransactionsCount(count);
-      } catch (error) {
-        console.error('[Leaderboard] Failed to refresh contract transactions count:', error);
-      }
-      
-      // Refresh from leaderboard_stats_graph_true
+
       await loadEntries({ preserveData: true, recalculate: false });
     } catch (error) {
       console.error('[Leaderboard] Failed to refresh leaderboard:', error);
@@ -668,7 +627,6 @@ export function Leaderboard() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCopyAddress = (address: string) => {
@@ -791,11 +749,11 @@ export function Leaderboard() {
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100 transition-all duration-300 hover:shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Trophy className="h-5 w-5 text-purple-600" />
-                    <span className="text-sm font-medium text-gray-600">Total Cards</span>
+                    <span className="text-sm font-medium text-gray-600">Total Payments</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-purple-700">{totalCards}</span>
-                    <span className="text-sm text-gray-500">cards sent</span>
+                    <span className="text-sm text-gray-500">payments sent</span>
                   </div>
                 </div>
               </>
@@ -806,11 +764,11 @@ export function Leaderboard() {
                 <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-xl p-4 border border-sky-100 transition-all duration-300 hover:shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Twitter className="h-5 w-5 text-sky-600" />
-                    <span className="text-sm font-medium text-gray-600">Twitter Cards</span>
+                    <span className="text-sm font-medium text-gray-600">Twitter Payments</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-sky-700">{twitterCards}</span>
-                    <span className="text-sm text-gray-500">cards sent</span>
+                    <span className="text-sm text-gray-500">payments sent</span>
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 transition-all duration-300 hover:shadow-lg">
@@ -831,11 +789,11 @@ export function Leaderboard() {
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100 transition-all duration-300 hover:shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Twitch className="h-5 w-5 text-purple-600" />
-                    <span className="text-sm font-medium text-gray-600">Twitch Cards</span>
+                    <span className="text-sm font-medium text-gray-600">Twitch Payments</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-purple-700">{twitchCards}</span>
-                    <span className="text-sm text-gray-500">cards sent</span>
+                    <span className="text-sm text-gray-500">payments sent</span>
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl p-4 border border-pink-100 transition-all duration-300 hover:shadow-lg">
@@ -856,11 +814,11 @@ export function Leaderboard() {
                 <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-4 border border-cyan-100 transition-all duration-300 hover:shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Send className="h-5 w-5 text-cyan-600" />
-                    <span className="text-sm font-medium text-gray-600">Telegram Cards</span>
+                    <span className="text-sm font-medium text-gray-600">Telegram Payments</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-cyan-700">{telegramCards}</span>
-                    <span className="text-sm text-gray-500">cards sent</span>
+                    <span className="text-sm text-gray-500">payments sent</span>
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-100 transition-all duration-300 hover:shadow-lg">
@@ -997,7 +955,7 @@ export function Leaderboard() {
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="cards">Cards sent</SelectItem>
+              <SelectItem value="cards">Payments sent</SelectItem>
               <SelectItem value="amount">Total amount</SelectItem>
               <SelectItem value="date">Last activity</SelectItem>
             </SelectContent>
@@ -1027,7 +985,7 @@ export function Leaderboard() {
               <EmptyDescription>
                 {searchQuery 
                   ? 'No entries match your search. Try different keywords.'
-                  : 'No one has sent any cards yet. Be the first to appear on the leaderboard!'
+                  : 'No one has sent any payments yet. Be the first to appear on the leaderboard!'
                 }
               </EmptyDescription>
             </EmptyHeader>
@@ -1078,7 +1036,6 @@ export function Leaderboard() {
               return (
                 <div
                   key={entry.id}
-                  ref={isCurrentUser ? userEntryRef : null}
                   className={`group flex flex-col gap-3 rounded-2xl border p-3 md:p-4 transition-all hover:shadow-lg hover:scale-[1.01] ${
                     isCurrentUser 
                       ? 'bg-[#f0f9ff] border-[#bae6fd] ring-2 ring-blue-200' 
@@ -1182,13 +1139,13 @@ export function Leaderboard() {
                           </>
                         ) : (
                           <p className="text-sm font-semibold text-gray-900">
-                            {entry.cardsSentTotal} cards
+                            {entry.cardsSentTotal} payments
                           </p>
                         )}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         {isAmountSort ? (
-                          <span>{entry.cardsSentTotal} cards</span>
+                          <span>{entry.cardsSentTotal} payments</span>
                         ) : (
                           formatCurrencySummary(entry.amountSentByCurrency)
                         )}
@@ -1218,7 +1175,7 @@ export function Leaderboard() {
                             ) : (
                               cardsDifference > 0 && (
                                 <span className="text-gray-500 font-normal ml-1">
-                                  ({cardsDifference} {cardsDifference === 1 ? 'card' : 'cards'})
+                                  ({cardsDifference} {cardsDifference === 1 ? 'payment' : 'payments'})
                                 </span>
                               )
                             )
@@ -1241,14 +1198,14 @@ export function Leaderboard() {
                           <span className="font-semibold text-gray-900">USDC {usdcAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-500">Cards:</span>
+                          <span className="text-gray-500">Payments:</span>
                           <span className="text-gray-500">{entry.cardsSentTotal}</span>
                         </div>
                       </>
                     ) : (
                       <>
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-500">Cards:</span>
+                          <span className="text-gray-500">Payments:</span>
                           <span className="font-semibold text-gray-900">{entry.cardsSentTotal}</span>
                         </div>
                         <div className="flex items-center justify-between">
