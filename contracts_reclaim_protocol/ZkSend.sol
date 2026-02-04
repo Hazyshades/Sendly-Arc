@@ -6,6 +6,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Reclaim} from "./Reclaim.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+interface IVaultManager {
+    function depositToVault(address token, uint256 amount) external returns (uint256 shares);
+    function withdrawFromVault(address token, uint256 amount, address to) external returns (uint256 shares);
+}
+
 /**
  * @notice Using Reclaim Protocol SDK for proof verification
  * @dev Import Reclaim.sol from local contracts directory
@@ -26,6 +31,9 @@ contract ZkSend is Ownable, ReentrancyGuard {
 
     // Fee recipient (if set; otherwise fees go to owner)
     address public feeRecipient;
+
+    // Vault manager for ERC-4626 deposits/withdrawals
+    address public vaultManager;
 
     // Fee: 0.1% in basis points (10 / 10_000)
     uint256 public constant FEE_BPS = 10;
@@ -84,6 +92,9 @@ contract ZkSend is Ownable, ReentrancyGuard {
         address token
     );
 
+    event VaultManagerUpdated(address indexed oldManager, address indexed newManager);
+    event VaultDeposit(address indexed token, uint256 amount);
+
     /**
      * @notice Constructor
      * @param _usdcAddress USDC token address
@@ -109,6 +120,22 @@ contract ZkSend is Ownable, ReentrancyGuard {
      */
     function _calculateFee(uint256 _amount) internal pure returns (uint256) {
         return (_amount * FEE_BPS) / BPS_DENOMINATOR;
+    }
+
+    function _ensureLiquidity(address _token, uint256 _amount) internal {
+        uint256 balance = IERC20(_token).balanceOf(address(this));
+        if (balance >= _amount) {
+            return;
+        }
+
+        uint256 shortfall = _amount - balance;
+        require(vaultManager != address(0), "Vault manager not set");
+        IVaultManager(vaultManager).withdrawFromVault(_token, shortfall, address(this));
+
+        require(
+            IERC20(_token).balanceOf(address(this)) >= _amount,
+            "Insufficient liquidity"
+        );
     }
 
     /**
@@ -217,6 +244,7 @@ contract ZkSend is Ownable, ReentrancyGuard {
         payment.claimedAt = block.timestamp;
         
         // Transfer tokens to recipient
+        _ensureLiquidity(payment.token, payment.amount);
         require(
             IERC20(payment.token).transfer(_recipient, payment.amount),
             "Transfer to recipient failed"
@@ -267,6 +295,7 @@ contract ZkSend is Ownable, ReentrancyGuard {
             payment.recipient = _recipient;
             payment.claimedAt = block.timestamp;
 
+            _ensureLiquidity(payment.token, payment.amount);
             require(
                 IERC20(payment.token).transfer(_recipient, payment.amount),
                 "Transfer to recipient failed"
@@ -392,6 +421,35 @@ contract ZkSend is Ownable, ReentrancyGuard {
         address oldRecipient = feeRecipient;
         feeRecipient = _feeRecipient;
         emit FeeRecipientUpdated(oldRecipient, _feeRecipient);
+    }
+
+    /**
+     * @notice Update vault manager address (only owner)
+     * @param _manager New vault manager address
+     */
+    function setVaultManager(address _manager) external onlyOwner {
+        require(_manager != address(0), "Invalid vault manager");
+        address oldManager = vaultManager;
+        vaultManager = _manager;
+        emit VaultManagerUpdated(oldManager, _manager);
+    }
+
+    /**
+     * @notice Deposit contract funds into the configured vault manager (only owner)
+     * @param _token Token address (USDC or EURC)
+     * @param _amount Amount to deposit
+     */
+    function depositToVault(address _token, uint256 _amount) external onlyOwner {
+        require(vaultManager != address(0), "Vault manager not set");
+        require(_amount > 0, "Amount must be > 0");
+        require(
+            _token == address(usdcToken) || _token == address(eurcToken),
+            "Unsupported token"
+        );
+
+        IERC20(_token).approve(vaultManager, _amount);
+        IVaultManager(vaultManager).depositToVault(_token, _amount);
+        emit VaultDeposit(_token, _amount);
     }
     
     /**
