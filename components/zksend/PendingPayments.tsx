@@ -54,13 +54,19 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
   const { data: walletClient } = useWalletClient();
   const { authenticated, getAccessToken } = usePrivySafe();
   const reclaimApiBaseUrl = (() => {
-    if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
     const envUrl =
       (import.meta.env.VITE_RECLAIM_API_URL as string | undefined) ||
       (import.meta.env.VITE_ZKTLS_API_URL as string | undefined);
-    if (envUrl) return envUrl;
+    if (envUrl) return envUrl.replace(/\/$/, '');
+    if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
     return 'http://localhost:3001';
   })();
+
+  /** API URL for reclaim/zkfetch: same-origin uses relative path so Vite proxy is used. */
+  const getReclaimApiUrl = (path: string) => {
+    if (typeof window !== 'undefined' && reclaimApiBaseUrl === window.location.origin) return path;
+    return `${reclaimApiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  };
 
   const reclaimMinSignaturesRaw = Number(import.meta.env.VITE_RECLAIM_MIN_SIGNATURES ?? 2);
   const reclaimMinSignatures =
@@ -642,7 +648,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
         accessTokenToUse = githubAccessToken;
         regexPattern = '"login":"(?<username>[^"]+)"';
       } else if (isTelegram) {
-        requestUrl = `${reclaimApiBaseUrl.replace(/\/$/, '')}/api/telegram/me`;
+        requestUrl = getReclaimApiUrl('/api/telegram/me');
         accessTokenToUse = telegramAccessToken;
         regexPattern = '"login":"(?<username>[^"]+)"';
       } else if (isInstagram) {
@@ -671,7 +677,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
         throw new Error('Unsupported platform for zkFetch');
       }
 
-      const proveUrl = `${reclaimApiBaseUrl.replace(/\/$/, '')}/api/reclaim/zkfetch/prove`;
+      const proveUrl = getReclaimApiUrl('/api/reclaim/zkfetch/prove');
       const proveRes = await fetch(proveUrl, {
         method: 'POST',
         headers: {
@@ -930,7 +936,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
         accessTokenToUse = githubAccessToken;
         regexPattern = '"login":"(?<username>[^"]+)"';
       } else if (isTelegram) {
-        requestUrl = `${reclaimApiBaseUrl.replace(/\/$/, '')}/api/telegram/me`;
+        requestUrl = getReclaimApiUrl('/api/telegram/me');
         accessTokenToUse = telegramAccessToken;
         regexPattern = '"login":"(?<username>[^"]+)"';
       } else if (isInstagram) {
@@ -949,7 +955,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
       }
 
       const firstPaymentId = rows[0].paymentId;
-      const proveUrl = `${reclaimApiBaseUrl.replace(/\/$/, '')}/api/reclaim/zkfetch/prove`;
+      const proveUrl = getReclaimApiUrl('/api/reclaim/zkfetch/prove');
       const proveRes = await fetch(proveUrl, {
         method: 'POST',
         headers: {

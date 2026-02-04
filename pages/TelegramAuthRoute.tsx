@@ -122,9 +122,6 @@ export function TelegramAuthRoute() {
           <p className="mt-4 max-w-sm text-center text-xs text-muted-foreground">
             If you see &quot;Username invalid&quot;, in @BotFather run /setdomain and add this exact origin: <code className="rounded bg-muted px-1">{typeof window !== 'undefined' ? window.location.origin : '…'}</code>
             <span className="mt-2 block"> If you see &quot;Invalid Telegram widget hash&quot; or connection errors, ensure <strong>zktls-service</strong> is running (e.g. <code className="rounded bg-muted px-1">npm start</code> from project root or <code className="rounded bg-muted px-1">node server.js</code> from zktls-service) and <code className="rounded bg-muted px-1">TELEGRAM_BOT_TOKEN</code> is set in zktls-service/.env.</span>
-            {typeof window !== 'undefined' && window.location.port && window.location.port !== '443' ? (
-              <span className="mt-2 block"> If you see a CSP &quot;frame-ancestors&quot; error, run dev on port 443: <code className="rounded bg-muted px-1">VITE_DEV_PORT_443=true</code> in .env, then open <code className="rounded bg-muted px-1">https://zk.localhost</code>.</span>
-            ) : null}
           </p>
         </>
       ) : (
