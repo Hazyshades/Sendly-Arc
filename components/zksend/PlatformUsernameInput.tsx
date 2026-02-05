@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { X, Twitter, Twitch, Github, MessageCircle, Instagram, Linkedin, Mail, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Twitter, Twitch, Github, MessageCircle, Instagram, Linkedin, Mail, ChevronDown, Loader2, CheckCircle2 } from 'lucide-react';
 
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { fetchTwitterUserPreview, normalizeTwitterHandle, type TwitterUserPreview } from '../../utils/twitter';
 
 import type { ZkSendPlatform } from './ZkSendPanel';
+
+const TWITTER_PREVIEW_DEBOUNCE_MS = 500;
 
 const PLATFORM_OPTIONS: {
   value: ZkSendPlatform;
@@ -34,6 +37,8 @@ type Props = {
   ariaLabel?: string;
 };
 
+type PreviewStatus = 'idle' | 'loading' | 'success' | 'error';
+
 export function PlatformUsernameInput({
   platform,
   onPlatformChange,
@@ -44,7 +49,58 @@ export function PlatformUsernameInput({
   ariaLabel = 'Username',
 }: Props) {
   const [platformPopoverOpen, setPlatformPopoverOpen] = useState(false);
+  const [previewStatus, setPreviewStatus] = useState<PreviewStatus>('idle');
+  const [previewData, setPreviewData] = useState<TwitterUserPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRequestRef = useRef<string>('');
+
   const currentPlatformOpt = PLATFORM_OPTIONS.find((o) => o.value === platform) ?? PLATFORM_OPTIONS[0];
+  const normalizedUsername = normalizeTwitterHandle(username);
+  const showTwitterPreview = platform === 'twitter';
+
+  useEffect(() => {
+    if (!showTwitterPreview || !normalizedUsername) {
+      setPreviewStatus('idle');
+      setPreviewData(null);
+      setPreviewError(null);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setPreviewStatus('loading');
+    setPreviewError(null);
+
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      const requested = normalizedUsername;
+      lastRequestRef.current = requested;
+
+      fetchTwitterUserPreview(requested).then((result) => {
+        if (lastRequestRef.current !== requested) return;
+        if (result.success) {
+          setPreviewStatus('success');
+          setPreviewData(result.data);
+          setPreviewError(null);
+        } else {
+          setPreviewStatus('error');
+          setPreviewData(null);
+          setPreviewError(result.error);
+        }
+      });
+    }, TWITTER_PREVIEW_DEBOUNCE_MS);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
+  }, [showTwitterPreview, normalizedUsername]);
 
   const clearUsername = () => onUsernameChange('');
 
@@ -121,6 +177,57 @@ export function PlatformUsernameInput({
           </PopoverContent>
         </Popover>
       </div>
+
+      {showTwitterPreview && normalizedUsername && (
+        <>
+          {previewStatus === 'loading' && (
+            <div
+              className="flex items-center gap-2 rounded-full bg-muted/60 px-3 py-2 text-sm text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                <Twitter className="h-4 w-4 text-muted-foreground" />
+              </span>
+              <span>@{normalizedUsername}</span>
+              <span>Searching…</span>
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+            </div>
+          )}
+          {previewStatus === 'success' && previewData && (
+            <div
+              className="flex items-center gap-2 rounded-full bg-sky-100 dark:bg-sky-900/30 px-3 py-2 text-sm"
+              role="status"
+            >
+              {previewData.profile_image_url ? (
+                <img
+                  src={previewData.profile_image_url}
+                  alt=""
+                  className="h-8 w-8 shrink-0 rounded-full object-cover"
+                  width={32}
+                  height={32}
+                />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                  <Twitter className="h-4 w-4 text-muted-foreground" />
+                </span>
+              )}
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                {previewData.name && previewData.name !== previewData.username && (
+                  <span className="truncate text-foreground">{previewData.name}</span>
+                )}
+                <span className="shrink-0 font-medium text-foreground">@{previewData.username}</span>
+              </div>
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+            </div>
+          )}
+          {previewStatus === 'error' && previewError && (
+            <p className="text-sm text-destructive" role="alert">
+              {previewError}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
