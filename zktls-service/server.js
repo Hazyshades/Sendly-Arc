@@ -61,14 +61,6 @@ const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 
 const oauth1RequestSecrets = new Map();
 
-// Twitter app-only token: reuse to avoid rate limit on oauth2/token (one token per app)
-const TWITTER_TOKEN_CACHE_MS = 50 * 60 * 1000; // 50 min
-let twitterAppTokenCache = null;
-
-// User lookup cache: reduce hits on X API (Free tier ~100 reads/month)
-const TWITTER_USER_CACHE_MS = 5 * 60 * 1000; // 5 min
-const twitterUserLookupCache = new Map();
-
 function percentEncode(value) {
   return encodeURIComponent(value)
     .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
@@ -1262,136 +1254,6 @@ app.post('/api/twitter/diagnose', noAuth, async (req, res) => {
 });
 
 /**
- * Twitter user lookup by username (app-only token).
- * Returns profile_image_url, name, username for preview under the handle input.
- * Caches bearer token (one per app) and user responses (5 min) to reduce rate limit hits.
- */
-app.get('/api/twitter/user', noAuth, async (req, res) => {
-  try {
-    const tokenUser = TWITTER_API_KEY || TWITTER_CLIENT_ID;
-    const tokenSecret = TWITTER_API_SECRET || TWITTER_CLIENT_SECRET;
-    if (!tokenUser || !tokenSecret) {
-      return res.status(500).json({
-        error: 'Twitter user lookup is not configured. Set TWITTER_API_KEY and TWITTER_API_SECRET (or TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET).',
-        code: 'TWITTER_NOT_CONFIGURED',
-      });
-    }
-
-    const username = typeof req.query.username === 'string' ? req.query.username.trim().replace(/^@/, '') : '';
-    if (!username) {
-      return res.status(400).json({ error: 'Missing or invalid query.username', code: 'MISSING_USERNAME' });
-    }
-
-    const cacheKey = username.toLowerCase();
-    const cachedUser = twitterUserLookupCache.get(cacheKey);
-    if (cachedUser && cachedUser.expiresAt > Date.now()) {
-      return res.json(cachedUser.data);
-    }
-
-    let appAccessToken = null;
-    if (twitterAppTokenCache && twitterAppTokenCache.expiresAt > Date.now()) {
-      appAccessToken = twitterAppTokenCache.token;
-    }
-    if (!appAccessToken) {
-      const params = new URLSearchParams();
-      params.set('grant_type', 'client_credentials');
-      params.set('client_id', tokenUser);
-      params.set('client_secret', tokenSecret);
-      params.set('client_type', 'service_client');
-      params.set('scope', 'users.read');
-      const basic = Buffer.from(`${tokenUser}:${tokenSecret}`).toString('base64');
-      const tokenRes = await fetch('https://api.x.com/oauth2/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
-          'Authorization': `Basic ${basic}`,
-        },
-        body: params.toString(),
-      });
-      const tokenBody = await tokenRes.text().catch(() => '');
-      if (!tokenRes.ok) {
-        const logSnippet = tokenBody.startsWith('<') ? `(HTML, ${tokenRes.status})` : tokenBody.slice(0, 200);
-        console.error('[Twitter user lookup] token failed:', tokenRes.status, logSnippet);
-        const is5xx = tokenRes.status >= 500;
-        return res.status(502).json({
-          error: is5xx ? 'Twitter API temporarily unavailable. Try again later.' : 'Failed to obtain Twitter app token',
-          code: is5xx ? 'TWITTER_UNAVAILABLE' : 'TOKEN_FAILED',
-        });
-      }
-      let parsed;
-      try {
-        parsed = JSON.parse(tokenBody);
-      } catch (_) {
-        return res.status(502).json({ error: 'Invalid Twitter token response', code: 'TOKEN_PARSE' });
-      }
-      appAccessToken = parsed?.access_token || '';
-      if (!appAccessToken) {
-        return res.status(502).json({ error: 'No access_token in Twitter response', code: 'TOKEN_MISSING' });
-      }
-      twitterAppTokenCache = { token: appAccessToken, expiresAt: Date.now() + TWITTER_TOKEN_CACHE_MS };
-    }
-
-    const safeUsername = encodeURIComponent(username);
-    const userFields = 'profile_image_url,name,username';
-    const byUsernameUrl = `https://api.x.com/2/users/by/username/${safeUsername}?user.fields=${userFields}`;
-    const userRes = await fetch(byUsernameUrl, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${appAccessToken}` },
-    });
-    const userBody = await userRes.text().catch(() => '');
-
-    if (userRes.status === 401) {
-      twitterAppTokenCache = null;
-      return res.status(502).json({ error: 'Twitter API access denied', code: 'ACCESS_DENIED' });
-    }
-    if (userRes.status === 404) {
-      return res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' });
-    }
-    if (userRes.status === 429) {
-      return res.status(429).json({ error: 'Too many requests. Try again later.', code: 'RATE_LIMITED' });
-    }
-    if (userRes.status === 403) {
-      return res.status(502).json({ error: 'Twitter API access denied', code: 'ACCESS_DENIED' });
-    }
-    if (!userRes.ok) {
-      console.error('[Twitter user lookup] API error:', userRes.status, userBody.slice(0, 500));
-      return res.status(502).json({
-        error: 'Twitter API error',
-        code: 'API_ERROR',
-        status: userRes.status,
-      });
-    }
-
-    let data;
-    try {
-      data = JSON.parse(userBody);
-    } catch (_) {
-      return res.status(502).json({ error: 'Invalid Twitter API response', code: 'PARSE_ERROR' });
-    }
-
-    const user = data?.data;
-    if (!user || typeof user.username !== 'string') {
-      return res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' });
-    }
-
-    const payload = {
-      username: user.username,
-      name: user.name ?? user.username,
-      profile_image_url: user.profile_image_url ?? null,
-    };
-    twitterUserLookupCache.set(cacheKey, { data: payload, expiresAt: Date.now() + TWITTER_USER_CACHE_MS });
-    return res.json(payload);
-  } catch (error) {
-    console.error('[Twitter user lookup] failed:', error);
-    return res.status(500).json({
-      error: error.message || 'Twitter user lookup failed',
-      code: 'INTERNAL_ERROR',
-    });
-  }
-});
-
-/**
  * Reclaim zkFetch: generate proof on backend (browser-safe).
  * Avoids .node/native dependencies in frontend bundlers.
  */
@@ -1871,7 +1733,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   POST /api/twitter/oauth1/request-token`);
   console.log(`   POST /api/twitter/oauth1/access-token`);
   console.log(`   POST /api/twitter/diagnose`);
-  console.log(`   GET  /api/twitter/user?username=...`);
   console.log(`   POST /api/reclaim/callback (optional)`);
   console.log(`   POST /api/proof/generate`);
 });

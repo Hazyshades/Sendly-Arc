@@ -10,6 +10,9 @@ import type { ZkSendPlatform } from './ZkSendPanel';
 
 const TWITTER_PREVIEW_DEBOUNCE_MS = 500;
 
+/** Module-level cache for successful Twitter previews (key = normalized username). Survives tab switch. */
+const twitterPreviewCache = new Map<string, TwitterUserPreview>();
+
 const PLATFORM_OPTIONS: {
   value: ZkSendPlatform;
   label: string;
@@ -54,6 +57,7 @@ export function PlatformUsernameInput({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRequestRef = useRef<string>('');
+  const inFlightRequestRef = useRef<string>('');
 
   const currentPlatformOpt = PLATFORM_OPTIONS.find((o) => o.value === platform) ?? PLATFORM_OPTIONS[0];
   const normalizedUsername = normalizeTwitterHandle(username);
@@ -64,10 +68,19 @@ export function PlatformUsernameInput({
       setPreviewStatus('idle');
       setPreviewData(null);
       setPreviewError(null);
+      inFlightRequestRef.current = '';
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
+      return;
+    }
+
+    const cached = twitterPreviewCache.get(normalizedUsername);
+    if (cached) {
+      setPreviewStatus('success');
+      setPreviewData(cached);
+      setPreviewError(null);
       return;
     }
 
@@ -78,20 +91,27 @@ export function PlatformUsernameInput({
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
       const requested = normalizedUsername;
+      if (inFlightRequestRef.current === requested) return;
+      inFlightRequestRef.current = requested;
       lastRequestRef.current = requested;
 
-      fetchTwitterUserPreview(requested).then((result) => {
-        if (lastRequestRef.current !== requested) return;
-        if (result.success) {
-          setPreviewStatus('success');
-          setPreviewData(result.data);
-          setPreviewError(null);
-        } else {
-          setPreviewStatus('error');
-          setPreviewData(null);
-          setPreviewError(result.error);
-        }
-      });
+      fetchTwitterUserPreview(requested)
+        .then((result) => {
+          if (lastRequestRef.current !== requested) return;
+          if (result.success) {
+            twitterPreviewCache.set(requested, result.data);
+            setPreviewStatus('success');
+            setPreviewData(result.data);
+            setPreviewError(null);
+          } else {
+            setPreviewStatus('error');
+            setPreviewData(null);
+            setPreviewError(result.error);
+          }
+        })
+        .finally(() => {
+          inFlightRequestRef.current = '';
+        });
     }, TWITTER_PREVIEW_DEBOUNCE_MS);
 
     return () => {
@@ -214,7 +234,14 @@ export function PlatformUsernameInput({
               )}
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
                 {previewData.name && previewData.name !== previewData.username && (
-                  <span className="truncate text-foreground">{previewData.name}</span>
+                  <a
+                    href={`https://x.com/${previewData.username.replace(/^@/, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+                  >
+                    {previewData.name}
+                  </a>
                 )}
                 <span className="shrink-0 font-medium text-foreground">@{previewData.username}</span>
               </div>

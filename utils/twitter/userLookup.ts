@@ -1,7 +1,10 @@
 /**
  * Twitter/X user lookup for handle input preview (avatar + name).
- * Calls zktls-service GET /api/twitter/user.
+ * Calls zk-sender Edge Function GET /zk-sender/twitter/user (api.twitterapi.io + DB cache).
  */
+
+import { getApiUrl } from '../supabase/client';
+import { publicAnonKey } from '../supabase/info';
 
 export interface TwitterUserPreview {
   username: string;
@@ -22,13 +25,12 @@ export interface TwitterUserLookupError {
 
 export type TwitterUserLookupResponse = TwitterUserLookupResult | TwitterUserLookupError;
 
-function getZkTlsApiUrl(): string {
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
-  const envUrl =
-    (import.meta.env.VITE_RECLAIM_API_URL as string | undefined) ||
-    (import.meta.env.VITE_ZKTLS_API_URL as string | undefined);
-  if (envUrl) return envUrl;
-  return 'http://localhost:3001';
+function getTwitterLookupBaseUrl(): string {
+  return (
+    (import.meta.env.VITE_SUPABASE_ZKSEND_FUNCTION_URL as string | undefined) ||
+    (import.meta.env.VITE_SUPABASE_FUNCTION_URL as string | undefined) ||
+    getApiUrl()
+  );
 }
 
 /**
@@ -48,11 +50,14 @@ export async function fetchTwitterUserPreview(username: string): Promise<Twitter
     return { success: false, error: 'Enter a username', code: 'MISSING_USERNAME' };
   }
 
-  const base = getZkTlsApiUrl().replace(/\/$/, '');
-  const url = `${base}/api/twitter/user?username=${encodeURIComponent(normalized)}`;
+  const base = getTwitterLookupBaseUrl().replace(/\/$/, '');
+  const url = `${base}/zk-sender/twitter/user?username=${encodeURIComponent(normalized)}`;
 
   try {
-    const res = await fetch(url, { method: 'GET' });
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${publicAnonKey}` },
+    });
     const body = await res.json().catch(() => ({}));
 
     if (res.ok && body.username) {
