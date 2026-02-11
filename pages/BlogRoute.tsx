@@ -22,6 +22,16 @@ const blogPosts: BlogPost[] = [
     category: 'Tutorial',
     tags: ['Testnet', 'Tutorial', 'ARC'],
     readTime: '5 min'
+  },
+  {
+    slug: 'privy_results',
+    title: 'Privy testnet results: metrics, methodology, and takeaways',
+    description:
+      'Testnet metrics, the Privy + OAuth token workflow, how we verify data, and main practical takeaways.',
+    date: '2026-02-10',
+    category: 'Technology',
+    tags: ['Privy', 'OAuth', 'Testnet'],
+    readTime: '8 min'
   }
 ];
 

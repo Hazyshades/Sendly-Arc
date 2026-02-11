@@ -137,6 +137,17 @@ export function Leaderboard() {
   const { address } = useAccount();
   const normalizedAccount = address?.toLowerCase() ?? null;
 
+  const terminology = useMemo(() => {
+    const isZk = isZkHost();
+    return {
+      itemSingular: isZk ? 'payment' : 'card',
+      itemPlural: isZk ? 'payments' : 'cards',
+      itemCapitalized: isZk ? 'Payments' : 'Cards',
+      itemSent: isZk ? 'payments sent' : 'cards sent',
+      itemSentCapitalized: isZk ? 'Payments sent' : 'Cards sent',
+    };
+  }, []);
+
   const zkSendFilter = useMemo(
     () => ({
       chainId: String(import.meta.env.VITE_ARC_CHAIN_ID ?? 5042002),
@@ -389,19 +400,6 @@ export function Leaderboard() {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const displayedEntries = useMemo(() => filteredAndSortedEntries.slice(startIndex, endIndex), [filteredAndSortedEntries, startIndex, endIndex]);
-
-  const userIndex = useMemo(() => {
-    if (!normalizedAccount) return -1;
-    return filteredAndSortedEntries.findIndex(
-      (entry) => entry.senderAddress?.toLowerCase() === normalizedAccount
-    );
-  }, [filteredAndSortedEntries, normalizedAccount]);
-
-  const userPage = useMemo(() => {
-    if (userIndex === -1) return null;
-    return Math.floor(userIndex / ITEMS_PER_PAGE) + 1;
-  }, [userIndex]);
-
 
   // Calculate pagination pages to display
   const paginationPages = useMemo(() => {
@@ -762,11 +760,11 @@ export function Leaderboard() {
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100 transition-all duration-300 hover:shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Trophy className="h-5 w-5 text-purple-600" />
-                    <span className="text-sm font-medium text-gray-600">Total Payments</span>
+                    <span className="text-sm font-medium text-gray-600">Total {terminology.itemCapitalized}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-purple-700">{totalCards}</span>
-                    <span className="text-sm text-gray-500">payments sent</span>
+                    <span className="text-sm text-gray-500">{terminology.itemSent}</span>
                   </div>
                 </div>
               </>
@@ -777,11 +775,11 @@ export function Leaderboard() {
                 <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-xl p-4 border border-sky-100 transition-all duration-300 hover:shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Twitter className="h-5 w-5 text-sky-600" />
-                    <span className="text-sm font-medium text-gray-600">Twitter Payments</span>
+                    <span className="text-sm font-medium text-gray-600">Twitter {terminology.itemCapitalized}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-sky-700">{twitterCards}</span>
-                    <span className="text-sm text-gray-500">payments sent</span>
+                    <span className="text-sm text-gray-500">{terminology.itemSent}</span>
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 transition-all duration-300 hover:shadow-lg">
@@ -802,11 +800,11 @@ export function Leaderboard() {
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100 transition-all duration-300 hover:shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Twitch className="h-5 w-5 text-purple-600" />
-                    <span className="text-sm font-medium text-gray-600">Twitch Payments</span>
+                    <span className="text-sm font-medium text-gray-600">Twitch {terminology.itemCapitalized}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-purple-700">{twitchCards}</span>
-                    <span className="text-sm text-gray-500">payments sent</span>
+                    <span className="text-sm text-gray-500">{terminology.itemSent}</span>
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl p-4 border border-pink-100 transition-all duration-300 hover:shadow-lg">
@@ -827,11 +825,11 @@ export function Leaderboard() {
                 <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-4 border border-cyan-100 transition-all duration-300 hover:shadow-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Send className="h-5 w-5 text-cyan-600" />
-                    <span className="text-sm font-medium text-gray-600">Telegram Payments</span>
+                    <span className="text-sm font-medium text-gray-600">Telegram {terminology.itemCapitalized}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-cyan-700">{telegramCards}</span>
-                    <span className="text-sm text-gray-500">payments sent</span>
+                    <span className="text-sm text-gray-500">{terminology.itemSent}</span>
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-100 transition-all duration-300 hover:shadow-lg">
@@ -968,7 +966,7 @@ export function Leaderboard() {
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="cards">Payments sent</SelectItem>
+              <SelectItem value="cards">{terminology.itemSentCapitalized}</SelectItem>
               <SelectItem value="amount">Total amount</SelectItem>
               <SelectItem value="date">Last activity</SelectItem>
             </SelectContent>
@@ -998,7 +996,7 @@ export function Leaderboard() {
               <EmptyDescription>
                 {searchQuery 
                   ? 'No entries match your search. Try different keywords.'
-                  : 'No one has sent any payments yet. Be the first to appear on the leaderboard!'
+                  : `No one has sent any ${terminology.itemPlural} yet. Be the first to appear on the leaderboard!`
                 }
               </EmptyDescription>
             </EmptyHeader>
@@ -1152,13 +1150,13 @@ export function Leaderboard() {
                           </>
                         ) : (
                           <p className="text-sm font-semibold text-gray-900">
-                            {entry.cardsSentTotal} payments
+                            {entry.cardsSentTotal} {terminology.itemPlural}
                           </p>
                         )}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         {isAmountSort ? (
-                          <span>{entry.cardsSentTotal} payments</span>
+                          <span>{entry.cardsSentTotal} {terminology.itemPlural}</span>
                         ) : (
                           formatCurrencySummary(entry.amountSentByCurrency)
                         )}
@@ -1188,7 +1186,7 @@ export function Leaderboard() {
                             ) : (
                               cardsDifference > 0 && (
                                 <span className="text-gray-500 font-normal ml-1">
-                                  ({cardsDifference} {cardsDifference === 1 ? 'payment' : 'payments'})
+                                  ({cardsDifference} {cardsDifference === 1 ? terminology.itemSingular : terminology.itemPlural})
                                 </span>
                               )
                             )
@@ -1211,14 +1209,14 @@ export function Leaderboard() {
                           <span className="font-semibold text-gray-900">USDC {usdcAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-500">Payments:</span>
+                          <span className="text-gray-500">{terminology.itemCapitalized}:</span>
                           <span className="text-gray-500">{entry.cardsSentTotal}</span>
                         </div>
                       </>
                     ) : (
                       <>
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-500">Payments:</span>
+                          <span className="text-gray-500">{terminology.itemCapitalized}:</span>
                           <span className="font-semibold text-gray-900">{entry.cardsSentTotal}</span>
                         </div>
                         <div className="flex items-center justify-between">

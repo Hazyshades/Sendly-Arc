@@ -7,11 +7,13 @@ import { BlurText } from '../components/BlurText';
 import { StarBorder } from '../components/ui/star-border';
 import { SocialLogos } from '../components/SocialLogos';
 import { toZkUrl, isZkHost } from '../utils/runtime/zkHost';
+import { SplashScreen } from '../components/SplashScreen';
 
 export function LandingRoute() {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
+  const [showSplash, setShowSplash] = useState(true);
   const paymentsCtaDisabled = true;
 
   useEffect(() => {
@@ -36,9 +38,21 @@ export function LandingRoute() {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleAction = (path: string) => {
     navigate(path);
   };
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#DADEFF' }}>

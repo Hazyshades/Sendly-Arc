@@ -55,11 +55,7 @@ export function Layout({ children }: LayoutProps) {
           </div>
           <span className="relative text-gray-900 text-2xl font-semibold">
             Sendly
-            <img 
-              src="/new_year.png" 
-              alt="Santa hat" 
-              className="absolute -top-4 -left-2 w-8 h-10 object-contain z-10"
-            />
+           
           </span>
         </div>
         

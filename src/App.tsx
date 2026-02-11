@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { SplashScreen } from '../components/SplashScreen';
-import { useState } from 'react';
 import { LandingRoute } from '../pages/LandingRoute';
 import { AgentRoute } from '../pages/AgentRoute';
 import { CreateRoute } from '../pages/CreateRoute';
@@ -74,8 +73,6 @@ function ZkHostRedirect() {
 }
 
 function MainAppRouter() {
-  const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     const initializeMiniApp = async () => {
       try {
@@ -83,19 +80,11 @@ function MainAppRouter() {
         console.log('Mini App SDK initialized successfully');
       } catch (error) {
         console.error('Failed to initialize Mini App SDK:', error);
-      } finally {
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 1500);
       }
     };
 
     initializeMiniApp();
   }, []);
-
-  if (isLoading) {
-    return <SplashScreen />;
-  }
 
   return <SharedAppRoutes zkMode={false} />;
 }
