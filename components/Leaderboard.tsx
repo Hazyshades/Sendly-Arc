@@ -390,6 +390,19 @@ export function Leaderboard() {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const displayedEntries = useMemo(() => filteredAndSortedEntries.slice(startIndex, endIndex), [filteredAndSortedEntries, startIndex, endIndex]);
 
+  const userIndex = useMemo(() => {
+    if (!normalizedAccount) return -1;
+    return filteredAndSortedEntries.findIndex(
+      (entry) => entry.senderAddress?.toLowerCase() === normalizedAccount
+    );
+  }, [filteredAndSortedEntries, normalizedAccount]);
+
+  const userPage = useMemo(() => {
+    if (userIndex === -1) return null;
+    return Math.floor(userIndex / ITEMS_PER_PAGE) + 1;
+  }, [userIndex]);
+
+
   // Calculate pagination pages to display
   const paginationPages = useMemo(() => {
     const pages: (number | 'ellipsis')[] = [];
@@ -729,7 +742,7 @@ export function Leaderboard() {
           </div>
 
           {/* Statistics cards - dynamic based on metric view with smooth transition */}
-          <div className="relative min-h-[120px] overflow-hidden">
+          <div className="relative min-h-[60px] overflow-hidden">
             <div 
               key={metricView}
               className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500"
