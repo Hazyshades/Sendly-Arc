@@ -80,8 +80,8 @@ export function toOnchainReclaimProof(proof: ReclaimProof): ReclaimOnchainProof 
       claim: {
         identifier: String(claim.identifier) as `0x${string}`,
         owner: String(claim.owner) as `0x${string}`,
-        timestampS: toUint32(claim.timestampS, 'timestampS'),
-        epoch: toUint32(claim.epoch, 'epoch'),
+        timestampS: toUint32(claim.timestampS ?? 0, 'timestampS'),
+        epoch: toUint32(claim.epoch ?? 0, 'epoch'),
       },
       signatures: signatures.map((s: unknown) => String(s) as `0x${string}`),
     },

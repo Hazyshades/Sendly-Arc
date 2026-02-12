@@ -259,14 +259,16 @@ export function TransactionHistory() {
 
     if (isZkHost()) {
       const cacheAge = Date.now() - dataCacheRef.current.timestamp;
+      const cachedAnalytics = dataCacheRef.current.analytics;
+      const cachedTransactions = dataCacheRef.current.transactions;
       const cacheValid =
         cacheAge < 300000 &&
         dataCacheRef.current.address === address &&
-        dataCacheRef.current.analytics &&
-        dataCacheRef.current.transactions;
+        cachedAnalytics != null &&
+        cachedTransactions != null;
       if (cacheValid) {
-        setAnalytics(dataCacheRef.current.analytics);
-        setTransactions(dataCacheRef.current.transactions);
+        setAnalytics(cachedAnalytics);
+        setTransactions(cachedTransactions);
         setLoading(false);
         return;
       }
@@ -278,10 +280,12 @@ export function TransactionHistory() {
     const cacheAge = Date.now() - dataCacheRef.current.timestamp;
     const cacheValid = cacheAge < 300000 && dataCacheRef.current.address === address; // 5 minutes
     
-    if (cacheValid && dataCacheRef.current.analytics && dataCacheRef.current.transactions) {
+    const cachedAnalytics = dataCacheRef.current.analytics;
+    const cachedTransactions = dataCacheRef.current.transactions;
+    if (cacheValid && cachedAnalytics != null && cachedTransactions != null) {
       console.log('Using cached data');
-      setAnalytics(dataCacheRef.current.analytics);
-      setTransactions(dataCacheRef.current.transactions);
+      setAnalytics(cachedAnalytics);
+      setTransactions(cachedTransactions);
       setLoading(false);
       return;
     }
