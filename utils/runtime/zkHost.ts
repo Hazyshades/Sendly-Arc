@@ -1,6 +1,15 @@
 export function isZkHost(hostname?: string): boolean {
-  const h = (hostname ?? window.location.hostname).toLowerCase();
-  return h === 'zk.localhost' || h.startsWith('zk.');
+  const h = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase();
+  if (h === 'zk.localhost' || h.startsWith('zk.')) return true;
+  
+  // Check if it's the preview zk host
+  const previewHost = (
+    typeof import.meta !== 'undefined' && import.meta.env?.VITE_ZK_PREVIEW_HOST
+      ? (import.meta.env.VITE_ZK_PREVIEW_HOST as string)
+      : 'zk.sendly-preview.xetras-projects-a56da406.vercel.app'
+  ).toLowerCase();
+  
+  return h === previewHost;
 }
 
 export function isZkLocalhost(hostname?: string): boolean {
