@@ -5,6 +5,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { VerificationInfographic } from '../components/figma/VerificationInfographic';
 import { ZkTLSInfographic } from '../components/figma/ZkTLSInfographic';
 import { ZkTLSArchitectureInfographic } from '../components/figma/ZkTLSArchitectureInfographic';
+import { PrivyOAuthInfographic } from '../components/figma/PrivyOAuthInfographic';
 import { BlogLayout } from '../components/BlogLayout';
 
 interface BlogPost {
@@ -31,7 +32,7 @@ interface BlogSection {
 interface BlogImage {
   id: string;
   src?: string;
-  componentId?: 'verification-infographic' | 'zktls-infographic' | 'zktls-architecture-infographic';
+  componentId?: 'verification-infographic' | 'zktls-infographic' | 'zktls-architecture-infographic' | 'privy-oauth-infographic';
   alt: string;
   caption: string;
 }
@@ -41,16 +42,22 @@ const blogPosts: Record<string, BlogPost> = {
     slug: 'privy_results',
     title: 'Privy testnet results: metrics, methodology, and takeaways',
     description:
-      'Testnet metrics, the Privy + OAuth token workflow, how we verify data, and main practical takeaways.',
+      'Privy testnet: 10k+ addresses, 17k+ cards, ~$0.05/tx gas cost. How the Privy + OAuth identity pipeline worked, three-level verification methodology, and operational takeaways.',
     date: '2026-02-10',
     category: 'Technology',
     tags: ['Privy', 'OAuth', 'Testnet'],
-    readTime: '8 min',
+    readTime: '6 min',
     images: [
       {
         id: 'verification-flow',
         componentId: 'verification-infographic',
         alt: 'Verification methodology flow: Privy consistency, on-chain reconciliation, OAuth checks, logging and metrics',
+        caption: ''
+      },
+      {
+        id: 'privy-oauth-flow',
+        componentId: 'privy-oauth-infographic',
+        alt: 'Privy + OAuth pipeline: User authentication, JWT validation, MPC key management, OAuth gateway, provider API calls',
         caption: ''
       }
     ],
@@ -59,63 +66,56 @@ const blogPosts: Record<string, BlogPost> = {
         id: 'context',
         title: 'Testnet context',
         paragraphs: [
-          'This post summarises the Sendly testnet that used Privy for authentication and social linking. We document the metrics, the working approach with Privy and OAuth tokens, how we verify data, and the main takeaways for product and infrastructure.'
+          'In the Sendly testnet Privy served as the single identity and embedded-wallet provider: social accounts were bound to a wallet in one login, OAuth tokens were used only within the session for API checks, and all provider calls went through a shared layer with error handling and rate-limiting. Quality was assessed via three-level verification: Privy schema \u2192 on-chain reconciliation \u2192 spot-checks via providers.'
         ]
       },
       {
         id: 'metrics',
         title: 'Aggregate metrics',
         paragraphs: [
-          'Over the testnet period we observed the following totals.'
+          'Totals and derived values for the testnet period:'
         ],
         bullets: [
-          'Total addresses: 10,697.',
-          'Total cards sent: 17,667.',
-          'Gas spent: 1,131.80 USDC.',
-          'Transactions: 22,636.',
-          'Total Value Locked: $37,843.03 USDC.'
-        ]
-      },
-      {
-        id: 'channels',
-        title: 'Breakdown by channel',
-        paragraphs: [
-          'Distribution across connected platforms (cards and addresses).'
-        ],
-        bullets: [
-          'Twitter: 810 cards, 483 addresses.',
-          'Twitch: 77 cards, 34 addresses.',
-          'Telegram: 124 cards, 73 addresses.'
+          'Addresses: 10,697. Cards sent: 17,667. Transactions: 22,636.',
+          'Gas spent: 1,131.80 USDC \u2192 cost per tx \u2248 $0.05.',
+          'TVL: $37,843.03 USDC \u2192 TVL per user \u2248 $3.54.',
+          'Channel breakdown (cards / addresses / share of cards): Twitter \u2014 810 / 483 / 80.1%, Telegram \u2014 124 / 73 / 12.3%, Twitch \u2014 77 / 34 / 7.6%.',
+          'Twitter dominates by volume; Telegram and Twitch contribute a smaller but measurable share worth keeping in product and analytics.'
         ]
       },
       {
         id: 'privy-oauth-method',
-        title: 'Working with Privy and OAuth tokens',
+        title: 'Privy + OAuth pipeline',
         paragraphs: [
-          'Authentication combines Privy (embedded wallet and identity) with OAuth providers (Twitter, Twitch, Telegram, etc.). The user signs in with a provider; we get from Privy verified bindings of social account to wallet.',
-          'OAuth tokens are used only within the session and for flows that explicitly need provider API access (e.g. checking subscription or profile). We do not keep tokens longer than needed and request only the scopes we use. On the backend, all calls to providers go through a single layer: token validation, error and rate-limit handling, and logging without storing sensitive payloads.',
-          'Privy’s embedded wallet is bound to our app; transaction signing and social-account linking share one login flow. That reduces friction and gives a single source of truth for the social-identity–to–wallet link.'
-        ]
+          'Flow: user authenticates via Privy; Privy returns a JWT with linked accounts and an embedded wallet address; our backend validates the JWT signature and checks the linked-accounts schema. The embedded wallet key is managed by Privy (MPC split between Privy infrastructure and the user\'s device); our app never holds the full private key. Transaction signing and social-account linking share one login flow.',
+          'OAuth tokens: session-scoped, minimal scopes (e.g. read:user for Twitter, openid for Twitch). Tokens are used only for provider API calls that need them (profile check, subscription status) and discarded at session end. Backend calls go through a single gateway: JWT validation, provider call with retry (3x exponential backoff, 429/5xx handling), structured logging (request ID, status, latency; no tokens or secrets in logs).'
+        ],
+        imageId: 'privy-oauth-flow'
       },
       {
         id: 'verification',
         title: 'Verification methodology',
         paragraphs: [
-          'Verification runs at several levels.',
-          '(1) Privy consistency: we check that returned fields (linked accounts, wallet) match the expected schema and our validation rules.',
-          '(2) On-chain reconciliation: card creation, transfers, and gas usage are matched against our records and, when needed, index or subgraph data.',
-          '(3) Spot checks with OAuth providers: for a subset of requests we call provider APIs (e.g. to confirm Twitter/Telegram linkage is still valid) so cache and bindings do not drift from the real state.',
-          'All discrepancies are logged with a minimal set of identifiers (no tokens or raw secrets). We use them to compute quality metrics (link errors, provider failures, duplicates) and trigger manual review when appropriate.'
+          'Three levels: (1) Privy consistency \u2014 returned fields (linked accounts, wallet) are validated against expected schema. (2) On-chain reconciliation \u2014 card creation, transfers, gas usage matched against internal records and, when needed, indexer/subgraph data. (3) Spot checks \u2014 for a subset of requests we call provider APIs (e.g. confirm Twitter/Telegram linkage is still valid) to prevent cache drift.',
+          'Discrepancies are logged with request IDs only (no tokens or secrets). Quality metrics computed: link errors, provider failures, duplicates. Manual review triggered when thresholds are exceeded.'
         ],
         imageId: 'verification-flow'
       },
       {
-        id: 'learnings',
-        title: 'Main takeaways',
+        id: 'security',
+        title: 'Security considerations',
         paragraphs: [
-          'Testnet scale (10k+ addresses and 17k+ cards) showed that the Privy + OAuth setup holds up under load and gives stable social-to-wallet binding. Twitter remains the main channel by cards and addresses; Twitch and Telegram contribute a smaller but measurable share and are worth keeping in product and analytics.',
-          'Gas spend in USDC (~1,132 USDC over 22k+ transactions) gives a baseline for cost-per-user and cost-per-operation as we scale. TVL around $38k USDC reflects real usage of deposits on testnet.',
-          'On the operations side: a consistent contract with providers (retries, limits, clear errors), minimal token lifetime and scope, and regular reconciliation of on-chain data with internal analytics are important. We will carry these practices into the next product phases.'
+          'Key custody: the embedded wallet private key is MPC-split between Privy infrastructure and the user\'s device. Our backend never has access to the full key. Provider API tokens are held only in server memory during the session and are never persisted to disk or database.',
+          'Client-side storage: Privy SDK stores the user session token in localStorage. This is vulnerable to XSS. Mitigations: strict Content-Security-Policy, no inline scripts, subresource integrity on third-party bundles. On shared/public devices users should sign out explicitly to clear storage.',
+          'Audit logging: all provider calls are logged with request ID, HTTP status, and latency. No OAuth tokens, secrets, or PII appear in logs. Logs are retained for 30 days for incident response.'
+        ]
+      },
+      {
+        id: 'learnings',
+        title: 'Operational takeaways',
+        paragraphs: [
+          'At ~$0.05/tx the gas cost is viable for production. TVL per user ($3.54) sets a baseline for deposit incentive design. Twitter accounts for 80% of cards \u2014 Telegram (12%) and Twitch (8%) are worth supporting but secondary in priority.',
+          'Provider SLA: implement retries with exponential backoff (3x, cap 30s) and circuit-breaker per provider. Keep OAuth token TTL minimal (session-only) and request only the scopes actually used. Run on-chain \u2194 analytics reconciliation daily; alert on >1% discrepancy.'
         ]
       }
     ],
@@ -125,11 +125,11 @@ const blogPosts: Record<string, BlogPost> = {
     slug: 'zktls_payments_guide',
     title: 'User Guide: Payments (zkTLS and zkSend)',
     description:
-      'How to send and receive payments by social identity in Sendly using zkTLS (proof of account ownership) and the ZkSend contract.',
+      'With Sendly you can send money to platform:username \u2014 the recipient proves control of the account via a secure process (zkTLS), after which the contract transfers funds to their wallet.',
     date: '2026-02-11',
     category: 'Tutorial',
     tags: ['zkTLS', 'zkSend', 'Payments'],
-    readTime: '10 min',
+    readTime: '8 min',
     images: [
       {
         id: 'zktls-flow',
@@ -148,6 +148,18 @@ const blogPosts: Record<string, BlogPost> = {
         src: '/images/blog/testnet-fees.svg',
         alt: 'Payments and fees on zkSync',
         caption: 'On-chain fees and payments on zkSync'
+      },
+      {
+        id: 'send-tab',
+        src: '/Send.png',
+        alt: 'Send tab — sending a payment',
+        caption: ''
+      },
+      {
+        id: 'receive-tab',
+        src: '/Receive.png',
+        alt: 'Receive tab — receiving a payment',
+        caption: ''
       }
     ],
     sections: [
@@ -155,18 +167,14 @@ const blogPosts: Record<string, BlogPost> = {
         id: 'what-is-zktls',
         title: 'What is zkTLS',
         paragraphs: [
-          'zkTLS (zero-knowledge Transport Layer Security) is a cryptographic protocol that allows you to prove ownership of data from online services without revealing sensitive information like passwords, tokens, or personal details.',
-          'Built on the Reclaim Protocol, zkTLS enables you to demonstrate that you control a social media account (like Twitter, Twitch, or GitHub) without exposing your login credentials or access tokens. This is achieved through cryptographic proofs that verify data authenticity while maintaining privacy.',
-          'The protocol uses an attestor—a trusted intermediary that acts as an opaque proxy. When you connect your social account, the attestor facilitates encrypted communication between your device and the social platform\'s servers using TLS (Transport Layer Security). The attestor validates that you successfully accessed the resource but cannot see your actual data due to end-to-end encryption.',
-          'Here\'s how it works: You create a claim—a structured record of your interaction with the social platform. The attestor validates this claim by verifying the encrypted data exchange occurred, then signs it cryptographically. This signed claim proves you own the account without revealing sensitive details.',
-          'In Sendly Payments, zkTLS proofs are used to verify that you control a specific platform:username combination (e.g., twitter:alice). When claiming a payment, you generate a zkTLS proof that demonstrates account ownership, which the smart contract verifies before releasing funds to your wallet.'
+          'zkTLS is a protocol for proving account ownership without sharing credentials. Your device creates a signed claim via a local proof-generation process; the attestor validates that the TLS session to the social platform succeeded and signs the claim; the smart contract verifies it before payout.',
+          'The attestor acts as an opaque proxy: it relays encrypted TLS traffic between your device and the platform and attests that the handshake and data exchange completed correctly. TLS keys never leave your device\u2014you hold the client-side TLS session, and the attestor only observes metadata (that a successful session occurred) and signs a claim. It cannot decrypt or access your data.',
+          'In Sendly Payments, zkTLS proofs verify control of platform:username (e.g. twitter:alice). The claim structure typically includes fields such as claimId, identifier (platform:username), timestamp, and requestUrl. The attestor signs the claim (e.g. ECDSA), and the contract checks the signature before releasing funds.'
         ],
         bullets: [
-          'End-to-end encryption: Your data is protected using TLS, ensuring only you and the target server can decrypt it.',
-          'Zero-knowledge proofs: You prove ownership without revealing passwords, tokens, or other sensitive information.',
-          'Privacy-first: The attestor operates as an opaque proxy—it validates interactions but cannot access your actual data.',
-          'Cryptographic integrity: Signed claims provide cryptographic proof that data came directly from the intended source and remains unaltered.',
-          'No credential sharing: Unlike web scraping tools, zkTLS never requires you to share login credentials or session cookies.'
+          'Signed claim format: claimId, identifier (platform:username), timestamp, requestUrl, and attestor signature.',
+          'The attestor does not terminate TLS; it validates the client\u2013server session. Client TLS keys stay on your device.',
+          'Smart contract verifies the attestor\u2019s signature on the claim before executing the payout.'
         ],
         imageId: 'zktls-flow'
       },
@@ -174,7 +182,7 @@ const blogPosts: Record<string, BlogPost> = {
         id: 'architecture',
         title: 'Architecture',
         paragraphs: [
-          'The protocol uses an attestor—a trusted intermediary that acts as an opaque proxy. When you connect your social account, the attestor facilitates encrypted communication between your device and the social platform\'s servers using TLS (Transport Layer Security). The attestor validates that you successfully accessed the resource but cannot see your actual data due to end-to-end encryption.'
+          'Flow: User Device \u2192 Attestor (opaque relay and signer) \u2192 Social Platform. The attestor validates the TLS session and signs the claim; the claim is submitted to the smart contract on-chain, which verifies the signature and releases funds to the recipient\u2019s wallet.'
         ],
         imageId: 'zktls-architecture'
       },
@@ -184,7 +192,7 @@ const blogPosts: Record<string, BlogPost> = {
         paragraphs: [
           'Sender creates a payment on the smart contract, specifying the recipient as platform:username (e.g., twitter:alice), not a wallet address. Funds are locked in the contract and wait for the recipient.',
           'Recipient opens the Payments section, proves ownership of the social account (zkTLS-proof), and clicks Claim. The contract verifies the proof and sends the funds to the recipient\'s wallet.',
-          'Important: the recipient receives money to their own wallet, but the sender doesn\'t need to know their address — just the username.'
+          'Important: the recipient receives money to their own wallet, but the sender doesn\'t need to know their address - just the username.'
         ],
         imageId: 'payments-fees'
       },
@@ -201,67 +209,61 @@ const blogPosts: Record<string, BlogPost> = {
         id: 'platform-username',
         title: 'Important rules for platform:username',
         paragraphs: [
-          'Identity is normalized before sending/searching: Platform is converted to lowercase, trimmed; alias x → twitter. Username is trimmed and lowercased. If you enter @username, the @ symbol is ignored.',
-          'Examples: Twitter + @Alice → twitter:alice, x + Bob → twitter:bob. Tip: enter the username exactly as it appears in the profile (without extra spaces).'
+          'Normalization: platform is lowercased and trimmed; alias x \u2192 twitter. Username is trimmed and lowercased; @ is stripped. Examples: Twitter + @Alice \u2192 twitter:alice, x + Bob \u2192 twitter:bob.',
+          'Validation: username max length 64 characters; allowed characters: letters, digits, underscores, hyphens. Invalid or overlong usernames are rejected by the UI and contract.'
         ]
       },
       {
         id: 'sending',
         title: 'Sending a payment (Send tab)',
         paragraphs: [
-          'Open zk.sendly.digital and go to the payments section. Connect your wallet using the Connect wallet button. Open the Send tab.',
-          'In the Amount field, enter the amount (e.g., 10). Select the token (USDC or EURC). In the To block: select the platform (icon on the right), enter the recipient\'s username (or email for Gmail, if enabled). Click Send and confirm the transaction in your wallet.',
-          'The contract creates a payment and assigns it a paymentId. The payment becomes visible to the recipient in the Receive tab (if they enter the same platform:username).',
-          'Tips: If the Send button is inactive — check that a wallet is connected, amount is > 0, and username is valid. For some platforms, selection may be unavailable in the UI (e.g., if the platform is temporarily disabled).'
-        ]
+          'Steps: (1) Open zk.sendly.digital \u2192 Payments \u2192 Send tab. (2) Connect your wallet. (3) Enter amount, select token (USDC or EURC), select platform, enter recipient username. (4) Click Send and confirm in wallet. The contract creates a payment with a paymentId; it becomes visible in Receive tab for the same platform:username.'
+        ],
+        bullets: [
+          'Send button inactive: ensure wallet is connected, amount > 0, username valid.',
+          'Platform unavailable: some platforms may be temporarily disabled in the UI.'
+        ],
+        imageId: 'send-tab'
       },
       {
         id: 'receiving',
         title: 'Receiving a payment (Receive tab)',
         paragraphs: [
-          'Open .../payments and connect your wallet. Go to the Receive tab. Enter your username and select the platform (this should be the account the payment was sent to). Wait for the pending payments list to auto-load (or click Refresh).',
-          'To prove ownership: for various platforms, you\'ll be offered a button like Connect Twitter / X, Connect Twitch, Connect GitHub, Connect Telegram, Connect LinkedIn, etc. Click Connect ... and complete the authorization (usually opens a popup/redirect). After connecting, return to Payments and click Refresh if needed.'
+          'Steps: (1) Open Payments \u2192 Receive tab, connect wallet. (2) Enter username and select platform. (3) Wait for pending payments (or click Refresh). (4) To prove ownership: click Connect Twitter/X, Connect Twitch, Connect GitHub, Connect Telegram, or Connect LinkedIn; complete OAuth; return and Refresh.'
         ],
-        bullets: [
-          'Connection tokens are used to obtain zkTLS-proof and are stored only in your browser (localStorage).',
-          'We do not store these tokens on our servers — they are used only locally for proof generation.',
-          'Only use this connection on your own device.'
-        ]
+        imageId: 'receive-tab'
       },
       {
         id: 'claim',
         title: 'Claim: how to collect your funds',
         paragraphs: [
-          'When pending payments are loaded, you\'ll see cards with paymentId, from (sender\'s address), amount and token.'
-        ],
-        bullets: [
-          'Claim a single payment: Click Claim next to the desired paymentId. Confirm the transaction in your wallet. On success, the interface will show a link to the transaction in the block explorer.',
-          'Claim multiple payments (Claim all): If you have multiple payments, click Claim all and confirm a single transaction. Note: claim uses the currently connected wallet — funds will be sent there.'
+          'Cards show paymentId, sender address, amount, token. Single: click Claim \u2192 confirm in wallet. Multiple: click Claim all \u2192 confirm once. Funds go to the connected wallet.'
         ]
       },
       {
         id: 'troubleshooting',
-        title: 'Troubleshooting (FAQ)',
+        title: 'Troubleshooting',
         paragraphs: [
-          'Below are common errors encountered in Payments and what usually helps.'
+          'Common errors and fixes:'
         ],
         bullets: [
-          '"Unsupported platform" — Select a different platform in the selector.',
-          '"Connect Twitter/Twitch/GitHub/Telegram/LinkedIn … to generate proof" — Go to Receive tab, select platform, enter username, click Connect ... and complete connection, then Refresh.',
-          '"Proof username mismatch" — Check that you selected the correct platform and entered the correct username. If you connected the wrong account — reconnect the social account (Reconnect).',
-          '"Reclaim proof signatures are incomplete … Regenerate proof" — Click Regenerate proof and try again. If it repeats — wait 1–5 minutes and retry.',
-          '"Reclaim proof verification failed (backend)" / "zkFetch proof failed …" — Click Refresh, reconnect the social account, regenerate the proof if using Reclaim proof mode.',
-          '"No pending payments." — Check that you selected the same platform and username, click Refresh, ensure you\'re in .../payments on the zk domain.'
+          'Unsupported platform \u2192 Select a different platform.',
+          'Connect \u2026 to generate proof \u2192 Receive tab: select platform, enter username, click Connect, complete OAuth, Refresh.',
+          'Proof username mismatch \u2192 Check platform and username; reconnect social account if wrong.',
+          'Reclaim proof signatures incomplete \u2192 Regenerate proof; wait 1\u20135 min and retry if it repeats.',
+          'Reclaim proof verification failed / zkFetch proof failed \u2192 Refresh; reconnect account; regenerate proof.',
+          'No pending payments \u2192 Same platform and username; Refresh; ensure you are on .../payments (zk domain).'
         ]
       },
       {
         id: 'security',
-        title: 'Security and Privacy',
+        title: 'Security considerations',
         paragraphs: [
-          'Never share access to your wallet and don\'t confirm unclear transactions. Connecting social accounts may store tokens in your browser for convenience — don\'t do this on public/shared computers. If you need to reset connections — use Disconnect (if available) or clear site data in your browser. Proof is used to confirm ownership of platform:username, but the goal is to not reveal unnecessary data.'
+          'Connection tokens are stored in your browser (localStorage) to obtain zkTLS proofs. We do not store them on our servers. Risk: XSS can read localStorage. Mitigations: use a browser without malicious extensions; avoid public/shared devices.',
+          'Token lifetime: connection tokens are session-scoped and should be refreshed or disconnected when no longer needed. On shared devices, use Disconnect (if available) or clear site data after use.',
+          'Wallet: never share access or confirm unclear transactions. Proofs only attest platform:username ownership; no credentials or sensitive data are exposed on-chain.'
         ]
       }
-      
     ],
     content: ''
   }
@@ -482,21 +484,40 @@ export function BlogPostRoute() {
                         <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
                       </button>
                     </div>
+                  ) : sectionImage.componentId === 'privy-oauth-infographic' ? (
+                    <div className="w-full">
+                      <button
+                        type="button"
+                        onClick={() => setActiveImage(sectionImage)}
+                        className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]"
+                        aria-label={`Open: ${sectionImage.caption}`}
+                      >
+                        <PrivyOAuthInfographic compact />
+                        <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
+                      </button>
+                    </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setActiveImage(sectionImage)}
-                      className="w-full text-left"
-                      aria-label={`Open image: ${sectionImage.caption}`}
-                    >
-                      <img
-                        src={sectionImage.src}
-                        alt={sectionImage.alt}
-                        loading="lazy"
-                        className="w-full h-40 object-cover rounded-xl"
-                      />
-                      <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
-                    </button>
+                    (() => {
+                      const isSendReceive = sectionImage.id === 'send-tab' || sectionImage.id === 'receive-tab';
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setActiveImage(sectionImage)}
+                          className={`w-full text-left ${isSendReceive ? 'border-0 shadow-none ring-0 outline-none' : ''}`}
+                          aria-label={`Open image: ${sectionImage.alt}`}
+                        >
+                          <img
+                            src={sectionImage.src}
+                            alt={sectionImage.alt}
+                            loading="lazy"
+                            className={`w-full h-40 object-cover ${isSendReceive ? 'rounded-xl border-0 shadow-none' : 'rounded-xl'}`}
+                          />
+                          {!isSendReceive && sectionImage.caption && (
+                            <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
+                          )}
+                        </button>
+                      );
+                    })()
                   )
                 )}
               </div>
@@ -707,14 +728,17 @@ export function BlogPostRoute() {
           aria-label="Image preview"
           onClick={() => setActiveImage(null)}
         >
+          {(() => {
+            const isSendReceivePreview = activeImage.id === 'send-tab' || activeImage.id === 'receive-tab';
+            return (
           <div
-            className="relative max-w-5xl w-full bg-white rounded-2xl overflow-hidden"
+            className={`relative max-w-5xl w-full overflow-hidden ${isSendReceivePreview ? 'bg-transparent shadow-none' : 'bg-white rounded-2xl'}`}
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setActiveImage(null)}
-              className="absolute right-4 top-4 z-10 bg-white/90 text-gray-700 rounded-full px-3 py-1 text-sm hover:bg-white"
+              className={`absolute right-4 top-4 z-10 text-sm ${isSendReceivePreview ? 'bg-black/50 text-white rounded-full px-3 py-1 hover:bg-black/70' : 'bg-white/90 text-gray-700 rounded-full px-3 py-1 hover:bg-white'}`}
             >
               Close
             </button>
@@ -778,15 +802,39 @@ export function BlogPostRoute() {
                   Scroll or pinch to zoom · Double-tap to zoom in
                 </p>
               </div>
+            ) : activeImage.componentId === 'privy-oauth-infographic' ? (
+              <div className="bg-[#FAFAFA] overflow-hidden">
+                <TransformWrapper
+                  initialScale={1}
+                  minScale={0.5}
+                  maxScale={3}
+                  centerOnInit
+                  doubleClick={{ mode: 'zoomIn' }}
+                >
+                  <TransformComponent
+                    wrapperStyle={{ width: '100%', maxHeight: '70vh' }}
+                    contentStyle={{ minHeight: '400px' }}
+                  >
+                    <PrivyOAuthInfographic embedded />
+                  </TransformComponent>
+                </TransformWrapper>
+                <p className="px-4 py-2 text-xs text-gray-500 text-center border-t border-gray-100">
+                  Scroll or pinch to zoom · Double-tap to zoom in
+                </p>
+              </div>
             ) : (
               <img
                 src={activeImage.src}
                 alt={activeImage.alt}
-                className="w-full max-h-[75vh] object-contain bg-gray-900"
+                className={`w-full max-h-[75vh] object-contain ${isSendReceivePreview ? 'bg-transparent rounded-xl' : 'bg-gray-900'}`}
               />
             )}
-            <div className="p-4 text-sm text-gray-600">{activeImage.caption}</div>
+            {!isSendReceivePreview && activeImage.caption && (
+              <div className="p-4 text-sm text-gray-600">{activeImage.caption}</div>
+            )}
           </div>
+            );
+          })()}
         </div>
       )}
     </BlogLayout>

@@ -124,7 +124,7 @@ export function SocialAccountStatus() {
               variant="outline"
               size="sm"
               className="bg-amber-100 dark:bg-amber-900/40 backdrop-blur-sm border-2 border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800/50 px-3 py-2 rounded-2xl transition-all duration-200 shadow-lg shadow-amber-200/30 dark:shadow-amber-900/20 ring-2 ring-amber-300/50 dark:ring-amber-500/30"
-              aria-label="Social account status — not connected"
+              aria-label="Social account status - not connected"
             >
               <AlertCircle className="h-4 w-4 mr-2 shrink-0" />
               <span className="text-sm font-semibold">Not connected</span>

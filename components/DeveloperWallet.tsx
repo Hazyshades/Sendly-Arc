@@ -947,9 +947,9 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
                     {/* Info Alert */}
                     <div className="flex gap-3 p-3 rounded-lg bg-blue-50/50 border border-blue-100">
                       <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                      <p className="text-xs text-blue-900 leading-relaxed">
+                      {/* <p className="text-xs text-blue-900 leading-relaxed">
                         This wallet is developer-controlled. You can fund it from your EVM wallet and use it for transactions through the Telegram bot without MetaMask signing.
-                      </p>
+                      </p> */}
                     </div>
                   </div>
                   <Separator />
@@ -991,13 +991,13 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
     <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
   <CardHeader className="pb-6"> {/* add bottom margin, so the description does not stick to the content below */}
     <div className="grid grid-rows-2 items-start gap-3">
-      {/* Title with icon — left */}
+      {/* Title with icon - left */}
       <CardTitle className="flex items-center gap-2">
         <Wallet className="w-5 h-5 text-gray-700" />
         Internal Wallet
       </CardTitle>
 
-      {/* Description — center of the card */}
+      {/* Description - center of the card */}
       <CardDescription className="text-left text-sm text-gray-600 -mt-1">
         {shouldShowConnectMessage
           ? 'Please connect your wallet or social account to use platform functionality.'

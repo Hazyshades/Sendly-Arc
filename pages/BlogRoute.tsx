@@ -23,17 +23,19 @@ const blogPosts: BlogPost[] = [
     date: '2026-02-10',
     category: 'Technology',
     tags: ['Privy', 'OAuth', 'Testnet'],
-    readTime: '8 min'
+    readTime: '8 min',
+    image: '/Sendly x Privy.png'
   },
   {
     slug: 'zktls_payments_guide',
     title: 'User Guide: Payments (zkTLS and zkSend)',
     description:
-      'How to send and receive payments by social identity in Sendly using zkTLS and the ZkSend contract.',
+      'Discover our zkTLS technology: send and receive payments via social identity with proof of ownership - no data sharing.',
     date: '2026-02-11',
     category: 'Tutorial',
     tags: ['zkTLS', 'zkSend', 'Payments'],
-    readTime: '10 min'
+    readTime: '10 min',
+    image: '/SENDLY + ZKTLS (1).png'
   }
 ];
 
@@ -98,10 +100,20 @@ export function BlogRoute() {
             className="group"
           >
             <article className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden h-full flex flex-col border border-gray-100">
-              {/* Image placeholder */}
-              <div className="w-full h-48 bg-gradient-to-br from-purple-100 via-blue-100 to-pink-100 flex items-center justify-center">
-                <BookOpen className="w-16 h-16 text-purple-400 opacity-50" />
-              </div>
+              {/* Image or placeholder */}
+              {post.image ? (
+                <div className="w-full h-48 overflow-hidden bg-gray-100">
+                  <img
+                    src={encodeURI(post.image)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-48 bg-gradient-to-br from-purple-100 via-blue-100 to-pink-100 flex items-center justify-center">
+                  <BookOpen className="w-16 h-16 text-purple-400 opacity-50" />
+                </div>
+              )}
 
               {/* Content */}
               <div className="p-6 flex-1 flex flex-col">

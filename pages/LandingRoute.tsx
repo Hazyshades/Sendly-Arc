@@ -218,20 +218,22 @@ export function LandingRoute() {
             How it work
           </h2>
           <div className="grid md:grid-cols-2 gap-8">
-            {/* Payments subsection */}
-            <Card className="bg-white shadow-lg rounded-2xl border-0 overflow-hidden">
-              <CardContent className="p-8">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 text-white" />
+            {/* Payments subsection - clickable link to guide */}
+            <Link to="/blog/zktls_payments_guide" className="block group">
+              <Card className="bg-white shadow-lg rounded-2xl border-0 overflow-hidden transition-shadow hover:shadow-xl cursor-pointer h-full">
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                      <CreditCard className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">Payments</h3>
                   </div>
-                  <h3 className="text-2xl font-semibold text-gray-900">Payments</h3>
-                </div>
-                <p className="text-gray-700 leading-relaxed">
-                Payments via social identity. Send and receive funds using a social handle instead of wallet addresses. Access is proven with a zkTLS proof, and the payout is executed and verified on-chain — private and secure.
-                </p>
-              </CardContent>
-            </Card>
+                  <p className="text-gray-700 leading-relaxed">
+                  Payments via social identity. Send and receive funds using a social handle instead of wallet addresses. Access is proven with a zkTLS proof, and the payout is executed and verified on-chain - private and secure.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* NFT subsection */}
             <Card className="bg-white shadow-lg rounded-2xl border-0 overflow-hidden">

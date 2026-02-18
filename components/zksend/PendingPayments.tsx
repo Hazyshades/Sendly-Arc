@@ -32,6 +32,15 @@ import { connectInstagram } from './Oauth/instagram';
 import { connectGmail } from './Oauth/gmail';
 import { connectLinkedIn } from './Oauth/linkedin';
 
+const TOKEN_SYMBOL_BY_ADDRESS: Record<string, string> = {
+  '0x89b50855aa3be2f677cd6303cec089b5f319d72a': 'EURC',
+  '0x3600000000000000000000000000000000000000': 'USDC',
+};
+
+function getTokenDisplay(tokenAddress: string): string {
+  return TOKEN_SYMBOL_BY_ADDRESS[tokenAddress?.toLowerCase() ?? ''] ?? tokenAddress;
+}
+
 type PaymentRow = {
   paymentId: string;
   sender: string;
@@ -1176,9 +1185,9 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
         )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-xs text-muted-foreground">
+         {/* <div className="text-xs text-muted-foreground">
             {isActive ? 'Pending payments auto-load when this tab opens.' : 'Open this tab to auto-load pending payments.'}
-          </div>
+          </div> */}
           <Button
             type="button"
             variant="outline"
@@ -1233,7 +1242,19 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
                 <div className="space-y-1">
                   <div className="text-sm font-medium">paymentId: {p.paymentId}</div>
                   <div className="text-xs text-muted-foreground">
-                    from: {p.sender} · amount: {p.amount} · token: {p.token}
+                    from:{' '}
+                    <a
+                      href={`${ARC_EXPLORER_URL}/address/${p.sender}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {p.sender}
+                    </a>
+                    {' · amount: '}
+                    {p.amount}
+                    {' · token: '}
+                    {getTokenDisplay(p.token)}
                   </div>
                 </div>
                 <Button

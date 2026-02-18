@@ -108,7 +108,7 @@ export function SendPaymentForm({
       }
 
       toast.success(
-        paymentId ? `Payment created. paymentId=${paymentId}` : `Payment created. TX: ${txHash.slice(0, 10)}...`
+        paymentId ? `Payment created successfully.` : `Payment created successfully. TX: ${txHash.slice(0, 10)}...`
       );
     } catch (e) {
       let msg = 'Failed to send payment';

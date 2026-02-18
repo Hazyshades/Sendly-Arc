@@ -1009,7 +1009,7 @@ export function Leaderboard() {
                 !entry.displayName ||
                 entry.displayName.toLowerCase() === entry.senderAddress?.toLowerCase();
               const primaryLabel =
-                (isAddressLabel ? formatAddress(entry.senderAddress) : entry.displayName) ?? '—';
+                (isAddressLabel ? formatAddress(entry.senderAddress) : entry.displayName) ?? '-';
               const isCurrentUser =
                 normalizedAccount &&
                 entry.senderAddress?.toLowerCase() === normalizedAccount;

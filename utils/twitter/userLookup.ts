@@ -1,10 +1,13 @@
 /**
  * Twitter/X user lookup for handle input preview (avatar + name).
- * Calls zk-sender Edge Function GET /zk-sender/twitter/user (api.twitterapi.io + DB cache).
+ * First checks Supabase cache (twitter_user_cache) to avoid hitting Twitter API;
+ * only calls zk-sender Edge Function GET /zk-sender/twitter/user on cache miss.
  */
 
-import { getApiUrl } from '../supabase/client';
+import { getApiUrl, supabase } from '../supabase/client';
 import { publicAnonKey } from '../supabase/info';
+
+const TWITTER_USER_CACHE_TABLE = 'twitter_user_cache';
 
 export interface TwitterUserPreview {
   username: string;
@@ -42,6 +45,7 @@ export function normalizeTwitterHandle(handle: string): string {
 
 /**
  * Fetch Twitter user profile by username for preview.
+ * First looks up Supabase cache to avoid calling Twitter API; only calls Edge Function on cache miss.
  * Returns result with success/error for UI to show avatar, name, or error message.
  */
 export async function fetchTwitterUserPreview(username: string): Promise<TwitterUserLookupResponse> {
@@ -50,6 +54,30 @@ export async function fetchTwitterUserPreview(username: string): Promise<Twitter
     return { success: false, error: 'Enter a username', code: 'MISSING_USERNAME' };
   }
 
+  // 1. First check Supabase cache so we don't hit Twitter API when data already exists
+  try {
+    const { data: row, error: dbError } = await supabase
+      .from(TWITTER_USER_CACHE_TABLE)
+      .select('username, name, profile_image_url')
+      .ilike('username', normalized)
+      .maybeSingle();
+
+    if (!dbError && row?.username) {
+      return {
+        success: true,
+        data: {
+          username: row.username,
+          name: row.name ?? row.username,
+          profile_image_url: row.profile_image_url ?? null,
+        },
+      };
+    }
+    // On DB error or no row, fall through to Edge Function (e.g. new username)
+  } catch {
+    // Supabase unavailable or table missing: fall through to Edge Function
+  }
+
+  // 2. Cache miss or no cache table: call zk-sender Edge Function (may use Twitter API)
   const base = getTwitterLookupBaseUrl().replace(/\/$/, '');
   const url = `${base}/zk-sender/twitter/user?username=${encodeURIComponent(normalized)}`;
 

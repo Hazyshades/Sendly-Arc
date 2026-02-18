@@ -53,7 +53,7 @@ function normalizeTxHash(h: string | null | undefined): string {
 
 function toTransactionFromSent(row: ZkSendPaymentRow): Transaction {
   const counterpart =
-    row.recipient_username ?? row.recipient_username_raw ?? row.recipient_identity_hash ?? '—';
+    row.recipient_username ?? row.recipient_username_raw ?? row.recipient_identity_hash ?? '-';
   const currency = (row.currency === 'EURC' ? 'EURC' : row.currency === 'USYC' ? 'USYC' : 'USDC') as 'USDC' | 'EURC' | 'USYC';
   return {
     id: `zksend_sent_${row.chain_id}_${row.contract_address}_${row.payment_id}`,
@@ -70,7 +70,7 @@ function toTransactionFromSent(row: ZkSendPaymentRow): Transaction {
 }
 
 function toTransactionFromReceived(row: ZkSendPaymentRow): Transaction {
-  const counterpart = row.sender_address ?? '—';
+  const counterpart = row.sender_address ?? '-';
   const currency = (row.currency === 'EURC' ? 'EURC' : row.currency === 'USYC' ? 'USYC' : 'USDC') as 'USDC' | 'EURC' | 'USYC';
   const timestamp = row.claimed_at ?? row.created_at ?? new Date().toISOString();
   const txHash = normalizeTxHash(row.claim_tx_hash ?? row.tx_hash);

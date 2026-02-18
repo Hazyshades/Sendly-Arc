@@ -60,7 +60,7 @@ const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
 const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
 // Telegram Login Widget (hash verification + JWT for /api/telegram/me)
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
-// Telegram MTProto (GramJS) for resolveUsername — get user by @username
+// Telegram MTProto (GramJS) for resolveUsername - get user by @username
 const TELEGRAM_API_ID = parseInt(process.env.TELEGRAM_API_ID || '0', 10);
 const TELEGRAM_API_HASH = (process.env.TELEGRAM_API_HASH || '').trim();
 

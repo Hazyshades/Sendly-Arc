@@ -143,7 +143,7 @@ export function ZkTLSArchitectureInfographic({
   embedded = false,
 }: ZkTLSArchitectureInfographicProps) {
   const containerClass = compact
-    ? 'flex flex-col items-center justify-center px-2 py-4 rounded-xl overflow-hidden'
+    ? 'flex flex-col items-center justify-center px-2 py-2 rounded-xl overflow-hidden'
     : embedded
       ? 'flex w-full flex-col items-center justify-center px-8 py-12'
       : 'flex min-h-screen w-full flex-col items-center justify-center px-8 py-16';
@@ -152,12 +152,12 @@ export function ZkTLSArchitectureInfographic({
     ? {
         width: 900,
         minWidth: 900,
-        transform: 'scale(0.32)',
+        transform: 'scale(0.22)',
         transformOrigin: 'center top',
       }
     : undefined;
   const titleClass = compact
-    ? 'mb-3 text-base font-semibold'
+    ? 'mb-2 text-sm font-semibold'
     : 'mb-12 text-3xl font-semibold';
 
   return (
@@ -177,8 +177,8 @@ export function ZkTLSArchitectureInfographic({
         style={
           compact
             ? {
-                width: 288,
-                height: 200,
+                width: 200,
+                height: 140,
                 overflow: 'hidden',
               }
             : undefined
