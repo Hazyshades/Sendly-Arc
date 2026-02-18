@@ -12,6 +12,8 @@ import {
 import { createZkSendPaymentRecord } from '../../utils/zksend/zksendPaymentsAPI';
 import { USDC_ADDRESS, EURC_ADDRESS } from '../../utils/web3/constants';
 
+const ARC_EXPLORER_URL = import.meta.env.VITE_ARC_BLOCK_EXPLORER_URL || 'https://testnet.arcscan.app';
+
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Input } from '../ui/input';
@@ -107,22 +109,69 @@ export function SendPaymentForm({
         console.warn('[zkSEND] Payment created without paymentId; DB record was not stored.');
       }
 
-      toast.success(
-        paymentId ? `Payment created successfully.` : `Payment created successfully. TX: ${txHash.slice(0, 10)}...`
-      );
+      if (txHash) {
+        toast.success(
+          <span>
+            Payment created successfully.{' '}
+            <a
+              href={`${ARC_EXPLORER_URL}/tx/${txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium"
+            >
+              TX: {txHash.slice(0, 10)}...
+            </a>
+          </span>
+        );
+      } else {
+        toast.success('Payment created successfully.');
+      }
     } catch (e) {
       let msg = 'Failed to send payment';
+      let txHash: string | null = null;
 
       if (e instanceof Error) {
         if (e.message.includes('User rejected the request')) {
           msg = 'User rejected the request';
         } else {
           msg = e.message;
+          // Extract transaction hash from error message if present
+          const txHashMatch = msg.match(/Transaction hash: (0x[a-fA-F0-9]{64})/i) || 
+                              msg.match(/Tx hash: (0x[a-fA-F0-9]{64})/i) ||
+                              msg.match(/(0x[a-fA-F0-9]{64})/);
+          if (txHashMatch) {
+            txHash = txHashMatch[1];
+          }
         }
       }
 
       console.error('[zkSEND] createPayment error:', e);
-      toast.error(msg);
+      
+      if (txHash) {
+        // Clean up the message by removing the transaction hash part
+        const cleanMsg = msg
+          .replace(new RegExp(`Transaction hash:?\\s*${txHash}`, 'gi'), '')
+          .replace(new RegExp(`Tx hash:?\\s*${txHash}`, 'gi'), '')
+          .replace(new RegExp(txHash, 'g'), '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        toast.error(
+          <span>
+            {cleanMsg}{' '}
+            <a
+              href={`${ARC_EXPLORER_URL}/tx/${txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium"
+            >
+              TX: {txHash.slice(0, 10)}...
+            </a>
+          </span>
+        );
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }

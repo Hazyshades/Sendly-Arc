@@ -25,6 +25,8 @@ import {
 import type { ZkSendPlatform } from './ZkSendPanel';
 
 const PREVIEW_DEBOUNCE_MS = 500;
+/** Twitter preview: 3s debounce to reduce Twitter API (twitterapi.io) usage when typing. */
+const TWITTER_PREVIEW_DEBOUNCE_MS = 3000;
 
 /** Module-level cache for successful Twitter previews (key = normalized username). Survives tab switch. */
 const twitterPreviewCache = new Map<string, TwitterUserPreview>();
@@ -161,7 +163,7 @@ export function PlatformUsernameInput({
         .finally(() => {
           inFlightRequestRef.current = '';
         });
-    }, PREVIEW_DEBOUNCE_MS);
+    }, TWITTER_PREVIEW_DEBOUNCE_MS);
 
     return () => {
       if (debounceRef.current) {

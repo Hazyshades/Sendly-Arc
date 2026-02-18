@@ -217,7 +217,11 @@ const blogPosts: Record<string, BlogPost> = {
         id: 'sending',
         title: 'Sending a payment (Send tab)',
         paragraphs: [
-          'Steps: (1) Open zk.sendly.digital \u2192 Payments \u2192 Send tab. (2) Connect your wallet. (3) Enter amount, select token (USDC or EURC), select platform, enter recipient username. (4) Click Send and confirm in wallet. The contract creates a payment with a paymentId; it becomes visible in Receive tab for the same platform:username.'
+          'Steps:',
+          '(1) Open zk.sendly.digital \u2192 Payments \u2192 Send tab.',
+          '(2) Connect your wallet.',
+          '(3) Enter amount, select token (USDC or EURC), select platform, enter recipient username.',
+          '(4) Click Send and confirm in wallet. The contract creates a payment with a paymentId; it becomes visible in Receive tab for the same platform:username.'
         ],
         bullets: [
           'Send button inactive: ensure wallet is connected, amount > 0, username valid.',
@@ -229,7 +233,11 @@ const blogPosts: Record<string, BlogPost> = {
         id: 'receiving',
         title: 'Receiving a payment (Receive tab)',
         paragraphs: [
-          'Steps: (1) Open Payments \u2192 Receive tab, connect wallet. (2) Enter username and select platform. (3) Wait for pending payments (or click Refresh). (4) To prove ownership: click Connect Twitter/X, Connect Twitch, Connect GitHub, Connect Telegram, or Connect LinkedIn; complete OAuth; return and Refresh.'
+          'Steps:',
+          '(1) Open Payments \u2192 Receive tab, connect wallet.',
+          '(2) Enter username and select platform.',
+          '(3) Wait for pending payments (or click Refresh).',
+          '(4) To prove ownership: click Connect Twitter/X, Connect Twitch, Connect GitHub, Connect Telegram, or Connect LinkedIn; complete OAuth; return and Refresh.'
         ],
         imageId: 'receive-tab'
       },
@@ -262,6 +270,89 @@ const blogPosts: Record<string, BlogPost> = {
           'Connection tokens are stored in your browser (localStorage) to obtain zkTLS proofs. We do not store them on our servers. Risk: XSS can read localStorage. Mitigations: use a browser without malicious extensions; avoid public/shared devices.',
           'Token lifetime: connection tokens are session-scoped and should be refreshed or disconnected when no longer needed. On shared devices, use Disconnect (if available) or clear site data after use.',
           'Wallet: never share access or confirm unclear transactions. Proofs only attest platform:username ownership; no credentials or sensitive data are exposed on-chain.'
+        ]
+      }
+    ],
+    content: ''
+  },
+  nft_gift_cards_guide: {
+    slug: 'nft_gift_cards_guide',
+    title: 'NFT Gift Cards — User Guide',
+    description:
+      'An NFT gift card is a digital card minted on-chain. You choose the amount, add a message, and send it either to a wallet address or to someone\'s social username.',
+    date: '2026-02-11',
+    category: 'Tutorial',
+    tags: ['NFT', 'Gift Cards', 'Tutorial'],
+    readTime: '8 min',
+    images: [
+      {
+        id: 'nft-flow',
+        src: '/images/blog/testnet-dex.svg',
+        alt: 'NFT gift cards on-chain',
+        caption: 'On-chain NFT gift cards'
+      }
+    ],
+    sections: [
+      {
+        id: 'intro',
+        title: 'Overview',
+        paragraphs: [
+          'An NFT gift card is a digital card minted on-chain. You choose the amount, add a message, and send it either to a wallet address or to someone\'s social username.',
+          'Once claimed, the card lives in the recipient\'s wallet as an ERC-721 NFT.'
+        ],
+        imageId: 'nft-flow'
+      },
+      {
+        id: 'how-it-works',
+        title: 'How it works',
+        paragraphs: [
+          'You create a card on the Create page. Choose how to send it: directly to a wallet address, or to a social username (Twitter, Twitch, Telegram, TikTok, Instagram). Enter the amount (USDC or EURC). Add a message (optional password protection available). Confirm the transaction in your wallet.',
+          'The smart contract mints an ERC-721 NFT. Metadata and image are stored on IPFS (via Pinata). If you send it to a username, the card is held in a platform vault until the owner proves control of that account.'
+        ]
+      },
+      {
+        id: 'recipient',
+        title: 'What the recipient does',
+        paragraphs: [
+          'If sent to a wallet address: The NFT appears in that wallet after minting.',
+          'If sent to a username: The recipient logs in with that platform. After authentication, they can claim the card. If they don\'t yet have a wallet, one is created automatically through Circle.'
+        ]
+      },
+      {
+        id: 'after-claiming',
+        title: 'After claiming',
+        paragraphs: [
+          'The NFT gift card is now in the recipient\'s wallet. They can use it in apps that support NFT gift cards.',
+          'The value is stored in USDC or EURC and is redeemed according to the app\'s logic.'
+        ]
+      },
+      {
+        id: 'requirements',
+        title: 'Requirements',
+        paragraphs: [],
+        bullets: [
+          'Wallet: MetaMask, Rabby, or Circle wallet',
+          'Tokens: USDC or EURC on ARC Testnet',
+          'A supported social account (if sending or receiving by username)'
+        ]
+      },
+      {
+        id: 'common-issues',
+        title: 'Common issues',
+        paragraphs: [],
+        bullets: [
+          'No card visible → Make sure you logged in with the correct platform account.',
+          'Claim fails → Check you are on ARC Testnet and have enough gas.',
+          'Wrong recipient → Blockchain transactions cannot be reversed. Double-check before sending.',
+          'Password lost → Only the sender knows it.'
+        ]
+      },
+      {
+        id: 'security',
+        title: 'Security notes',
+        paragraphs: [
+          'Cards are managed by smart contracts on ARC Testnet. Private keys are never stored by the platform.',
+          'If you use a Circle wallet, key management is handled by Circle. Never approve transactions you don\'t understand.'
         ]
       }
     ],
@@ -732,7 +823,7 @@ export function BlogPostRoute() {
             const isSendReceivePreview = activeImage.id === 'send-tab' || activeImage.id === 'receive-tab';
             return (
           <div
-            className={`relative max-w-5xl w-full overflow-hidden ${isSendReceivePreview ? 'bg-transparent shadow-none' : 'bg-white rounded-2xl'}`}
+            className={`relative max-w-5xl w-full ${isSendReceivePreview ? 'bg-transparent shadow-none overflow-hidden' : 'bg-white rounded-2xl overflow-hidden'}`}
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -823,11 +914,13 @@ export function BlogPostRoute() {
                 </p>
               </div>
             ) : (
-              <img
-                src={activeImage.src}
-                alt={activeImage.alt}
-                className={`w-full max-h-[75vh] object-contain ${isSendReceivePreview ? 'bg-transparent rounded-xl' : 'bg-gray-900'}`}
-              />
+              <div className={isSendReceivePreview ? 'rounded-2xl overflow-hidden' : 'rounded-xl overflow-hidden bg-gray-900'}>
+                <img
+                  src={activeImage.src}
+                  alt={activeImage.alt}
+                  className={`w-full max-h-[75vh] object-contain ${isSendReceivePreview ? '' : ''}`}
+                />
+              </div>
             )}
             {!isSendReceivePreview && activeImage.caption && (
               <div className="p-4 text-sm text-gray-600">{activeImage.caption}</div>

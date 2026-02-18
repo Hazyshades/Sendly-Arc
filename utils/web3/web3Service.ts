@@ -1675,8 +1675,14 @@ export class Web3Service {
       throw new Error('ZKSEND_CONTRACT_ADDRESS is not configured');
     }
 
-    // Balance check
-    const amountWei = this.parseAmount(input.amount);
+    // Calculate fee (0.1% = 10 / 10000) and total amount needed
+    const amountWei = BigInt(this.parseAmount(input.amount));
+    const FEE_BPS = 10n;
+    const BPS_DENOMINATOR = 10000n;
+    const feeWei = (amountWei * FEE_BPS) / BPS_DENOMINATOR;
+    const totalFromSenderWei = amountWei + feeWei;
+
+    // Balance check - need amount + fee
     const balance = await this.safeRequest(async () => {
       return await this.publicClient.readContract({
         address: tokenAddress as `0x${string}`,
@@ -1685,12 +1691,14 @@ export class Web3Service {
         args: [this.account as `0x${string}`],
       });
     });
-    if (BigInt(balance) < BigInt(amountWei)) {
-      throw new Error(`Insufficient ${input.tokenType} balance. Required: ${input.amount}, Available: ${this.formatAmount(BigInt(balance))}`);
+    if (BigInt(balance) < totalFromSenderWei) {
+      const totalRequired = this.formatAmount(totalFromSenderWei);
+      throw new Error(`Insufficient ${input.tokenType} balance. Required: ${totalRequired} (${input.amount} + ${this.formatAmount(feeWei)} fee), Available: ${this.formatAmount(BigInt(balance))}`);
     }
 
-    // Approve zkSEND contract as spender
-    await this.approveTokenForSpender(tokenAddress, ZKSEND_CONTRACT_ADDRESS, input.amount);
+    // Approve zkSEND contract as spender - need to approve amount + fee
+    const totalFromSenderStr = this.formatAmount(totalFromSenderWei);
+    await this.approveTokenForSpender(tokenAddress, ZKSEND_CONTRACT_ADDRESS, totalFromSenderStr);
 
     const hash = await this.walletClient.writeContract({
       chain: arcTestnet,

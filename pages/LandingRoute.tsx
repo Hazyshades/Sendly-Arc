@@ -235,19 +235,21 @@ export function LandingRoute() {
               </Card>
             </Link>
 
-            {/* NFT subsection */}
-            <Card className="bg-white shadow-lg rounded-2xl border-0 overflow-hidden">
-              <CardContent className="p-8">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-                    <Image className="w-6 h-6 text-white" />
+            {/* NFT subsection - clickable link to guide */}
+            <Link to="/blog/nft_gift_cards_guide" className="block group">
+              <Card className="bg-white shadow-lg rounded-2xl border-0 overflow-hidden transition-shadow hover:shadow-xl cursor-pointer h-full">
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                      <Image className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">NFT</h3>
                   </div>
-                  <h3 className="text-2xl font-semibold text-gray-900">NFT</h3>
-                </div>
-                <p className="text-gray-700 leading-relaxed">
-                Each card is an on-chain digital asset you can personalize with a message and amount. Recipients can claim it instantly - then spend or redeem the NFT card across compatible apps and services, wherever NFT gift cards are accepted.</p>
-              </CardContent>
-            </Card>
+                  <p className="text-gray-700 leading-relaxed">
+                  Each card is an on-chain digital asset you can personalize with a message and amount. Recipients can claim it instantly - then spend or redeem the NFT card across compatible apps and services, wherever NFT gift cards are accepted.</p>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         </div>
       </section>

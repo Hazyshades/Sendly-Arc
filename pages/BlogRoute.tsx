@@ -36,6 +36,15 @@ const blogPosts: BlogPost[] = [
     tags: ['zkTLS', 'zkSend', 'Payments'],
     readTime: '10 min',
     image: '/SENDLY + ZKTLS (1).png'
+  },
+  {
+    slug: 'nft_gift_cards_guide',
+    title: 'NFT Gift Cards — User Guide',
+    description: 'An NFT gift card is a digital card minted on-chain. Choose amount, add a message, send to a wallet or social username.',
+    date: '2026-02-11',
+    category: 'Tutorial',
+    tags: ['NFT', 'Gift Cards', 'Tutorial'],
+    readTime: '8 min'
   }
 ];
 
