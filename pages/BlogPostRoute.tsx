@@ -143,12 +143,7 @@ const blogPosts: Record<string, BlogPost> = {
         alt: 'zkTLS Architecture Overview: User Device, Attestor, Social Platform, Smart Contract, Blockchain',
         caption: ''
       },
-      {
-        id: 'payments-fees',
-        src: '/images/blog/testnet-fees.svg',
-        alt: 'Payments and fees on zkSync',
-        caption: 'On-chain fees and payments on zkSync'
-      },
+  
       {
         id: 'send-tab',
         src: '/Send.png',
