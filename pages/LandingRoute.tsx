@@ -75,7 +75,7 @@ export function LandingRoute() {
               <span className="text-gray-900 text-2xl font-semibold">Sendly</span>
             </div>
 
-            <div className="flex items-center gap-4 md:gap-6">
+            {/* <div className="flex items-center gap-4 md:gap-6">
               <nav className="hidden md:flex items-center gap-6">
                 <a href="#features" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
                   Features
@@ -84,7 +84,7 @@ export function LandingRoute() {
                   About
                 </a>
               </nav>
-            </div>
+            </div> */}
           </div>
         </div>
       </header>
@@ -285,16 +285,7 @@ export function LandingRoute() {
             <div>
               <h4 className="text-white font-semibold mb-4">Resources</h4>
               <ul className="space-y-2">
-                <li>
-                  <Link to="/faq" className="text-sm hover:text-white transition-colors">
-                    FAQ
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/litepaper" className="text-sm hover:text-white transition-colors">
-                    Litepaper
-                  </Link>
-                </li>
+               
                 <li>
                   <Link to="/blog" className="text-sm hover:text-white transition-colors">
                     Blog
@@ -303,31 +294,19 @@ export function LandingRoute() {
               </ul>
             </div>
 
-            <div>
-              <h4 className="text-white font-semibold mb-4">Navigation</h4>
-              <ul className="space-y-2">
-                <li>
-                  <a href="#features" className="text-sm hover:text-white transition-colors">
-                    Features
-                  </a>
-                </li>
-                <li>
-                  <a href="#about" className="text-sm hover:text-white transition-colors">
-                    About
-                  </a>
-                </li>
-              </ul>
-            </div>
 
             <div>
               <h4 className="text-white font-semibold mb-4">Contact</h4>
               <p className="text-sm text-gray-400">
-X: Leonissx              </p>
+                <a href="https://x.com/Leonissx" target="_blank" rel="noopener noreferrer">
+                  X: Leonissx
+                </a>
+              </p>
             </div>
           </div>
 
           <div className="border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
-            © 2025 Sendly. All rights reserved.
+            © 2026 Sendly. All rights reserved.
           </div>
         </div>
       </footer>

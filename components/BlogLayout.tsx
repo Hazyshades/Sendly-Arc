@@ -53,7 +53,7 @@ export function BlogLayout({ children, backLink, cohereTypography = false }: Blo
               <span className="text-gray-900 font-semibold">Sendly</span>
             </div>
             <div className="text-sm text-gray-500">
-              © 2025 Sendly. All rights reserved.
+              © 2026 Sendly. All rights reserved.
             </div>
           </div>
         </div>
