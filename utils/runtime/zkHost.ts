@@ -1,6 +1,7 @@
 export function isZkHost(hostname?: string): boolean {
   const h = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase();
-  if (h === 'zk.localhost' || h.startsWith('zk.')) return true;
+  // zk.localhost, zk.sendly.digital, or www.zk.sendly.digital (and other *.zk.*)
+  if (h === 'zk.localhost' || h.startsWith('zk.') || h.includes('.zk.')) return true;
   
   // Check if it's the preview zk host
   const previewHost = (
@@ -49,7 +50,8 @@ function isUnaliasableVercelPreview(hostname: string): boolean {
  */
 export function toZkHostname(hostname: string): string {
   const h = hostname.toLowerCase();
-  if (h === 'zk.localhost' || h.startsWith('zk.')) return hostname;
+  // Already a zk host: zk.localhost, zk.sendly.digital, www.zk.sendly.digital, etc.
+  if (h === 'zk.localhost' || h.startsWith('zk.') || h.includes('.zk.')) return hostname;
   if (h === 'localhost') return 'zk.localhost';
   if (isUnaliasableVercelPreview(h)) return ZK_PREVIEW_HOST;
   return `zk.${hostname}`;
