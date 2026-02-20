@@ -44,7 +44,8 @@ const blogPosts: BlogPost[] = [
     date: '2026-02-11',
     category: 'Tutorial',
     tags: ['NFT', 'Gift Cards', 'Tutorial'],
-    readTime: '8 min'
+    readTime: '8 min',
+    image: '/SENDLY GIFT CARD.png'
   }
 ];
 
