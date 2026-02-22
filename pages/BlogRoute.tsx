@@ -118,7 +118,7 @@ export function BlogRoute() {
                     alt=""
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      // Fallback при ошибке загрузки изображения
+                      // Fallback on image loading error
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
                       const parent = target.parentElement;

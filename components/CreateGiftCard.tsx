@@ -22,8 +22,9 @@ import { createWalletClient, custom, createPublicClient, http } from 'viem';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, EURC_ADDRESS, ERC20ABI, VAULT_CONTRACT_ADDRESS, TWITCH_VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS, TIKTOK_VAULT_CONTRACT_ADDRESS, INSTAGRAM_VAULT_CONTRACT_ADDRESS } from '../utils/web3/constants';
-import pinataService from '../utils/pinata';
 import imageGenerator from '../utils/imageGenerator';
+import { generateNewIpfsUri } from '../utils/newIpfsUri';
+// import { insertFakeUri } from '../utils/supabase/uriService';
 import { createTwitterCardMapping } from '../utils/twitter';
 import { createTwitchCardMapping } from '../utils/twitch';
 import { createTelegramCardMapping } from '../utils/telegram';
@@ -553,17 +554,11 @@ export function CreateGiftCard() {
         customImage: formData.customImage || undefined
       });
 
-      // Step 2: Upload to Pinata
+      // Step 2: Generate new IPFS URI
       setStep('uploading');
-      toast.info('Uploading to IPFS...');
+      toast.info('Preparing metadata...');
       
-      const metadataUri = await pinataService.createGiftCardNFT(
-        formData.amount,
-        formData.currency,
-        formData.message,
-        formData.design,
-        imageBlob
-      );
+      const metadataUri = generateNewIpfsUri();
 
       // Step 3: Check token balance and prepare for creation
       const tokenAddress = formData.currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
@@ -1150,6 +1145,9 @@ export function CreateGiftCard() {
           tx_hash: result.txHash,
         });
 
+        // Save new IPFS URI to uri table (commented out — only saving in gift_cards_graph)
+        // await insertFakeUri(metadataUri, result.tokenId);
+
         // Also save to gift_cards_graph table for leaderboard calculations
         await GiftCardsService.upsertCardGraph({
           token_id: result.tokenId,
@@ -1163,7 +1161,7 @@ export function CreateGiftCard() {
           redeemed: false,
           tx_hash: result.txHash,
           event_type: eventType,
-          uri: metadataUri || null,
+          uri: metadataUri,
           // block_number and block_timestamp will be filled later via sync if needed
           block_number: null,
           block_timestamp: null,
@@ -1195,13 +1193,25 @@ export function CreateGiftCard() {
     } catch (error) {
       console.error('Error creating gift card:', error);
       
-      // Extract transaction hash from error message if present
       const errorMessage = error instanceof Error ? error.message : 'Failed to create gift card';
+      const errorCode = (error as any)?.code;
       const txHashMatch = errorMessage.match(/0x[a-fA-F0-9]{64}/);
       const txHash = txHashMatch ? txHashMatch[0] : null;
       setErrorTxHash(txHash);
-      
-      // Error context logged on backend only
+
+      // User rejected transaction — short popup message
+      const isUserRejected =
+        errorCode === 4001 ||
+        errorMessage.toLowerCase().includes('user rejected') ||
+        errorMessage.toLowerCase().includes('rejected the request') ||
+        errorMessage.toLowerCase().includes('user denied') ||
+        errorMessage.toLowerCase().includes('denied transaction');
+      if (isUserRejected) {
+        setError('');
+        setErrorTxHash(null);
+        toast('Отменено', { duration: 2000 });
+        return;
+      }
       
       // Check if it's a chain ID error with Coinbase Wallet
       if (errorMessage.includes('invalid chain ID') && typeof window !== 'undefined' && (window as any).ethereum?.isCoinbaseWallet) {
