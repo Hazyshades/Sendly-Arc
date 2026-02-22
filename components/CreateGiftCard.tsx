@@ -22,7 +22,6 @@ import { createWalletClient, custom, createPublicClient, http } from 'viem';
 import { arcTestnet } from '../utils/web3/wagmiConfig';
 import web3Service from '../utils/web3/web3Service';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, EURC_ADDRESS, ERC20ABI, VAULT_CONTRACT_ADDRESS, TWITCH_VAULT_CONTRACT_ADDRESS, TELEGRAM_VAULT_CONTRACT_ADDRESS, TIKTOK_VAULT_CONTRACT_ADDRESS, INSTAGRAM_VAULT_CONTRACT_ADDRESS } from '../utils/web3/constants';
-import imageGenerator from '../utils/imageGenerator';
 import { generateNewIpfsUri } from '../utils/newIpfsUri';
 // import { insertFakeUri } from '../utils/supabase/uriService';
 import { createTwitterCardMapping } from '../utils/twitter';
@@ -542,25 +541,13 @@ export function CreateGiftCard() {
     setErrorTxHash(null);
 
     try {
-      // Step 1: Generate image
-      setStep('generating');
-      toast.info('Generating gift card image...');
-      
-      const imageBlob = await imageGenerator.generateGiftCardImage({
-        amount: formData.amount,
-        currency: formData.currency,
-        message: formData.message,
-        design: formData.design,
-        customImage: formData.customImage || undefined
-      });
-
-      // Step 2: Generate new IPFS URI
+      // Step 1: Generate fake IPFS URI (без Pinata)
       setStep('uploading');
       toast.info('Preparing metadata...');
       
       const metadataUri = generateNewIpfsUri();
 
-      // Step 3: Check token balance and prepare for creation
+      // Step 2: Check token balance and prepare for creation
       const tokenAddress = formData.currency === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS;
       
       const amountWei = (parseFloat(formData.amount) * 1000000).toString(); // 6 decimals for USDC/EURC
