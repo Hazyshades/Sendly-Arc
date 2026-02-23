@@ -42,7 +42,7 @@ const blogPosts: Record<string, BlogPost> = {
     slug: 'privy_results',
     title: 'Privy testnet results: metrics, methodology, and takeaways',
     description:
-      'Privy testnet: 10k+ addresses, 17k+ cards, ~$0.05/tx gas cost. How the Privy + OAuth identity pipeline worked, three-level verification methodology, and operational takeaways.',
+      'Privy testnet: 10k+ addresses, 17k+ cards, ~$2.26M USDC total volume, ~$0.05/tx gas cost. How the Privy + OAuth identity pipeline worked, three-level verification methodology, and operational takeaways.',
     date: '2026-02-10',
     category: 'Technology',
     tags: ['Privy', 'OAuth', 'Testnet'],
@@ -79,6 +79,7 @@ const blogPosts: Record<string, BlogPost> = {
           'Addresses: 10,697. Cards sent: 17,667. Transactions: 22,636.',
           'Gas spent: 1,131.80 USDC \u2192 cost per tx \u2248 $0.05.',
           'TVL: $37,843.03 USDC \u2192 TVL per user \u2248 $3.54.',
+          'Total volume (all cards issued, including redeemed): \u2248 $2.26M USDC and \u2248 $14k EURC.',
           'Channel breakdown (cards / addresses / share of cards): Twitter \u2014 810 / 483 / 80.1%, Telegram \u2014 124 / 73 / 12.3%, Twitch \u2014 77 / 34 / 7.6%.',
           'Twitter dominates by volume; Telegram and Twitch contribute a smaller but measurable share worth keeping in product and analytics.'
         ]
