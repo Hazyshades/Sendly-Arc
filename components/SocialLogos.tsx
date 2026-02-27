@@ -178,7 +178,7 @@ const SocialLogos = ({
   }, [canStartCarousel])
 
   return (
-    <div className={`py-8 ${className || ''}`}>
+    <div className={`py-8 relative ${className || ''}`} style={{ top: -40 }}>
       {heading && (
         <div className="container flex flex-col items-center text-center mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900">

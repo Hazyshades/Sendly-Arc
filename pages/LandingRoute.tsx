@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Gift, ArrowRight, CreditCard, Image } from 'lucide-react';
+import { ArrowRight, CreditCard, Image } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { BlurText } from '../components/BlurText';
@@ -68,12 +68,6 @@ export function LandingRoute() {
       >
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-400 rounded-2xl flex items-center justify-center cursor-pointer shadow-circle-card">
-                <Gift className="w-7 h-7 text-white" />
-              </div>
-              <span className="text-gray-900 text-2xl font-semibold">Sendly</span>
-            </div>
 
             {/* <div className="flex items-center gap-4 md:gap-6">
               <nav className="hidden md:flex items-center gap-6">
@@ -90,9 +84,9 @@ export function LandingRoute() {
       </header>
 
       {/* Hero Section */}
-      <section className="min-h-screen flex items-center justify-center pt-6 pb-12 px-6 relative z-10">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center space-y-8">
+      <section className="min-h-screen flex items-center justify-center pt-6 pb-12 px-6 relative z-10" style={{ top: -60 }}>
+        <div className="container mx-auto max-w-6xl w-full">
+          <div className="text-center flex flex-col gap-12">
             <div className="space-y-4">
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight relative min-h-[120px] md:min-h-[140px] lg:min-h-[160px]">
                 {/* First text: Tag. Send. Crypto. */}
@@ -166,7 +160,7 @@ export function LandingRoute() {
             <SocialLogos />
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <BlurText delay={1100} duration={1200}>
                 <StarBorder color="#fbbf24" speed="5s" className="w-full sm:w-auto">
                   <Button
@@ -260,9 +254,11 @@ export function LandingRoute() {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-blue-400 rounded-2xl flex items-center justify-center">
-                  <Gift className="w-5 h-5 text-white" />
-                </div>
+                <img
+                  src="/sendly-wordmark.svg"
+                  alt="Sendly"
+                  className="h-10 w-auto object-contain"
+                />
               </div>
             </div>
 

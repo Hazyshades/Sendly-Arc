@@ -1,4 +1,3 @@
-import { Gift } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/card';
@@ -49,15 +48,13 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen circle-gradient-bg">
       <div className="abstract-shape"></div>
       <header className="flex items-center justify-between p-6 relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="relative w-12 h-12 bg-blue-400 rounded-2xl flex items-center justify-center cursor-pointer shadow-circle-card">
-            <Gift className="w-7 h-7 text-white" />
-          </div>
-          <span className="relative text-gray-900 text-2xl font-semibold">
-            Sendly
-           
-          </span>
-        </div>
+        <Link to="/" className="flex items-center gap-3">
+          <img
+            src="/sendly-wordmark.svg"
+            alt="Sendly"
+            className="h-10 w-auto object-contain"
+          />
+        </Link>
         
         <div className="flex items-center gap-4">
           {!zkLocal && PrivyConnectedAccounts ? (
