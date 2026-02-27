@@ -705,7 +705,7 @@ export function TransactionHistory() {
             />
           </div>
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg overflow-x-auto no-scrollbar">
-            {(['all', 'sent', 'received', 'redeemed'] as const).map((tab) => ( // 'pending' commented out
+            {(['all', 'sent', 'received'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setStatusTab(tab)}
@@ -717,8 +717,6 @@ export function TransactionHistory() {
               >
                 {tab === 'sent' && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
                 {tab === 'received' && <span className="w-2 h-2 rounded-full bg-blue-500" />}
-                {/* {tab === 'pending' && <span className="w-2 h-2 rounded-full bg-amber-500" />} */}
-                {tab === 'redeemed' && <span className="w-2 h-2 rounded-full bg-blue-500" />}
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
@@ -762,8 +760,8 @@ export function TransactionHistory() {
           </Select>
         </div>*/}
 
-        {/* Analytics Cards - compact row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Analytics Cards - compact row (zk: без Redeemed) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Sent</span>
@@ -779,14 +777,6 @@ export function TransactionHistory() {
             </div>
             <div className="text-lg font-bold text-green-600 dark:text-green-400">${analytics.totalReceived}</div>
             <p className="text-xs text-slate-500 dark:text-slate-400">{analytics.cardsReceived} payments</p>
-          </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Redeemed</span>
-              <Gift className="h-3.5 w-3.5 text-blue-500" />
-            </div>
-            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">${analytics.totalRedeemed}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">claimed</p>
           </div>
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
