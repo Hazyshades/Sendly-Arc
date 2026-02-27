@@ -119,6 +119,7 @@ export function TransactionHistory() {
   const [currencyFilter, setCurrencyFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusTab, setStatusTab] = useState<'all' | 'sent' | 'received' | 'redeemed'>('all'); // 'pending' commented out
+  const [avgMode, setAvgMode] = useState<'sent' | 'received'>('sent'); // переключатель Avg только в zk
   const [searchQuery, setSearchQuery] = useState('');
   const [analytics, setAnalytics] = useState<Analytics>({
     totalSent: '0',
@@ -557,8 +558,7 @@ export function TransactionHistory() {
     const matchesStatusTab =
       statusTab === 'all' ||
       (statusTab === 'sent' && tx.type === 'sent') ||
-      (statusTab === 'received' && tx.type === 'received') ||
-      // (statusTab === 'pending' && tx.status === 'pending') ||
+      (statusTab === 'received' && (tx.type === 'received' || tx.type === 'redeemed')) ||
       (statusTab === 'redeemed' && tx.type === 'redeemed');
     
     let matchesDate = true;
@@ -668,15 +668,15 @@ export function TransactionHistory() {
       } */
       if (tx.status === 'redeemed') {
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 animate-badge-redeemed-glow">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
             <CheckCircle className="w-3.5 h-3.5 animate-pulse" />
-            Redeemed
+            Received
           </span>
         );
       }
       const label = tx.type === 'sent' ? 'Sent' : 'Received';
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 animate-badge-sent-pulse">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
           <CheckCircle className="w-3.5 h-3.5" />
           {label}
         </span>
@@ -773,18 +773,48 @@ export function TransactionHistory() {
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Received</span>
-              <ArrowDownLeft className="h-3.5 w-3.5 text-green-500" />
+              <ArrowDownLeft className="h-3.5 w-3.5 text-blue-500" />
             </div>
-            <div className="text-lg font-bold text-green-600 dark:text-green-400">${analytics.totalReceived}</div>
+            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">${analytics.totalReceived}</div>
             <p className="text-xs text-slate-500 dark:text-slate-400">{analytics.cardsReceived} payments</p>
           </div>
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Avg</span>
-              <TrendingUp className="h-3.5 w-3.5 text-purple-500" />
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 relative -top-[5px]">Avg</span>
+              <div className="flex rounded-lg bg-slate-200/80 dark:bg-slate-700/80 p-0.5 relative -top-[5px]">
+                <button
+                  type="button"
+                  onClick={() => setAvgMode('sent')}
+                  className={`px-2 py-0.5 rounded-md text-xs font-medium transition-all ${
+                    avgMode === 'sent'
+                      ? 'bg-white dark:bg-slate-600 text-red-600 dark:text-red-400 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  Sent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAvgMode('received')}
+                  className={`px-2 py-0.5 rounded-md text-xs font-medium transition-all ${
+                    avgMode === 'received'
+                      ? 'bg-white dark:bg-slate-600 text-green-600 dark:text-green-400 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  Received
+                </button>
+              </div>
             </div>
-            <div className="text-lg font-bold text-purple-600 dark:text-purple-400">${analytics.averageAmount}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">per payment</p>
+            <div className={`text-lg font-bold ${avgMode === 'sent' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+              $
+              {avgMode === 'sent'
+                ? (analytics.cardsSent > 0 ? (parseFloat(analytics.totalSent) / analytics.cardsSent).toFixed(2) : '0.00')
+                : (analytics.cardsReceived > 0 ? (parseFloat(analytics.totalReceived) / analytics.cardsReceived).toFixed(2) : '0.00')}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {avgMode === 'sent' ? 'per sent payment' : 'per received payment'}
+            </p>
           </div>
         </div>
 
@@ -794,7 +824,7 @@ export function TransactionHistory() {
             <div className="col-span-5 md:col-span-4">Recipient / Sender</div>
             <div className="col-span-3 md:col-span-3 text-right">Amount</div>
             <div className="col-span-2 md:col-span-3 pl-4">Status</div>
-            <div className="col-span-2 md:col-span-2 text-right">Time</div>
+            <div className="col-span-2 md:col-span-2">Time</div>
           </div>
           {filteredTransactions.length === 0 ? (
             <div className="text-center py-12 text-slate-500 dark:text-slate-400">
