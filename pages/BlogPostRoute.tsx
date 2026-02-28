@@ -540,167 +540,93 @@ export function BlogPostRoute() {
   ) => {
     const imageMap = new Map(images.map((image) => [image.id, image]));
 
+    const renderImage = (img: BlogImage) => {
+      if (img.componentId === 'verification-infographic') {
+        return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]" aria-label={`Open: ${img.caption}`}><VerificationInfographic compact />{img.caption && <div className="mt-3 text-sm text-gray-600">{img.caption}</div>}</button>);
+      }
+      if (img.componentId === 'zktls-infographic') {
+        return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]" aria-label={`Open: ${img.caption}`}><ZkTLSInfographic compact />{img.caption && <div className="mt-3 text-sm text-gray-600">{img.caption}</div>}</button>);
+      }
+      if (img.componentId === 'zktls-architecture-infographic') {
+        return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]" aria-label={`Open: ${img.caption}`}><ZkTLSArchitectureInfographic compact />{img.caption && <div className="mt-3 text-sm text-gray-600">{img.caption}</div>}</button>);
+      }
+      if (img.componentId === 'privy-oauth-infographic') {
+        return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]" aria-label={`Open: ${img.caption}`}><PrivyOAuthInfographic compact />{img.caption && <div className="mt-3 text-sm text-gray-600">{img.caption}</div>}</button>);
+      }
+      if (img.componentId === 'payments-send-embed') {
+        return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden" aria-label={`Open: ${img.alt}`}><div className="p-4 min-h-[200px]"><ZkSendPanel initialTab="send" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} /></div></button>);
+      }
+      if (img.componentId === 'payments-receive-embed') {
+        return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden" aria-label={`Open: ${img.alt}`}><div className="p-4 min-h-[200px]"><ZkSendPanel initialTab="receive" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} /></div></button>);
+      }
+      const isSR = img.id === 'send-tab' || img.id === 'receive-tab';
+      return (<button type="button" onClick={() => setActiveImage(img)} className={`w-full text-left ${isSR ? 'border-0 shadow-none ring-0 outline-none' : ''}`} aria-label={`Open image: ${img.alt}`}><img src={img.src} alt={img.alt} loading="lazy" className={`w-full h-40 object-cover ${isSR ? 'rounded-xl border-0 shadow-none' : 'rounded-xl'}`} />{!isSR && img.caption && <div className="mt-3 text-sm text-gray-600">{img.caption}</div>}</button>);
+    };
+
+    const renderSectionText = (section: BlogSection, isLast: boolean) => (
+      <section key={section.id} id={section.id} className="scroll-mt-28">
+        <div className={cohereStyle ? `px-4 md:px-6 ${isLast ? 'pb-12' : 'pb-8'}` : `px-12 md:px-22 ${isLast ? 'pb-12 md:pb-22' : ''}`}>
+          <h2 className={cohereStyle ? 'text-2xl md:text-3xl font-medium text-gray-900 mb-6 tracking-tight' : 'text-3xl md:text-4xl font-bold text-gray-900 mb-4'}>{section.title}</h2>
+          <div className={cohereStyle ? 'space-y-5 text-gray-600 text-lg leading-[1.7] font-normal' : 'space-y-4 text-gray-700 text-lg leading-relaxed'}>
+            {section.paragraphs.map((p) => <p key={p}>{p}</p>)}
+          </div>
+          {section.bullets && section.bullets.length > 0 && (
+            <ul className={cohereStyle ? 'list-disc list-inside mt-6 space-y-3 text-gray-600 text-lg leading-[1.7]' : 'list-disc list-inside mt-6 space-y-2 text-gray-700 text-lg'}>
+              {section.bullets.map((b) => <li key={b}>{b}</li>)}
+            </ul>
+          )}
+        </div>
+      </section>
+    );
+
+    // Group: each image-section + all following no-image sections share one grid row.
+    const groups: { image: BlogImage | null; sections: BlogSection[] }[] = [];
+    let cur: (typeof groups)[number] | null = null;
+    for (const section of sections) {
+      const img = section.imageId ? imageMap.get(section.imageId) ?? null : null;
+      if (img) {
+        cur = { image: img, sections: [section] };
+        groups.push(cur);
+      } else if (cur) {
+        cur.sections.push(section);
+      } else {
+        cur = { image: null, sections: [section] };
+        groups.push(cur);
+      }
+    }
+
+    const totalSections = sections.length;
+    let sectionCounter = 0;
+
     return (
       <div className={cohereStyle ? 'space-y-0' : 'space-y-12'}>
-        {sections.map((section, index) => {
-          const sectionImage = section.imageId ? imageMap.get(section.imageId) : null;
-          const isLastSection = index === sections.length - 1;
+        {groups.map((group) => {
+          const groupKey = group.sections[0].id;
+
+          if (group.image) {
+            return (
+              <div
+                key={groupKey}
+                className={`grid grid-cols-1 ${cohereStyle ? 'gap-6 blog-content-section lg:grid-cols-[280px,minmax(0,1fr)]' : 'gap-10 lg:grid-cols-[280px,minmax(0,1fr)]'}`}
+              >
+                <div className="w-full">{renderImage(group.image)}</div>
+                <div>
+                  {group.sections.map((section) => {
+                    sectionCounter++;
+                    return renderSectionText(section, sectionCounter === totalSections);
+                  })}
+                </div>
+              </div>
+            );
+          }
 
           return (
-            <section
-              key={section.id}
-              id={section.id}
-              className={`scroll-mt-28 grid grid-cols-1 ${cohereStyle ? 'gap-6' : 'gap-10'} ${
-                cohereStyle
-                  ? 'blog-content-section lg:grid-cols-[280px,minmax(0,1fr)]'
-                  : 'lg:grid-cols-[280px,minmax(0,1fr)]'
-              }`}
-            >
-              <div>
-                {sectionImage && (
-                  sectionImage.componentId === 'verification-infographic' ? (
-                    <div className="w-full">
-                      <button
-                        type="button"
-                        onClick={() => setActiveImage(sectionImage)}
-                        className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]"
-                        aria-label={`Open: ${sectionImage.caption}`}
-                      >
-                        <VerificationInfographic compact />
-                        <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
-                      </button>
-                    </div>
-                  ) : sectionImage.componentId === 'zktls-infographic' ? (
-                    <div className="w-full">
-                      <button
-                        type="button"
-                        onClick={() => setActiveImage(sectionImage)}
-                        className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]"
-                        aria-label={`Open: ${sectionImage.caption}`}
-                      >
-                        <ZkTLSInfographic compact />
-                        <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
-                      </button>
-                    </div>
-                  ) : sectionImage.componentId === 'zktls-architecture-infographic' ? (
-                    <div className="w-full">
-                      <button
-                        type="button"
-                        onClick={() => setActiveImage(sectionImage)}
-                        className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]"
-                        aria-label={`Open: ${sectionImage.caption}`}
-                      >
-                        <ZkTLSArchitectureInfographic compact />
-                        <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
-                      </button>
-                    </div>
-                  ) : sectionImage.componentId === 'privy-oauth-infographic' ? (
-                    <div className="w-full">
-                      <button
-                        type="button"
-                        onClick={() => setActiveImage(sectionImage)}
-                        className="w-full text-left rounded-xl overflow-hidden bg-[#FAFAFA]"
-                        aria-label={`Open: ${sectionImage.caption}`}
-                      >
-                        <PrivyOAuthInfographic compact />
-                        <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
-                      </button>
-                    </div>
-                  ) : sectionImage.componentId === 'payments-send-embed' ? (
-                    <div className="w-full">
-                      <button
-                        type="button"
-                        onClick={() => setActiveImage(sectionImage)}
-                        className="w-full text-left rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-                        aria-label={`Open: ${sectionImage.alt}`}
-                      >
-                        <div className="p-4 min-h-[200px]">
-                          <ZkSendPanel initialTab="send" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} />
-                        </div>
-                        <div className="mt-3 px-4 pb-3 text-sm text-gray-500">Click to expand</div>
-                      </button>
-                    </div>
-                  ) : sectionImage.componentId === 'payments-receive-embed' ? (
-                    <div className="w-full">
-                      <button
-                        type="button"
-                        onClick={() => setActiveImage(sectionImage)}
-                        className="w-full text-left rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-                        aria-label={`Open: ${sectionImage.alt}`}
-                      >
-                        <div className="p-4 min-h-[200px]">
-                          <ZkSendPanel initialTab="receive" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} />
-                        </div>
-                        <div className="mt-3 px-4 pb-3 text-sm text-gray-500">Click to expand</div>
-                      </button>
-                    </div>
-                  ) : (
-                    (() => {
-                      const isSendReceive = sectionImage.id === 'send-tab' || sectionImage.id === 'receive-tab';
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => setActiveImage(sectionImage)}
-                          className={`w-full text-left ${isSendReceive ? 'border-0 shadow-none ring-0 outline-none' : ''}`}
-                          aria-label={`Open image: ${sectionImage.alt}`}
-                        >
-                          <img
-                            src={sectionImage.src}
-                            alt={sectionImage.alt}
-                            loading="lazy"
-                            className={`w-full h-40 object-cover ${isSendReceive ? 'rounded-xl border-0 shadow-none' : 'rounded-xl'}`}
-                          />
-                          {!isSendReceive && sectionImage.caption && (
-                            <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
-                          )}
-                        </button>
-                      );
-                    })()
-                  )
-                )}
-              </div>
-              <div
-                className={
-                  cohereStyle
-                    ? `px-4 md:px-6 ${isLastSection ? 'pb-12' : ''}`
-                    : `px-12 md:px-22 ${isLastSection ? 'pb-12 md:pb-22' : ''}`
-                }
-              >
-                <h2
-                  className={
-                    cohereStyle
-                      ? 'text-2xl md:text-3xl font-medium text-gray-900 mb-6 tracking-tight'
-                      : 'text-3xl md:text-4xl font-bold text-gray-900 mb-4'
-                  }
-                >
-                  {section.title}
-                </h2>
-                <div
-                  className={
-                    cohereStyle
-                      ? 'space-y-5 text-gray-600 text-lg leading-[1.7] font-normal'
-                      : 'space-y-4 text-gray-700 text-lg leading-relaxed'
-                  }
-                >
-                  {section.paragraphs.map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
-                  ))}
-                </div>
-                {section.bullets && section.bullets.length > 0 && (
-                  <ul
-                    className={
-                      cohereStyle
-                        ? 'list-disc list-inside mt-6 space-y-3 text-gray-600 text-lg leading-[1.7]'
-                        : 'list-disc list-inside mt-6 space-y-2 text-gray-700 text-lg'
-                    }
-                  >
-                    {section.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </section>
+            <div key={groupKey}>
+              {group.sections.map((section) => {
+                sectionCounter++;
+                return renderSectionText(section, sectionCounter === totalSections);
+              })}
+            </div>
           );
         })}
       </div>
