@@ -13,9 +13,12 @@ type Props = {
   username: string;
   onUsernameChange: (username: string) => void;
   isConnected?: boolean;
+  readOnly?: boolean;
+  previewSuggestionLabel?: string;
+  previewProfileImageUrl?: string | null;
 };
 
-export function IdentitySelector({ platform, onPlatformChange, username, onUsernameChange, isConnected }: Props) {
+export function IdentitySelector({ platform, onPlatformChange, username, onUsernameChange, isConnected, readOnly, previewSuggestionLabel, previewProfileImageUrl }: Props) {
   const normalizedUsername = useMemo(() => normalizeSocialUsername(username.replace(/^@/, '')), [username]);
   const isValid = !!normalizedUsername;
 
@@ -40,17 +43,20 @@ export function IdentitySelector({ platform, onPlatformChange, username, onUsern
             label="Username"
             inputId="identity-username-input"
             ariaLabel="Username"
+            readOnly={readOnly}
+            previewSuggestionLabel={previewSuggestionLabel}
+            previewProfileImageUrl={previewProfileImageUrl}
           />
 
           {!isValid && username.length > 0 && (
             <div className="text-xs text-amber-600">Enter a valid username</div>
           )}
 
-          {!isValid && (
+         {/* {!isValid && (
             <div className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-2">
               Select platform and enter username to continue
             </div>
-          )}
+          )} */}
         </div>
       </CardContent>
     </Card>

@@ -56,9 +56,15 @@ type Props = {
   username: string;
   isActive?: boolean;
   isIdentityValid?: boolean;
+  truncateAddresses?: boolean;
 };
 
-export function PendingPayments({ platform, username, isActive, isIdentityValid = false }: Props) {
+function shortenAddress(addr: string): string {
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+export function PendingPayments({ platform, username, isActive, isIdentityValid = false, truncateAddresses = false }: Props) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { authenticated, getAccessToken } = usePrivySafe();
@@ -1248,8 +1254,9 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"
+                      title={p.sender}
                     >
-                      {p.sender}
+                      {truncateAddresses ? shortenAddress(p.sender) : p.sender}
                     </a>
                     {' · amount: '}
                     {p.amount}

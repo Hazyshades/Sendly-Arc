@@ -119,7 +119,7 @@ export function TransactionHistory() {
   const [currencyFilter, setCurrencyFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusTab, setStatusTab] = useState<'all' | 'sent' | 'received' | 'redeemed'>('all'); // 'pending' commented out
-  const [avgMode, setAvgMode] = useState<'sent' | 'received'>('sent'); // переключатель Avg только в zk
+  const [avgMode, setAvgMode] = useState<'sent' | 'received'>('sent'); // change Avg only in zk dom
   const [searchQuery, setSearchQuery] = useState('');
   const [analytics, setAnalytics] = useState<Analytics>({
     totalSent: '0',

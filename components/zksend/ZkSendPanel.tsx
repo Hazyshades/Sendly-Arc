@@ -54,12 +54,16 @@ export function ZkSendPanel({ initialTab = 'send', preview = false, previewValue
             username={username}
             onUsernameChange={setUsername}
             isConnected={false}
+            readOnly={preview}
+            previewSuggestionLabel={preview ? previewValues?.suggestionLabel : undefined}
+            previewProfileImageUrl={preview ? previewValues?.profileImageUrl : undefined}
           />
           <PendingPayments
             platform={platform === 'address' ? 'twitter' : platform}
             username={username}
             isActive={activeTab === 'receive'}
             isIdentityValid={platform === 'address' ? false : isIdentityValid}
+            truncateAddresses={preview}
           />
         </TabsContent>
       </Tabs>

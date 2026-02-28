@@ -69,6 +69,8 @@ type Props = {
   readOnly?: boolean;
   /** In readOnly mode, show this as the suggestion line (e.g. "Arc @arc") without fetching. */
   previewSuggestionLabel?: string;
+  /** In readOnly mode, show this avatar in the suggestion line. */
+  previewProfileImageUrl?: string | null;
 };
 
 type PreviewStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -83,6 +85,7 @@ export function PlatformUsernameInput({
   ariaLabel = 'Username',
   readOnly = false,
   previewSuggestionLabel,
+  previewProfileImageUrl,
 }: Props) {
   const [platformPopoverOpen, setPlatformPopoverOpen] = useState(false);
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>('idle');
@@ -386,9 +389,17 @@ export function PlatformUsernameInput({
         </div>
         {previewSuggestionLabel && (
           <div className="flex items-center gap-2 rounded-full bg-sky-100 dark:bg-sky-900/30 px-3 py-2 text-sm">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-              <Twitter className="h-4 w-4 text-muted-foreground" />
-            </span>
+            {previewProfileImageUrl ? (
+              <img
+                src={previewProfileImageUrl}
+                alt=""
+                className="h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                <Twitter className="h-4 w-4 text-muted-foreground" />
+              </span>
+            )}
             <span className="font-medium text-foreground">{previewSuggestionLabel}</span>
             <CheckCircle2 className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
           </div>

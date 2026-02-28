@@ -36,6 +36,7 @@ export type SendPaymentPreviewValues = {
   username: string;
   balance?: string;
   suggestionLabel?: string;
+  profileImageUrl?: string | null;
 };
 
 type Props = {
@@ -286,6 +287,7 @@ export function SendPaymentForm({
           ariaLabel="Recipient"
           readOnly={preview}
           previewSuggestionLabel={preview ? previewValues?.suggestionLabel : undefined}
+          previewProfileImageUrl={preview ? previewValues?.profileImageUrl : undefined}
         />
 
         {!preview && !isIdentityValid && username.length > 0 && (
@@ -306,12 +308,8 @@ export function SendPaymentForm({
           >
             {loading ? 'Sending...' : 'Send'}
           </Button>
-          {onGoToPending && !preview ? (
+          {!preview && onGoToPending ? (
             <Button type="button" variant="ghost" onClick={onGoToPending} className="w-full sm:w-auto">
-              View pending payments
-            </Button>
-          ) : preview && onGoToPending ? (
-            <Button type="button" variant="ghost" onClick={(e) => e.preventDefault()} className="w-full sm:w-auto">
               View pending payments
             </Button>
           ) : null}

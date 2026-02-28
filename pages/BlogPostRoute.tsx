@@ -9,9 +9,10 @@ import { PrivyOAuthInfographic } from '../components/figma/PrivyOAuthInfographic
 import { ZkSendPanel } from '../components/zksend/ZkSendPanel';
 import type { SendPaymentPreviewValues } from '../components/zksend/SendPaymentForm';
 import { BlogLayout } from '../components/BlogLayout';
+import { fetchTwitterUserPreview } from '../utils/twitter/userLookup';
 
-/** Pre-filled values for the Payments Send embed in the blog (read-only, no disabled styling). */
-const PAYMENTS_SEND_PREVIEW: SendPaymentPreviewValues = {
+/** Fallback when cache/API has no data or request fails. */
+const PAYMENTS_SEND_PREVIEW_FALLBACK: SendPaymentPreviewValues = {
   amount: '100',
   token: 'USDC',
   platform: 'twitter',
@@ -19,6 +20,8 @@ const PAYMENTS_SEND_PREVIEW: SendPaymentPreviewValues = {
   balance: '362.347036',
   suggestionLabel: 'Arc @arc',
 };
+
+const BLOG_PREVIEW_USERNAME = 'arc';
 
 interface BlogPost {
   slug: string;
@@ -363,8 +366,25 @@ export function BlogPostRoute() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [activeImage, setActiveImage] = useState<BlogImage | null>(null);
+  const [paymentsPreviewValues, setPaymentsPreviewValues] = useState<SendPaymentPreviewValues | null>(null);
 
   const post = slug ? blogPosts[slug] : null;
+
+  useEffect(() => {
+    if (post?.slug !== 'zktls_payments_guide') return;
+    fetchTwitterUserPreview(BLOG_PREVIEW_USERNAME)
+      .then((result) => {
+        if (result.success) {
+          setPaymentsPreviewValues({
+            ...PAYMENTS_SEND_PREVIEW_FALLBACK,
+            username: result.data.username,
+            suggestionLabel: `${result.data.name} @${result.data.username}`,
+            profileImageUrl: result.data.profile_image_url ?? null,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [post?.slug]);
 
   if (!post) {
     return (
@@ -595,7 +615,7 @@ export function BlogPostRoute() {
                         aria-label={`Open: ${sectionImage.alt}`}
                       >
                         <div className="p-4 min-h-[200px]">
-                          <ZkSendPanel initialTab="send" preview previewValues={PAYMENTS_SEND_PREVIEW} />
+                          <ZkSendPanel initialTab="send" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} />
                         </div>
                         <div className="mt-3 px-4 pb-3 text-sm text-gray-500">Click to expand</div>
                       </button>
@@ -609,7 +629,7 @@ export function BlogPostRoute() {
                         aria-label={`Open: ${sectionImage.alt}`}
                       >
                         <div className="p-4 min-h-[200px]">
-                          <ZkSendPanel initialTab="receive" />
+                          <ZkSendPanel initialTab="receive" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} />
                         </div>
                         <div className="mt-3 px-4 pb-3 text-sm text-gray-500">Click to expand</div>
                       </button>
@@ -944,11 +964,11 @@ export function BlogPostRoute() {
               </div>
             ) : activeImage.componentId === 'payments-send-embed' || activeImage.id === 'send-tab' ? (
               <div className="bg-white rounded-xl overflow-hidden p-6 max-h-[85vh] overflow-y-auto">
-                <ZkSendPanel initialTab="send" preview previewValues={PAYMENTS_SEND_PREVIEW} />
+                <ZkSendPanel initialTab="send" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} />
               </div>
             ) : activeImage.componentId === 'payments-receive-embed' || activeImage.id === 'receive-tab' ? (
               <div className="bg-white rounded-xl overflow-hidden p-6 max-h-[85vh] overflow-y-auto">
-                <ZkSendPanel initialTab="receive" />
+                <ZkSendPanel initialTab="receive" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} />
               </div>
             ) : (
               <div className={isFramelessPreview ? 'overflow-hidden' : 'rounded-xl overflow-hidden bg-gray-900'}>
