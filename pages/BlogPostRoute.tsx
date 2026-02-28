@@ -6,7 +6,19 @@ import { VerificationInfographic } from '../components/figma/VerificationInfogra
 import { ZkTLSInfographic } from '../components/figma/ZkTLSInfographic';
 import { ZkTLSArchitectureInfographic } from '../components/figma/ZkTLSArchitectureInfographic';
 import { PrivyOAuthInfographic } from '../components/figma/PrivyOAuthInfographic';
+import { ZkSendPanel } from '../components/zksend/ZkSendPanel';
+import type { SendPaymentPreviewValues } from '../components/zksend/SendPaymentForm';
 import { BlogLayout } from '../components/BlogLayout';
+
+/** Pre-filled values for the Payments Send embed in the blog (read-only, no disabled styling). */
+const PAYMENTS_SEND_PREVIEW: SendPaymentPreviewValues = {
+  amount: '100',
+  token: 'USDC',
+  platform: 'twitter',
+  username: 'arc',
+  balance: '362.347036',
+  suggestionLabel: 'Arc @arc',
+};
 
 interface BlogPost {
   slug: string;
@@ -32,7 +44,7 @@ interface BlogSection {
 interface BlogImage {
   id: string;
   src?: string;
-  componentId?: 'verification-infographic' | 'zktls-infographic' | 'zktls-architecture-infographic' | 'privy-oauth-infographic';
+  componentId?: 'verification-infographic' | 'zktls-infographic' | 'zktls-architecture-infographic' | 'privy-oauth-infographic' | 'payments-send-embed' | 'payments-receive-embed';
   alt: string;
   caption: string;
 }
@@ -147,14 +159,14 @@ const blogPosts: Record<string, BlogPost> = {
   
       {
         id: 'send-tab',
-        src: '/Send.png',
-        alt: 'Send tab — sending a payment',
+        componentId: 'payments-send-embed',
+        alt: 'Payments — Send tab (live)',
         caption: ''
       },
       {
         id: 'receive-tab',
-        src: '/Receive.png',
-        alt: 'Receive tab — receiving a payment',
+        componentId: 'payments-receive-embed',
+        alt: 'Payments — Receive tab (live)',
         caption: ''
       }
     ],
@@ -163,9 +175,9 @@ const blogPosts: Record<string, BlogPost> = {
         id: 'what-is-zktls',
         title: 'What is zkTLS',
         paragraphs: [
-          'zkTLS is a protocol for proving account ownership without sharing credentials. Your device creates a signed claim via a local proof-generation process; the attestor validates that the TLS session to the social platform succeeded and signs the claim; the smart contract verifies it before payout.',
-          'The attestor acts as an opaque proxy: it relays encrypted TLS traffic between your device and the platform and attests that the handshake and data exchange completed correctly. TLS keys never leave your device\u2014you hold the client-side TLS session, and the attestor only observes metadata (that a successful session occurred) and signs a claim. It cannot decrypt or access your data.',
-          'In Sendly Payments, zkTLS proofs verify control of platform:username (e.g. twitter:alice). The claim structure typically includes fields such as claimId, identifier (platform:username), timestamp, and requestUrl. The attestor signs the claim (e.g. ECDSA), and the contract checks the signature before releasing funds.'
+          'TLS (Transport Layer Security) encrypts and authenticates your connection to websites\u2014the \u201cs\u201d in HTTPS\u2014but it does not make that data verifiable elsewhere. zkTLS (zero-knowledge TLS) bridges Web2 and Web3: it lets you prove a fact about your Web2 session (e.g. that you control a social account) without revealing credentials, session keys, or response payloads. The proof can be verified on-chain so smart contracts can trust real-world claims while preserving privacy.',
+          'Sendly uses the proxy (witness) model: an attestor acts as an opaque proxy between your device and the social platform. It relays encrypted TLS traffic and attests that a successful session occurred; it does not terminate TLS or hold your client keys. Your device keeps the client-side TLS session; the attestor only observes metadata and signs a claim. It cannot decrypt or access your data. This approach is fast and works with standard HTTPS; in Sendly we use Reclaim Protocol for attestation.',
+          'In Sendly Payments, zkTLS proofs verify control of platform:username (e.g. twitter:alice). The claim structure includes claimId, identifier (platform:username), timestamp, requestUrl, and the attestor\u2019s signature. The smart contract verifies the signature before releasing funds to your wallet.'
         ],
         bullets: [
           'Signed claim format: claimId, identifier (platform:username), timestamp, requestUrl, and attestor signature.',
@@ -191,15 +203,6 @@ const blogPosts: Record<string, BlogPost> = {
           'Important: the recipient receives money to their own wallet, but the sender doesn\'t need to know their address - just the username.'
         ],
         imageId: 'payments-fees'
-      },
-      {
-        id: 'prerequisites',
-        title: 'Prerequisites',
-        paragraphs: [
-          'Wallet: MetaMask / Rabby / Circle Wallet (Sendly Internal Wallet).',
-          'Tokens to send: USDC or EURC.',
-          'Social account on a supported platform (Twitter/X, Twitch, GitHub, Telegram, LinkedIn, etc.).'
-        ]
       },
       {
         id: 'platform-username',
@@ -583,6 +586,34 @@ export function BlogPostRoute() {
                         <div className="mt-3 text-sm text-gray-600">{sectionImage.caption}</div>
                       </button>
                     </div>
+                  ) : sectionImage.componentId === 'payments-send-embed' ? (
+                    <div className="w-full">
+                      <button
+                        type="button"
+                        onClick={() => setActiveImage(sectionImage)}
+                        className="w-full text-left rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                        aria-label={`Open: ${sectionImage.alt}`}
+                      >
+                        <div className="p-4 min-h-[200px]">
+                          <ZkSendPanel initialTab="send" preview previewValues={PAYMENTS_SEND_PREVIEW} />
+                        </div>
+                        <div className="mt-3 px-4 pb-3 text-sm text-gray-500">Click to expand</div>
+                      </button>
+                    </div>
+                  ) : sectionImage.componentId === 'payments-receive-embed' ? (
+                    <div className="w-full">
+                      <button
+                        type="button"
+                        onClick={() => setActiveImage(sectionImage)}
+                        className="w-full text-left rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                        aria-label={`Open: ${sectionImage.alt}`}
+                      >
+                        <div className="p-4 min-h-[200px]">
+                          <ZkSendPanel initialTab="receive" />
+                        </div>
+                        <div className="mt-3 px-4 pb-3 text-sm text-gray-500">Click to expand</div>
+                      </button>
+                    </div>
                   ) : (
                     (() => {
                       const isSendReceive = sectionImage.id === 'send-tab' || sectionImage.id === 'receive-tab';
@@ -816,11 +847,9 @@ export function BlogPostRoute() {
           onClick={() => setActiveImage(null)}
         >
           {(() => {
-            // Side images (by src) and send/receive: open as-is, no frame. Infographics keep frame.
-            const isFramelessPreview =
-              activeImage.id === 'send-tab' ||
-              activeImage.id === 'receive-tab' ||
-              (activeImage.src != null && activeImage.componentId == null);
+            // Live Payments embed and infographics use frame; plain images (by src) can be frameless.
+            const isPaymentsEmbed = activeImage.componentId === 'payments-send-embed' || activeImage.componentId === 'payments-receive-embed' || activeImage.id === 'send-tab' || activeImage.id === 'receive-tab';
+            const isFramelessPreview = !isPaymentsEmbed && (activeImage.src != null && activeImage.componentId == null);
             return (
           <div
             className={`relative max-w-5xl w-full ${isFramelessPreview ? 'bg-transparent shadow-none overflow-hidden' : 'bg-white rounded-2xl overflow-hidden'}`}
@@ -912,6 +941,14 @@ export function BlogPostRoute() {
                 <p className="px-4 py-2 text-xs text-gray-500 text-center border-t border-gray-100">
                   Scroll or pinch to zoom · Double-tap to zoom in
                 </p>
+              </div>
+            ) : activeImage.componentId === 'payments-send-embed' || activeImage.id === 'send-tab' ? (
+              <div className="bg-white rounded-xl overflow-hidden p-6 max-h-[85vh] overflow-y-auto">
+                <ZkSendPanel initialTab="send" preview previewValues={PAYMENTS_SEND_PREVIEW} />
+              </div>
+            ) : activeImage.componentId === 'payments-receive-embed' || activeImage.id === 'receive-tab' ? (
+              <div className="bg-white rounded-xl overflow-hidden p-6 max-h-[85vh] overflow-y-auto">
+                <ZkSendPanel initialTab="receive" />
               </div>
             ) : (
               <div className={isFramelessPreview ? 'overflow-hidden' : 'rounded-xl overflow-hidden bg-gray-900'}>

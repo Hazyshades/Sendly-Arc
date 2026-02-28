@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { PendingPayments } from './PendingPayments';
-import { SendPaymentForm } from './SendPaymentForm';
+import { SendPaymentForm, type SendPaymentPreviewValues } from './SendPaymentForm';
 import { IdentitySelector } from './IdentitySelector';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { normalizeSocialUsername } from '../../utils/reclaim/identity';
@@ -10,10 +10,18 @@ export type ZkSendPlatform = 'twitter' | 'twitch' | 'github' | 'telegram' | 'ins
 
 export type SendRecipientType = ZkSendPlatform | 'address';
 
-export function ZkSendPanel() {
-  const [activeTab, setActiveTab] = useState<'send' | 'receive'>('send');
-  const [platform, setPlatform] = useState<SendRecipientType>('twitter');
-  const [username, setUsername] = useState('');
+type ZkSendPanelProps = {
+  /** When embedding (e.g. in blog), open this tab by default. */
+  initialTab?: 'send' | 'receive';
+  /** Read-only preview with fixed values (same look, no disabled styling). */
+  preview?: boolean;
+  previewValues?: SendPaymentPreviewValues;
+};
+
+export function ZkSendPanel({ initialTab = 'send', preview = false, previewValues }: ZkSendPanelProps = {}) {
+  const [activeTab, setActiveTab] = useState<'send' | 'receive'>(initialTab);
+  const [platform, setPlatform] = useState<SendRecipientType>(preview && previewValues ? previewValues.platform : 'twitter');
+  const [username, setUsername] = useState(preview && previewValues ? previewValues.username : '');
 
   const normalizedUsername = useMemo(() => normalizeSocialUsername(username.replace(/^@/, '')), [username]);
   const isIdentityValid = platform === 'address' ? /^0x[a-fA-F0-9]{40}$/.test(username.trim()) : !!normalizedUsername;
@@ -34,6 +42,8 @@ export function ZkSendPanel() {
             onUsernameChange={setUsername}
             isIdentityValid={isIdentityValid}
             onGoToPending={() => setActiveTab('receive')}
+            preview={preview}
+            previewValues={previewValues}
           />
         </TabsContent>
 

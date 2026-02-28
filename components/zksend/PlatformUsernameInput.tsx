@@ -65,6 +65,10 @@ type Props = {
   label?: string;
   inputId?: string;
   ariaLabel?: string;
+  /** Read-only display (e.g. blog embed): no editing, same look, no disabled styling. */
+  readOnly?: boolean;
+  /** In readOnly mode, show this as the suggestion line (e.g. "Arc @arc") without fetching. */
+  previewSuggestionLabel?: string;
 };
 
 type PreviewStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -77,6 +81,8 @@ export function PlatformUsernameInput({
   label = 'To',
   inputId = 'platform-username-input',
   ariaLabel = 'Username',
+  readOnly = false,
+  previewSuggestionLabel,
 }: Props) {
   const [platformPopoverOpen, setPlatformPopoverOpen] = useState(false);
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>('idle');
@@ -351,6 +357,45 @@ export function PlatformUsernameInput({
   }, [showTelegramPreview, normalizedTelegramUsername]);
 
   const clearUsername = () => onUsernameChange('');
+
+  if (readOnly) {
+    const Icon = currentPlatformOpt.icon;
+    return (
+      <div className="space-y-2">
+        {label ? <Label htmlFor={inputId}>{label}</Label> : null}
+        <div className="flex gap-0 items-center rounded-xl border bg-background overflow-hidden">
+          <div className="relative flex-1 min-w-0">
+            <Input
+              id={inputId}
+              value={username}
+              readOnly
+              placeholder={platform === 'address' ? '0x...' : '@username'}
+              aria-label={platform === 'address' ? 'Recipient wallet address' : ariaLabel}
+              className="border-0 rounded-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-4 font-mono cursor-default"
+            />
+          </div>
+          <div
+            className="flex items-center gap-1.5 shrink-0 h-9 pl-2 pr-2 py-1 border-input text-muted-foreground"
+            aria-hidden
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted dark:bg-muted/80 text-foreground">
+              <Icon className="h-4 w-4 shrink-0" />
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+          </div>
+        </div>
+        {previewSuggestionLabel && (
+          <div className="flex items-center gap-2 rounded-full bg-sky-100 dark:bg-sky-900/30 px-3 py-2 text-sm">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+              <Twitter className="h-4 w-4 text-muted-foreground" />
+            </span>
+            <span className="font-medium text-foreground">{previewSuggestionLabel}</span>
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

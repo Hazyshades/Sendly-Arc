@@ -29,6 +29,15 @@ import { PlatformUsernameInput } from './PlatformUsernameInput';
 
 import type { SendRecipientType } from './ZkSendPanel';
 
+export type SendPaymentPreviewValues = {
+  amount: string;
+  token: 'USDC' | 'EURC';
+  platform: SendRecipientType;
+  username: string;
+  balance?: string;
+  suggestionLabel?: string;
+};
+
 type Props = {
   platform: SendRecipientType;
   onPlatformChange: (platform: SendRecipientType) => void;
@@ -36,6 +45,9 @@ type Props = {
   onUsernameChange: (username: string) => void;
   isIdentityValid: boolean;
   onGoToPending?: () => void;
+  /** Read-only preview with fixed values (e.g. blog embed). Same look, no disabled styling. */
+  preview?: boolean;
+  previewValues?: SendPaymentPreviewValues;
 };
 
 const TOKEN_OPTIONS = [
@@ -50,12 +62,14 @@ export function SendPaymentForm({
   onUsernameChange,
   isIdentityValid,
   onGoToPending,
+  preview = false,
+  previewValues,
 }: Props) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
 
-  const [amount, setAmount] = useState('');
-  const [tokenType, setTokenType] = useState<'USDC' | 'EURC'>('USDC');
+  const [amount, setAmount] = useState(preview && previewValues ? previewValues.amount : '');
+  const [tokenType, setTokenType] = useState<'USDC' | 'EURC'>(preview && previewValues ? previewValues.token : 'USDC');
   const [loading, setLoading] = useState(false);
 
   const tokenConfig = TOKEN_OPTIONS.find((t) => t.value === tokenType) ?? TOKEN_OPTIONS[0];
@@ -67,7 +81,11 @@ export function SendPaymentForm({
   const normalizedUsername = useMemo(() => normalizeSocialUsername(username.replace(/^@/, '')), [username]);
   const normalizedPlatform = useMemo(() => (platform === 'address' ? null : normalizeSocialPlatform(platform)), [platform]);
 
-  const balanceFormatted = balance?.formatted ?? '0.00';
+  const balanceFormatted = preview && previewValues?.balance != null ? previewValues.balance : (balance?.formatted ?? '0.00');
+  const effectiveAmount = preview && previewValues ? previewValues.amount : amount;
+  const effectiveTokenType = preview && previewValues ? previewValues.token : tokenType;
+  const effectivePlatform = preview && previewValues ? previewValues.platform : platform;
+  const effectiveUsername = preview && previewValues ? previewValues.username : username;
 
   const onSubmit = async () => {
     try {
@@ -205,7 +223,7 @@ export function SendPaymentForm({
     }
   };
 
-  const canSubmit = isIdentityValid && amount && Number(amount) > 0 && isConnected && !!address && !!walletClient;
+  const canSubmit = !preview && isIdentityValid && amount && Number(amount) > 0 && isConnected && !!address && !!walletClient;
 
   return (
     <Card>
@@ -222,43 +240,55 @@ export function SendPaymentForm({
           <div className="flex gap-2">
             <Input
               id="amount-input"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={effectiveAmount}
+              onChange={preview ? undefined : (e) => setAmount(e.target.value)}
+              readOnly={preview}
               inputMode="decimal"
               placeholder="0.00"
               aria-label="Amount"
-              className="flex-1"
+              className={`flex-1 ${preview ? 'cursor-default' : ''}`}
             />
-            <Select
-              value={tokenType}
-              onValueChange={(v) => setTokenType(v as 'USDC' | 'EURC')}
-            >
-              <SelectTrigger className="w-[120px] gap-2" aria-label="Token">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TOKEN_OPTIONS.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {preview ? (
+              <div
+                className="w-[120px] gap-2 flex h-9 items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                aria-label="Token"
+              >
+                <span>{effectiveTokenType}</span>
+              </div>
+            ) : (
+              <Select
+                value={tokenType}
+                onValueChange={(v) => setTokenType(v as 'USDC' | 'EURC')}
+              >
+                <SelectTrigger className="w-[120px] gap-2" aria-label="Token">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TOKEN_OPTIONS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
         {/* To */}
         <PlatformUsernameInput
-          platform={platform}
+          platform={effectivePlatform}
           onPlatformChange={onPlatformChange}
-          username={username}
+          username={effectiveUsername}
           onUsernameChange={onUsernameChange}
           label="To"
           inputId="to-input"
           ariaLabel="Recipient"
+          readOnly={preview}
+          previewSuggestionLabel={preview ? previewValues?.suggestionLabel : undefined}
         />
 
-        {!isIdentityValid && username.length > 0 && (
+        {!preview && !isIdentityValid && username.length > 0 && (
           <p className="text-sm text-amber-600 dark:text-amber-500">
             {platform === 'address'
               ? 'Enter a valid wallet address (0x followed by 40 hex characters).'
@@ -268,15 +298,20 @@ export function SendPaymentForm({
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
           <Button
-            onClick={onSubmit}
-            disabled={!canSubmit || loading}
+            type="button"
+            onClick={preview ? (e) => e.preventDefault() : onSubmit}
+            disabled={!preview && (!canSubmit || loading)}
             size="lg"
             className="w-full sm:w-auto bg-emerald-600 text-white hover:bg-emerald-600/90 disabled:opacity-50"
           >
             {loading ? 'Sending...' : 'Send'}
           </Button>
-          {onGoToPending ? (
+          {onGoToPending && !preview ? (
             <Button type="button" variant="ghost" onClick={onGoToPending} className="w-full sm:w-auto">
+              View pending payments
+            </Button>
+          ) : preview && onGoToPending ? (
+            <Button type="button" variant="ghost" onClick={(e) => e.preventDefault()} className="w-full sm:w-auto">
               View pending payments
             </Button>
           ) : null}

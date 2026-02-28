@@ -48,9 +48,9 @@ export default defineConfig(({ mode }) => {
 
   const zktlsTarget = env.VITE_ZKTLS_PROXY_TARGET || 'http://localhost:3001';
   const server: Record<string, unknown> = {
-    port: 3000,
+    port: 3002,
     host: true,
-    open: useHttps ? 'https://localhost:3000' : true,
+    open: useHttps ? 'https://localhost:3002' : true,
     strictPort: true,
     proxy: {
       '/api': {
@@ -64,7 +64,7 @@ export default defineConfig(({ mode }) => {
     if (httpsConfig.key && httpsConfig.cert) {
       server.https = { key: httpsConfig.key, cert: httpsConfig.cert };
       console.log('✓ HTTPS enabled with mkcert certificates');
-      console.log('✓ Server will be available at: https://localhost:3000');
+      console.log('✓ Server will be available at: https://localhost:3002');
     } else {
       console.warn('⚠️  Falling back to auto-generated self-signed certificate');
       console.warn('   This may cause ERR_SSL_VERSION_OR_CIPHER_MISMATCH in Chrome');
@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
     }
   } else {
     console.log('ℹ️  HTTP mode (HTTPS disabled)');
-    console.log('ℹ️  Server will be available at: http://localhost:3000');
+    console.log('ℹ️  Server will be available at: http://localhost:3002');
   }
 
   return {
