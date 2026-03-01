@@ -67,7 +67,7 @@ export function Layout({ children }: LayoutProps) {
               onClick={() => setIsPrivyModalOpen(true)}
               className="bg-white/90 backdrop-blur-sm border border-gray-200 text-gray-900 hover:bg-white px-4 py-2 rounded-2xl transition-all duration-200 flex items-center gap-2 shadow-circle-card font-medium"
             >
-              🔐 Social login
+              Social login
             </button>
           ) : null}
           {!zk ? (
