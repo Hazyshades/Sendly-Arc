@@ -1,5 +1,4 @@
-
-export function ARCLogo({ className = "h-6 w-auto" }: { className?: string }) {
+export function ARCLogo({ className = 'h-6 w-auto' }: { className?: string }) {
   return (
     <svg 
       className={className}

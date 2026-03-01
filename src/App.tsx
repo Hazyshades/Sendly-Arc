@@ -77,7 +77,6 @@ function MainAppRouter() {
     const initializeMiniApp = async () => {
       try {
         await sdk.actions.ready();
-        console.log('Mini App SDK initialized successfully');
       } catch (error) {
         console.error('Failed to initialize Mini App SDK:', error);
       }

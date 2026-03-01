@@ -1,7 +1,3 @@
-/**
- * OAuth modules for social platforms
- */
-
 export * from './twitter';
 export * from './twitch';
 export * from './github';

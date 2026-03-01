@@ -18,76 +18,29 @@ export interface ScheduleExecutionsOptions {
   pageSize?: number;
 }
 
-const buildQueryString = (params: Record<string, string | number | boolean | undefined | null>) => {
-  const searchParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null) {
-      return;
-    }
-    searchParams.set(key, String(value));
-  });
-  const query = searchParams.toString();
-  return query ? `?${query}` : '';
-};
+function buildQueryString(params: Record<string, string | number | boolean | undefined | null>): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params))
+    if (v !== undefined && v !== null) sp.set(k, String(v));
+  const q = sp.toString();
+  return q ? `?${q}` : '';
+}
 
-export async function listAgentSchedules(
-  userId: string,
-  options: ListSchedulesOptions = {}
-): Promise<ScheduleWithStats[]> {
-  const query = buildQueryString({
-    userId,
-    status: options.status,
-    includeHistory: options.includeHistory ? 'true' : undefined,
-  });
-
-  const response = await apiCall(`/agent/schedules${query}`, {
-    method: 'GET',
-  });
-
-  if (!response?.success) {
-    throw new Error(response?.error || 'Failed to load schedules');
-  }
-
+export async function listAgentSchedules(userId: string, options: ListSchedulesOptions = {}): Promise<ScheduleWithStats[]> {
+  const response = await apiCall(`/agent/schedules${buildQueryString({ userId, status: options.status, includeHistory: options.includeHistory ? 'true' : undefined })}`, { method: 'GET' });
+  if (!response?.success) throw new Error(response?.error || 'Failed to load schedules');
   return (response.data ?? []) as ScheduleWithStats[];
 }
 
-export async function createAgentSchedule(
-  userId: string,
-  payload: ScheduleInput
-): Promise<ScheduleRow> {
-  const response = await apiCall('/agent/schedules', {
-    method: 'POST',
-    body: JSON.stringify({
-      ...payload,
-      userId,
-    }),
-  });
-
-  if (!response?.success || !response.data) {
-    throw new Error(response?.error || 'Failed to create schedule');
-  }
-
+export async function createAgentSchedule(userId: string, payload: ScheduleInput): Promise<ScheduleRow> {
+  const response = await apiCall('/agent/schedules', { method: 'POST', body: JSON.stringify({ ...payload, userId }) });
+  if (!response?.success || !response.data) throw new Error(response?.error || 'Failed to create schedule');
   return response.data as ScheduleRow;
 }
 
-export async function getAgentSchedule(
-  scheduleId: string,
-  userId: string,
-  limit = 20
-): Promise<ScheduleDetail> {
-  const query = buildQueryString({
-    userId,
-    limit,
-  });
-
-  const response = await apiCall(`/agent/schedules/${scheduleId}${query}`, {
-    method: 'GET',
-  });
-
-  if (!response?.success || !response.data) {
-    throw new Error(response?.error || 'Failed to fetch schedule detail');
-  }
-
+export async function getAgentSchedule(scheduleId: string, userId: string, limit = 20): Promise<ScheduleDetail> {
+  const response = await apiCall(`/agent/schedules/${scheduleId}${buildQueryString({ userId, limit })}`, { method: 'GET' });
+  if (!response?.success || !response.data) throw new Error(response?.error || 'Failed to fetch schedule detail');
   return response.data as ScheduleDetail;
 }
 
@@ -96,61 +49,23 @@ export async function listAgentScheduleExecutions(
   userId: string,
   options: ScheduleExecutionsOptions = {}
 ): Promise<ScheduleExecutionPage> {
-  const query = buildQueryString({
-    userId,
-    page: options.page,
-    pageSize: options.pageSize,
-  });
-
-  const response = await apiCall(`/agent/schedules/${scheduleId}/executions${query}`, {
-    method: 'GET',
-  });
-
-  if (!response?.success) {
-    throw new Error(response?.error || 'Failed to fetch schedule executions');
-  }
-
+  const response = await apiCall(`/agent/schedules/${scheduleId}/executions${buildQueryString({ userId, page: options.page, pageSize: options.pageSize })}`, { method: 'GET' });
+  if (!response?.success) throw new Error(response?.error || 'Failed to fetch schedule executions');
   return {
     data: response.data ?? [],
-    pagination: response.pagination ?? {
-      page: options.page ?? 1,
-      pageSize: options.pageSize ?? 20,
-      total: 0,
-    },
+    pagination: response.pagination ?? { page: options.page ?? 1, pageSize: options.pageSize ?? 20, total: 0 },
   };
 }
 
-export async function updateAgentSchedule(
-  scheduleId: string,
-  userId: string,
-  updates: Partial<ScheduleInput>
-): Promise<ScheduleRow> {
-  const response = await apiCall(`/agent/schedules/${scheduleId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({
-      ...updates,
-      userId,
-    }),
-  });
-
-  if (!response?.success || !response.data) {
-    throw new Error(response?.error || 'Failed to update schedule');
-  }
-
+export async function updateAgentSchedule(scheduleId: string, userId: string, updates: Partial<ScheduleInput>): Promise<ScheduleRow> {
+  const response = await apiCall(`/agent/schedules/${scheduleId}`, { method: 'PATCH', body: JSON.stringify({ ...updates, userId }) });
+  if (!response?.success || !response.data) throw new Error(response?.error || 'Failed to update schedule');
   return response.data as ScheduleRow;
 }
 
 export async function deleteAgentSchedule(scheduleId: string, userId: string): Promise<void> {
-  const query = buildQueryString({ userId });
-
-  const response = await apiCall(`/agent/schedules/${scheduleId}${query}`, {
-    method: 'DELETE',
-    body: JSON.stringify({ userId }),
-  });
-
-  if (!response?.success) {
-    throw new Error(response?.error || 'Failed to delete schedule');
-  }
+  const response = await apiCall(`/agent/schedules/${scheduleId}${buildQueryString({ userId })}`, { method: 'DELETE', body: JSON.stringify({ userId }) });
+  if (!response?.success) throw new Error(response?.error || 'Failed to delete schedule');
 }
 
 export async function triggerManualScheduleRun(
@@ -159,24 +74,10 @@ export async function triggerManualScheduleRun(
   metadata?: Record<string, unknown>,
   note?: string
 ) {
-  const query = buildQueryString({ userId });
-
-  const response = await apiCall(`/agent/schedules/${scheduleId}/run${query}`, {
+  const response = await apiCall(`/agent/schedules/${scheduleId}/run${buildQueryString({ userId })}`, {
     method: 'POST',
-    body: JSON.stringify({
-      userId,
-      metadata,
-      note,
-    }),
+    body: JSON.stringify({ userId, metadata, note }),
   });
-
-  if (!response?.success) {
-    throw new Error(response?.error || 'Failed to enqueue manual run');
-  }
-
+  if (!response?.success) throw new Error(response?.error || 'Failed to enqueue manual run');
   return response.data;
 }
-
-
-
-

@@ -385,7 +385,6 @@ export async function getAllSocialContacts(userId: string): Promise<Contact[]> {
     });
   });
 
-  // Sort: favorites first, then alphabetically
   return unified.sort((a, b) => {
     if (a.isFavorite && !b.isFavorite) return -1;
     if (!a.isFavorite && b.isFavorite) return 1;
@@ -401,11 +400,7 @@ export async function syncPersonalContact(
     throw new Error('Name and wallet are required');
   }
 
-  console.log('[syncPersonalContact] Attempting to save via Edge Function:', { userId, contact });
-
-  // Use Edge Function to bypass RLS (uses service_role key)
   const { apiCall } = await import('./client');
-  
   try {
     const response = await apiCall('/contacts/personal', {
       method: 'POST',
@@ -420,7 +415,6 @@ export async function syncPersonalContact(
       throw new Error(response.error || 'Failed to save personal contact');
     }
 
-    console.log('[syncPersonalContact] Successfully saved via Edge Function:', response.data);
   } catch (error) {
     console.error('[syncPersonalContact] Edge Function error:', error);
     throw error instanceof Error ? error : new Error('Failed to sync personal contact');
@@ -428,11 +422,7 @@ export async function syncPersonalContact(
 }
 
 export async function getPersonalContacts(userId: string): Promise<Contact[]> {
-  console.log('[getPersonalContacts] Fetching contacts for userId:', userId);
-
-  // Use Edge Function to bypass RLS (uses service_role key)
   const { apiCall } = await import('./client');
-  
   try {
     const response = await apiCall(`/contacts/personal?userId=${encodeURIComponent(userId)}`, {
       method: 'GET',
@@ -451,14 +441,11 @@ export async function getPersonalContacts(userId: string): Promise<Contact[]> {
       })
     );
 
-    // Sort: favorites first, then alphabetically
     contacts.sort((a: Contact, b: Contact) => {
       if (a.isFavorite && !b.isFavorite) return -1;
       if (!a.isFavorite && b.isFavorite) return 1;
       return a.name.localeCompare(b.name);
     });
-
-    console.log('[getPersonalContacts] Successfully fetched:', contacts.length, 'contacts');
     return contacts;
   } catch (error) {
     console.error('[getPersonalContacts] Edge Function error:', error);
@@ -466,13 +453,8 @@ export async function getPersonalContacts(userId: string): Promise<Contact[]> {
   }
 }
 
-export async function deletePersonalContact(
-  userId: string,
-  wallet: string
-): Promise<void> {
-  // Use Edge Function to bypass RLS (uses service_role key)
+export async function deletePersonalContact(userId: string, wallet: string): Promise<void> {
   const { apiCall } = await import('./client');
-  
   try {
     const response = await apiCall('/contacts/personal', {
       method: 'DELETE',
@@ -486,20 +468,14 @@ export async function deletePersonalContact(
       throw new Error(response.error || 'Failed to delete personal contact');
     }
 
-    console.log('[deletePersonalContact] Successfully deleted via Edge Function');
   } catch (error) {
     console.error('[deletePersonalContact] Edge Function error:', error);
     throw error instanceof Error ? error : new Error('Failed to delete personal contact');
   }
 }
 
-export async function toggleFavoritePersonalContact(
-  userId: string,
-  wallet: string,
-  isFavorite: boolean
-): Promise<void> {
+export async function toggleFavoritePersonalContact(userId: string, wallet: string, isFavorite: boolean): Promise<void> {
   const { apiCall } = await import('./client');
-  
   try {
     const response = await apiCall('/contacts/personal/favorite', {
       method: 'PATCH',
@@ -526,7 +502,6 @@ export async function toggleFavoriteSocialContact(
   isFavorite: boolean
 ): Promise<void> {
   const { apiCall } = await import('./client');
-  
   try {
     const response = await apiCall('/contacts/social/favorite', {
       method: 'PATCH',

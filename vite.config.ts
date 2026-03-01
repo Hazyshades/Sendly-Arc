@@ -21,25 +21,11 @@ export default defineConfig(({ mode }) => {
     try {
       const keyPath = path.resolve(__dirname, 'localhost-key.pem');
       const certPath = path.resolve(__dirname, 'localhost.pem');
-      
-      console.log(`Checking certificates:`);
-      console.log(`  Key path: ${keyPath}`);
-      console.log(`  Cert path: ${certPath}`);
-      console.log(`  Key exists: ${fs.existsSync(keyPath)}`);
-      console.log(`  Cert exists: ${fs.existsSync(certPath)}`);
-      
       if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
         httpsConfig.key = fs.readFileSync(keyPath);
         httpsConfig.cert = fs.readFileSync(certPath);
-        console.log('✓ Using mkcert certificates for HTTPS');
       } else {
-        console.warn('⚠️  WARNING: HTTPS enabled but certificates not found!');
-        console.warn('   To fix ERR_SSL_VERSION_OR_CIPHER_MISMATCH:');
-        console.warn('   1. Install mkcert: https://github.com/FiloSottile/mkcert#installation');
-        console.warn('   2. Run: mkcert -install');
-        console.warn('   3. Run: mkcert localhost');
-        console.warn('   4. Rename files: localhost-key.pem and localhost.pem');
-        console.warn('   Or set VITE_DEV_HTTPS=false to use HTTP instead');
+        console.warn('HTTPS: certificates not found. Use mkcert localhost or set VITE_DEV_HTTPS=false.');
       }
     } catch (error) {
       console.error('Error reading certificates:', error);
@@ -61,18 +47,8 @@ export default defineConfig(({ mode }) => {
   };
 
   if (useHttps) {
-    if (httpsConfig.key && httpsConfig.cert) {
-      server.https = { key: httpsConfig.key, cert: httpsConfig.cert };
-      console.log('✓ HTTPS enabled with mkcert certificates');
-      console.log('✓ Server will be available at: https://localhost:3002');
-    } else {
-      console.warn('⚠️  Falling back to auto-generated self-signed certificate');
-      console.warn('   This may cause ERR_SSL_VERSION_OR_CIPHER_MISMATCH in Chrome');
-      server.https = true;
-    }
-  } else {
-    console.log('ℹ️  HTTP mode (HTTPS disabled)');
-    console.log('ℹ️  Server will be available at: https://localhost:3002');
+    if (httpsConfig.key && httpsConfig.cert) server.https = { key: httpsConfig.key, cert: httpsConfig.cert };
+    else server.https = true;
   }
 
   return {

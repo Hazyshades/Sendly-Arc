@@ -1,9 +1,6 @@
 import { toast } from 'sonner';
 import { generateCodeVerifier, generateCodeChallenge, createPopupWindow } from './utils';
 
-/**
- * Request Gmail OAuth token using PKCE flow
- */
 export const requestGmailOAuthTokenFlow = async (): Promise<string | null> => {
   return new Promise((resolve) => {
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
@@ -44,12 +41,6 @@ export const requestGmailOAuthTokenFlow = async (): Promise<string | null> => {
       )}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(
         scopes
       )}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256&access_type=offline&prompt=consent`;
-
-      console.log('[zkSEND] Starting Gmail OAuth flow:', {
-        clientId: googleClientId.substring(0, 10) + '...',
-        redirectUri,
-        scopes,
-      });
 
       toast.info('Opening Gmail authorization...');
 
@@ -92,7 +83,6 @@ export const requestGmailOAuthTokenFlow = async (): Promise<string | null> => {
       const checkStorage = setInterval(() => {
         const token = localStorage.getItem('gmail_oauth_token') || localStorage.getItem('gmail_oauth');
         if (token && token.length > 10) {
-          console.log('[zkSEND] ✅ Gmail OAuth token found in localStorage');
           clearInterval(checkStorage);
           window.removeEventListener('message', messageHandler);
           if (popup) popup.close();
@@ -104,7 +94,6 @@ export const requestGmailOAuthTokenFlow = async (): Promise<string | null> => {
         try {
           // Cross-Origin-Opener-Policy can block popup.closed when popup navigates to another origin (e.g. sendly.digital)
           if (popup?.closed) {
-            console.log('[zkSEND] Popup window was closed by user');
             clearInterval(checkPopup);
             clearInterval(checkStorage);
             window.removeEventListener('message', messageHandler);
@@ -118,9 +107,6 @@ export const requestGmailOAuthTokenFlow = async (): Promise<string | null> => {
   });
 };
 
-/**
- * Connect to Gmail OAuth
- */
 export const connectGmail = async (): Promise<string | null> => {
   try {
     const token = await requestGmailOAuthTokenFlow();
@@ -136,9 +122,6 @@ export const connectGmail = async (): Promise<string | null> => {
   }
 };
 
-/**
- * Clear Gmail OAuth token from storage
- */
 export const clearGmailToken = (): void => {
   try {
     localStorage.removeItem('gmail_oauth');

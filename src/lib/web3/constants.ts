@@ -1,12 +1,3 @@
-// Access Vite env safely for TS - using import.meta.env directly
-
-// Log for debugging - check both ways
-console.log('=== Environment Variables Debug ===');
-console.log('import.meta.env:', import.meta.env);
-console.log('VITE_ARC_USDC_ADDRESS from env:', import.meta.env.VITE_ARC_USDC_ADDRESS);
-console.log('VITE_ARC_CONTRACT_ADDRESS from env:', import.meta.env.VITE_ARC_CONTRACT_ADDRESS);
-console.log('All VITE_ variables:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
-
 // Base/Arc Contract Addresses (env-first; Arc variables preferred)
 export const CONTRACT_ADDRESS =
   import.meta.env.VITE_ARC_CONTRACT_ADDRESS ||
@@ -63,21 +54,10 @@ export const RECLAIM_VERIFIER_CONTRACT_ADDRESS =
   import.meta.env.VITE_ARC_ZKTLS_VERIFIER_ADDRESS ||
   "0xfDd1D064529aA8c8058CDD574452c3FF9d6256a7";
 
-console.log('=== Resolved Addresses ===');
-console.log('CONTRACT_ADDRESS:', CONTRACT_ADDRESS);
-console.log('USDC_ADDRESS:', USDC_ADDRESS);
-console.log('EURC_ADDRESS:', EURC_ADDRESS);
-console.log('USYC_ADDRESS:', USYC_ADDRESS);
-console.log('VAULT_CONTRACT_ADDRESS:', VAULT_CONTRACT_ADDRESS);
-console.log('TWITCH_VAULT_CONTRACT_ADDRESS:', TWITCH_VAULT_CONTRACT_ADDRESS);
-console.log('TELEGRAM_VAULT_CONTRACT_ADDRESS:', TELEGRAM_VAULT_CONTRACT_ADDRESS);
-console.log('TIKTOK_VAULT_CONTRACT_ADDRESS:', TIKTOK_VAULT_CONTRACT_ADDRESS);
-console.log('INSTAGRAM_VAULT_CONTRACT_ADDRESS:', INSTAGRAM_VAULT_CONTRACT_ADDRESS);
-console.log('Expected USDC_ADDRESS:', '0x3600000000000000000000000000000000000000');
-if (USDC_ADDRESS !== '0x3600000000000000000000000000000000000000') {
-  console.error('⚠️ WARNING: Using fallback USDC address! VITE_ARC_USDC_ADDRESS may not be loaded from .env');
-  console.error('Please restart your dev server after updating .env file');
+if (typeof window !== 'undefined' && USDC_ADDRESS !== '0x3600000000000000000000000000000000000000') {
+  console.warn('Using fallback USDC address; set VITE_ARC_USDC_ADDRESS in .env and restart.');
 }
+
 export const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS || "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2";
 
 // Base Network RPC URLs with fallback - added more reliable endpoints

@@ -1,9 +1,11 @@
 import { BridgeKit } from '@circle-fin/bridge-kit';
 import { createAdapterFromProvider } from '@circle-fin/adapter-viem-v2';
-import { 
+import {
   validateBridgeRouteByAddresses,
   validateBridgeRoute,
-  type BridgeRouteValidation
+  getSupportedChainsForToken,
+  getSupportedTokensForChainByChainId,
+  type BridgeRouteValidation,
 } from './bridgeConfig';
 
 import type { BridgeResult, BridgeParams } from '@/types/bridge';
@@ -64,7 +66,6 @@ class BridgeService {
 
     const fromChain = validation.fromChain!;
     const toChain = validation.toChain!;
-    const token = validation.token!;
 
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -73,15 +74,6 @@ class BridgeService {
         'INVALID_AMOUNT'
       );
     }
-
-    console.log('[BridgeService] Starting bridge:', {
-      fromChain: fromChain.name,
-      toChain: toChain.name,
-      token: token.symbol,
-      fromCurrency,
-      toCurrency,
-      amount
-    });
 
     try {
       const kit = new BridgeKit();
@@ -108,13 +100,6 @@ class BridgeService {
 
       const burnStep = result.steps.find((s) => s.name === 'depositForBurn');
       const mintStep = result.steps.find((s) => s.name === 'mint');
-
-      console.log('[BridgeService] Bridge completed:', {
-        fromTxHash: burnStep?.txHash,
-        toTxHash: mintStep?.txHash,
-        steps: result.steps.map(s => s.name)
-      });
-
       return {
         fromTxHash: burnStep?.txHash,
         toTxHash: mintStep?.txHash,
@@ -171,12 +156,10 @@ class BridgeService {
   }
 
   getSupportedChainsForToken(tokenSymbol: string) {
-    const { getSupportedChainsForToken } = require('./bridgeConfig');
     return getSupportedChainsForToken(tokenSymbol);
   }
 
   getSupportedTokensForChain(chainId: number) {
-    const { getSupportedTokensForChainByChainId } = require('./bridgeConfig');
     return getSupportedTokensForChainByChainId(chainId);
   }
 }

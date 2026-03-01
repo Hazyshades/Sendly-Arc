@@ -7,10 +7,6 @@ import { isZkLocalhost } from '@/lib/runtime/zkHost';
 // Get WalletConnect project ID from environment for RainbowKit
 const projectId = import.meta.env.VITE_WALLET_CONNECT_PROJECT_ID || 'c4f79f821944d9680842e34466bfbd52';
 
-// Debug: Log environment variables
-console.log('Environment variables:', import.meta.env);
-console.log('WalletConnect Project ID:', projectId);
-
 // Arc Testnet chain definition driven by env variables
 const arcChainId = Number(import.meta.env.VITE_ARC_CHAIN_ID || 5042002);
 const arcName = import.meta.env.VITE_ARC_NAME || 'Arc Testnet';

@@ -69,19 +69,15 @@ export async function syncLeaderboardGraph(): Promise<{ success: boolean; entrie
   }
 }
 
-export async function updateZnsDomainsGraph(): Promise<{ 
-  success: boolean; 
+export async function updateZnsDomainsGraph(): Promise<{
+  success: boolean;
   addresses_checked?: number;
   domains_found?: number;
   records_updated?: number;
-  message?: string 
+  message?: string;
 }> {
   try {
-    console.log('[updateZnsDomainsGraph] Starting ZNS domains update request...');
-    const response = await apiCall('/leaderboard/update-zns-domains-graph', {
-      method: 'POST',
-    });
-    console.log('[updateZnsDomainsGraph] Response received:', response);
+    const response = await apiCall('/leaderboard/update-zns-domains-graph', { method: 'POST' });
     return {
       success: response.success ?? true,
       addresses_checked: response.addresses_checked,
@@ -90,11 +86,7 @@ export async function updateZnsDomainsGraph(): Promise<{
       message: response.message,
     };
   } catch (error) {
-    console.error('[updateZnsDomainsGraph] Failed to update ZNS domains for graph:', error);
-    console.error('[updateZnsDomainsGraph] Error details:', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    console.error('[updateZnsDomainsGraph] Failed:', error);
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to update ZNS domains for graph',
@@ -166,10 +158,7 @@ export async function getLeaderboardSendersGraph(params: FetchParams = {}): Prom
     } else if (response.data && Array.isArray(response.data)) {
       // If response has data property
       entries = response.data;
-    } else {
-      console.warn('[getLeaderboardSendersGraph] Unexpected response format:', response);
-      return [];
-    }
+    } else return [];
 
     return entries.map((entry) => {
       const amountSentByCurrencyRaw =

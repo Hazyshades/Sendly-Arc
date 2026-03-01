@@ -18,11 +18,7 @@ export async function getContractBalanceViaAPI(
   try {
     // Try ArcScan API first (Blockscout-based)
     // Get token balances for the contract address
-    const balancesUrl = `${ARCSCAN_API_URL}/addresses/${contractAddress.toLowerCase()}/token-balances`;
-    
-    console.log(`[ContractBalance] Fetching balance from ArcScan API: ${balancesUrl}`);
-    
-    const response = await fetch(balancesUrl, {
+    const response = await fetch(`${ARCSCAN_API_URL}/addresses/${contractAddress.toLowerCase()}/token-balances`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -43,19 +39,12 @@ export async function getContractBalanceViaAPI(
       );
 
       if (usdcBalance) {
-        // Balance is returned in smallest units (6 decimals for USDC)
         const balanceWei = BigInt(usdcBalance.value || usdcBalance.balance || '0');
-        const balanceUsd = Number(balanceWei) / 1_000_000; // USDC has 6 decimals
-        console.log(`[ContractBalance] Found USDC balance via API: ${balanceUsd} USDC`);
-        return balanceUsd;
+        return Number(balanceWei) / 1_000_000;
       }
     }
-
-    // If not found in API, try RPC as fallback
-    console.log('[ContractBalance] USDC not found in API response, trying RPC...');
     return await getContractBalanceViaRPC(contractAddress, tokenAddress);
   } catch (error) {
-    console.error('[ContractBalance] API fetch failed, trying RPC fallback:', error);
     // Fallback to RPC
     return await getContractBalanceViaRPC(contractAddress, tokenAddress);
   }
@@ -77,9 +66,6 @@ export async function getContractBalanceViaRPC(
       transport: http(ARC_RPC_URLS[0] || 'https://rpc.testnet.arc.network'),
     });
 
-    console.log(`[ContractBalance] Fetching balance via RPC for contract: ${contractAddress}, token: ${tokenAddress}`);
-
-    // Get balance using ERC20 balanceOf
     const balance = await publicClient.readContract({
       address: tokenAddress as `0x${string}`,
       abi: ERC20ABI,
@@ -87,11 +73,7 @@ export async function getContractBalanceViaRPC(
       args: [contractAddress as `0x${string}`],
     }) as bigint;
 
-    // USDC has 6 decimals
-    const balanceUsd = Number(balance) / 1_000_000;
-    
-    console.log(`[ContractBalance] Found USDC balance via RPC: ${balanceUsd} USDC`);
-    return balanceUsd;
+    return Number(balance) / 1_000_000;
   } catch (error) {
     console.error('[ContractBalance] RPC fetch failed:', error);
     throw new Error(`Failed to get contract balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -125,11 +107,7 @@ export async function getContractCounters(
 }> {
   try {
     // Use the /counters endpoint from ArcScan API (Blockscout-based)
-    const countersUrl = `${ARCSCAN_API_URL}/addresses/${contractAddress.toLowerCase()}/counters`;
-    
-    console.log(`[ContractBalance] Fetching counters from ArcScan API: ${countersUrl}`);
-    
-    const response = await fetch(countersUrl, {
+    const response = await fetch(`${ARCSCAN_API_URL}/addresses/${contractAddress.toLowerCase()}/counters`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -143,20 +121,10 @@ export async function getContractCounters(
     const data = await response.json();
 
     // Parse the response
-    const transactions_count = data.transactions_count ? parseInt(data.transactions_count, 10) : 0;
-    const token_transfers_count = data.token_transfers_count ? parseInt(data.token_transfers_count, 10) : 0;
-    const gas_usage_count = data.gas_usage_count || '0';
-
-    console.log(`[ContractBalance] Found counters via API:`, {
-      transactions_count,
-      token_transfers_count,
-      gas_usage_count
-    });
-
     return {
-      transactions_count,
-      token_transfers_count,
-      gas_usage_count
+      transactions_count: data.transactions_count ? parseInt(data.transactions_count, 10) : 0,
+      token_transfers_count: data.token_transfers_count ? parseInt(data.token_transfers_count, 10) : 0,
+      gas_usage_count: data.gas_usage_count || '0',
     };
   } catch (error) {
     console.error('[ContractBalance] Failed to get contract counters:', error);
@@ -189,11 +157,7 @@ export async function getContractTransactionsCount(
 
       if (response.ok) {
         const data = await response.json();
-        if (data.transactions_count !== undefined) {
-          const count = parseInt(data.transactions_count, 10);
-          console.log(`[ContractBalance] Found transactions count via address endpoint: ${count}`);
-          return count;
-        }
+        if (data.transactions_count !== undefined) return parseInt(data.transactions_count, 10);
       }
     } catch (fallbackError) {
       console.error('[ContractBalance] Fallback method also failed:', fallbackError);

@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 
-// Pinata IPFS Service
 export interface PinataMetadata {
   name: string;
   description: string;
@@ -23,16 +22,8 @@ export class PinataService {
 
   async uploadImage(imageBlob: Blob): Promise<string> {
     try {
-      // Validate API keys before making request
-      if (!this.apiKey || !this.secretKey) {
-        throw new Error('Pinata API keys are not configured. Please check your .env file.');
-      }
-      
-      if (typeof this.apiKey !== 'string' || typeof this.secretKey !== 'string') {
-        throw new Error('Pinata API keys must be strings. Current types: ' + 
-          typeof this.apiKey + ', ' + typeof this.secretKey);
-      }
-      
+      if (!this.apiKey || !this.secretKey) throw new Error('Pinata API keys are not configured. Please check your .env file.');
+      if (typeof this.apiKey !== 'string' || typeof this.secretKey !== 'string') throw new Error('Pinata API keys must be strings.');
       const formData = new FormData();
       formData.append('file', imageBlob);
 
@@ -45,18 +36,12 @@ export class PinataService {
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        // Log error for debugging
-        console.error('Pinata upload error:', errorText);
-        throw new Error(`Failed to upload image to Pinata: ${response.status} ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Failed to upload image to Pinata: ${response.status} ${await response.text()}`);
 
       const result = await response.json();
 
       return `ipfs://${result.IpfsHash}`;
     } catch (error) {
-      console.error('Error uploading image to Pinata:', error);
       throw error;
     }
   }
@@ -78,17 +63,12 @@ export class PinataService {
         }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Pinata metadata upload error:', errorText);
-        throw new Error(`Failed to upload metadata to Pinata: ${response.status} ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Failed to upload metadata to Pinata: ${response.status} ${await response.text()}`);
 
       const result = await response.json();
 
       return `ipfs://${result.IpfsHash}`;
     } catch (error) {
-      console.error('Error uploading metadata to Pinata:', error);
       throw error;
     }
   }
@@ -101,10 +81,7 @@ export class PinataService {
     imageBlob: Blob
   ): Promise<string> {
     try {
-      // 1. Upload image to IPFS
       const imageUri = await this.uploadImage(imageBlob);
-
-      // 2. Create metadata
       const metadata: PinataMetadata = {
         name: `Gift Card - ${amount} ${currency}`,
         description: `A digital gift card worth ${amount} ${currency}. ${message}`,
@@ -128,13 +105,8 @@ export class PinataService {
           },
         ],
       };
-
-      // 3. Upload metadata to IPFS
-      const metadataUri = await this.uploadMetadata(metadata);
-
-      return metadataUri;
+      return this.uploadMetadata(metadata);
     } catch (error) {
-      console.error('Error creating gift card NFT:', error);
       throw error;
     }
   }

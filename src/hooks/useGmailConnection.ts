@@ -7,7 +7,6 @@ export function useGmailConnection() {
   const [clearing, setClearing] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  // Check connection status on mount
   useEffect(() => {
     const token = localStorage.getItem('gmail_oauth_token') || localStorage.getItem('gmail_oauth');
     if (token && token.length > 10) {
@@ -19,7 +18,6 @@ export function useGmailConnection() {
     }
   }, []);
 
-  // Listen for token changes from other tabs/windows
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'gmail_oauth_token' || e.key === 'gmail_oauth') {
@@ -36,7 +34,6 @@ export function useGmailConnection() {
 
     window.addEventListener('storage', handleStorageChange);
 
-    // Also listen for custom events (for same-tab updates)
     const handleCustomEvent = () => {
       const token = localStorage.getItem('gmail_oauth_token') || localStorage.getItem('gmail_oauth');
       if (token && token.length > 10) {

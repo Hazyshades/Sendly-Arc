@@ -182,12 +182,5 @@ export function getSupportedTokensForChainByChainId(chainId: number): TokenConfi
 }
 
 export function isChainCompatible(fromChainId: number, toChainId: number): boolean {
-  const fromChain = getChainByChainId(fromChainId);
-  const toChain = getChainByChainId(toChainId);
-  
-  if (!fromChain || !toChain) {
-    return false;
-  }
-
-  return true;
+  return !!(getChainByChainId(fromChainId) && getChainByChainId(toChainId));
 }
