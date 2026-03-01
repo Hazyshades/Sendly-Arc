@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Calendar, TrendingUp, Gift, ArrowUpRight, ArrowDownLeft, Download, RefreshCw, Search, CheckCircle, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +21,7 @@ import {
   getZkSendPaymentsByRecipientWallet,
   type ZkSendPaymentRow,
 } from '@/lib/supabase/zksendPayments';
-import { ZKSEND_CONTRACT_ADDRESS } from '@/lib/web3/constants';
+import { getContractsForChain } from '@/lib/web3/constants';
 import { RecipientAvatar } from '@/components/RecipientAvatar';
 
 type SocialPlatform = 'twitter' | 'twitch' | 'telegram' | 'discord' | 'tiktok' | 'instagram' | '';
@@ -190,10 +190,10 @@ export function TransactionHistory() {
     }
   }, [isConnected, address]);
 
-  const zkSendFilter = {
-    chainId: String(import.meta.env.VITE_ARC_CHAIN_ID ?? 5042002),
-    contractAddress: ZKSEND_CONTRACT_ADDRESS?.toLowerCase() ?? '',
-  };
+  const zkSendFilter = useMemo(() => ({
+    chainId: String(activeChainId),
+    contractAddress: (getContractsForChain(activeChainId).zksend ?? '').toLowerCase(),
+  }), [activeChainId]);
 
   const fetchZkSendData = async () => {
     if (!address || isFetchingRef.current) return;
@@ -339,7 +339,7 @@ export function TransactionHistory() {
       
       // Load Supabase cache for received cards to enrich with tx_hash / created_at
       console.log('Loading received gift cards from Supabase...');
-      const supabaseReceivedCards = await GiftCardsService.getCardsByRecipientAddress(address);
+      const supabaseReceivedCards = await GiftCardsService.getCardsByRecipientAddress(address, activeChainId);
       const supabaseReceivedMap = new Map(
         supabaseReceivedCards.map(card => [card.token_id, card])
       );
@@ -357,7 +357,7 @@ export function TransactionHistory() {
       
       // Load sent gift cards from Supabase cache
       console.log('Loading sent gift cards from Supabase...');
-      const supabaseSentCards = await GiftCardsService.getCardsBySender(address);
+      const supabaseSentCards = await GiftCardsService.getCardsBySender(address, activeChainId);
       
       // Transform Supabase sent cards to match blockchain format
       const sentCards = supabaseSentCards.map(card => ({

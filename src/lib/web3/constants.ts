@@ -91,6 +91,9 @@ export const AVAX_ZKSEND_CONTRACT_ADDRESS =
   import.meta.env.VITE_AVAX_ZKSEND_CONTRACT_ADDRESS ||
   "0xF49Cf8F6e0a630Ad328087D3f5fd98DBB3F1b709";
 
+export const AVAX_CONTRACT_ADDRESS =
+  import.meta.env.VITE_AVAX_CONTRACT_ADDRESS || "";
+
 export const AVAX_USDC_ADDRESS =
   import.meta.env.VITE_AVAX_USDC_ADDRESS ||
   "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E";
@@ -98,6 +101,28 @@ export const AVAX_USDC_ADDRESS =
 export const AVAX_USDT_ADDRESS =
   import.meta.env.VITE_AVAX_USDT_ADDRESS ||
   "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7";
+
+export const AVAX_EURC_ADDRESS =
+  import.meta.env.VITE_AVAX_EURC_ADDRESS || "";
+
+export const AVAX_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_AVAX_TWITTER_VAULT_ADDRESS ||
+  import.meta.env.VITE_AVAX_VAULT_CONTRACT_ADDRESS || "";
+
+export const AVAX_TWITCH_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_AVAX_TWITCH_VAULT_ADDRESS || "";
+
+export const AVAX_TELEGRAM_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_AVAX_TELEGRAM_VAULT_ADDRESS || "";
+
+export const AVAX_TIKTOK_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_AVAX_TIKTOK_VAULT_ADDRESS || "";
+
+export const AVAX_INSTAGRAM_VAULT_CONTRACT_ADDRESS =
+  import.meta.env.VITE_AVAX_INSTAGRAM_VAULT_ADDRESS || "";
+
+export const AVAX_DIRECT_SEND_CONTRACT_ADDRESS =
+  import.meta.env.VITE_AVAX_DIRECT_SEND_CONTRACT_ADDRESS || "";
 
 export const AVAX_RECLAIM_VERIFIER_CONTRACT_ADDRESS =
   import.meta.env.VITE_AVAX_RECLAIM_VERIFIER_ADDRESS ||
@@ -142,10 +167,18 @@ export function getContractsForChain(chainId: number): ChainContracts {
   if (chainId === AVAX_CHAIN_ID) {
     return {
       chainId: AVAX_CHAIN_ID,
+      contractAddress: AVAX_CONTRACT_ADDRESS || undefined,
       zksend: AVAX_ZKSEND_CONTRACT_ADDRESS,
       usdc: AVAX_USDC_ADDRESS,
       usdt: AVAX_USDT_ADDRESS,
+      eurc: AVAX_EURC_ADDRESS || undefined,
       reclaimVerifier: AVAX_RECLAIM_VERIFIER_CONTRACT_ADDRESS,
+      vaultContract: AVAX_VAULT_CONTRACT_ADDRESS || undefined,
+      twitchVault: AVAX_TWITCH_VAULT_CONTRACT_ADDRESS || undefined,
+      telegramVault: AVAX_TELEGRAM_VAULT_CONTRACT_ADDRESS || undefined,
+      tiktokVault: AVAX_TIKTOK_VAULT_CONTRACT_ADDRESS || undefined,
+      instagramVault: AVAX_INSTAGRAM_VAULT_CONTRACT_ADDRESS || undefined,
+      directSend: AVAX_DIRECT_SEND_CONTRACT_ADDRESS || undefined,
       rpcUrls: [...AVAX_RPC_URLS],
       explorerUrl: SNOWTRACE_EXPLORER_URL,
       explorerApiUrl: SNOWTRACE_API_URL,

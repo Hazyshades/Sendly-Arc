@@ -65,7 +65,7 @@ function shortenAddress(addr: string): string {
 }
 
 export function PendingPayments({ platform, username, isActive, isIdentityValid = false, truncateAddresses = false }: Props) {
-  const { activeChainId } = useChain();
+  const { activeChainId, contracts } = useChain();
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { authenticated, getAccessToken } = usePrivySafe();
@@ -305,8 +305,8 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
 
   const resolveCurrency = (tokenAddressOrSymbol: string) => {
     const normalized = tokenAddressOrSymbol.toLowerCase();
-    if (normalized === USDC_ADDRESS.toLowerCase()) return 'USDC';
-    if (normalized === EURC_ADDRESS.toLowerCase()) return 'EURC';
+    if (normalized === contracts.usdc.toLowerCase()) return 'USDC';
+    if (contracts.eurc && normalized === contracts.eurc.toLowerCase()) return 'EURC';
     return tokenAddressOrSymbol;
   };
 
@@ -603,6 +603,8 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
               currency: resolveCurrency(paymentRow.token),
               recipientWallet: address,
               claimTxHash: txHash,
+              chainId: activeChainId,
+              contractAddress: contracts.zksend,
             });
           } catch (dbError) {
             console.warn('[zkSEND] Failed to update payment claim in DB:', dbError);
@@ -782,6 +784,8 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
             currency: resolveCurrency(paymentRow.token),
             recipientWallet: address,
             claimTxHash: txHash,
+            chainId: activeChainId,
+            contractAddress: contracts.zksend,
           });
         } catch (dbError) {
           console.warn('[zkSEND] Failed to update payment claim in DB:', dbError);
@@ -895,6 +899,8 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
               currency: resolveCurrency(paymentRow.token),
               recipientWallet: address,
               claimTxHash: txHash,
+              chainId: activeChainId,
+              contractAddress: contracts.zksend,
             }).catch((dbError) => {
               console.warn('[zkSEND] Failed to update payment claim in DB:', dbError);
             })
@@ -1044,6 +1050,8 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
             currency: resolveCurrency(paymentRow.token),
             recipientWallet: address,
             claimTxHash: txHash,
+            chainId: activeChainId,
+            contractAddress: contracts.zksend,
           }).catch((dbError) => {
             console.warn('[zkSEND] Failed to update payment claim in DB:', dbError);
           })
@@ -1217,9 +1225,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
               >
                 Payment claimed. View transaction: {lastClaimedTxHash.slice(0, 10)}...
               </a>
-            ) : (
-              'No pending payments.'
-            )}
+            ) : null}
           </div>
         ) : (
           <div className="space-y-2">

@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { NewsPanel } from '@/components/NewsPanel';
 import { FeedbackPanel } from '@/components/FeedbackPanel';
 import { useState, lazy, Suspense } from 'react';
-import { isZkHost, isZkLocalhost } from '@/lib/runtime/zkHost';
+import { isZkHost, isZkLocalhost, toZkUrl } from '@/lib/runtime/zkHost';
 
 // Lazy load Privy components only when not on zk.localhost to prevent SDK loading
 const PrivyAuthModal = isZkLocalhost() 
@@ -23,6 +23,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [isPrivyModalOpen, setIsPrivyModalOpen] = useState(false);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const zk = isZkHost();
   const zkLocal = isZkLocalhost();
 
@@ -47,7 +48,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen circle-gradient-bg">
       <div className="abstract-shape"></div>
-      <header className="flex items-center justify-between p-6 relative z-10">
+      <header className="flex items-center justify-between p-6 relative z-10 h-20">
         <Link to="/" className="flex items-center gap-3">
           <img
             src="/sendly-wordmark.svg"
@@ -56,29 +57,50 @@ export function Layout({ children }: LayoutProps) {
           />
         </Link>
         
-        <div className="flex items-center gap-4">
-          {!zkLocal && PrivyConnectedAccounts ? (
-            <Suspense fallback={null}>
-              <PrivyConnectedAccounts />
-            </Suspense>
-          ) : null}
-          {!zkLocal ? (
-            <button
-              onClick={() => setIsPrivyModalOpen(true)}
-              className="bg-white/90 backdrop-blur-sm border border-gray-200 text-gray-900 hover:bg-white px-4 py-2 rounded-2xl transition-all duration-200 flex items-center gap-2 shadow-circle-card font-medium"
+        <div className="flex items-center">
+          <button
+            onClick={() => setHeaderCollapsed(c => !c)}
+            className="p-1.5 rounded-xl bg-white/70 hover:bg-white/90 backdrop-blur-sm border border-gray-200 transition-all duration-300 shadow-circle-card shrink-0"
+            aria-label={headerCollapsed ? 'Показать панель' : 'Скрыть панель'}
+          >
+            <svg
+              className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${headerCollapsed ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
             >
-              Social login
-            </button>
-          ) : null}
-          {!zk ? (
-            <button
-              disabled
-              className="bg-white/50 backdrop-blur-sm border border-gray-200 text-gray-500 cursor-not-allowed px-4 py-2 rounded-2xl transition-all duration-200 flex items-center gap-2 shadow-circle-card font-medium opacity-60"
-            >
-              Payments
-            </button>
-          ) : null}
-          <ConnectButton />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <div
+            className={`flex items-center gap-4 overflow-hidden transition-all duration-300 ease-in-out ${
+              headerCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[800px] opacity-100 ml-2'
+            }`}
+          >
+            {!zkLocal && PrivyConnectedAccounts ? (
+              <Suspense fallback={null}>
+                <PrivyConnectedAccounts />
+              </Suspense>
+            ) : null}
+            {!zkLocal ? (
+              <button
+                onClick={() => setIsPrivyModalOpen(true)}
+                className="bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 px-4 py-2 rounded-2xl transition-all duration-200 flex items-center gap-2 shadow-circle-card font-medium"
+              >
+                Social login
+              </button>
+            ) : null}
+            {!zk ? (
+              <a
+                href={toZkUrl(`${window.location.origin}/payments`)}
+                className="bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 px-4 py-2 rounded-2xl transition-all duration-200 flex items-center gap-2 shadow-circle-card font-medium"
+              >
+                Payments
+              </a>
+            ) : null}
+            <ConnectButton />
+          </div>
         </div>
       </header>
       

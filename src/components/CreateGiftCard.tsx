@@ -499,6 +499,11 @@ export function CreateGiftCard() {
       return;
     }
 
+    if (!contracts.contractAddress) {
+      setError('GiftCard contract is not configured for this network. Set VITE_AVAX_CONTRACT_ADDRESS in .env.');
+      return;
+    }
+
     // Validate based on recipient type
     if (formData.recipientType === 'address') {
       if (!formData.recipientAddress || !formData.recipientAddress.startsWith('0x')) {
@@ -1122,6 +1127,7 @@ export function CreateGiftCard() {
         // Save to gift_cards table
         await GiftCardsService.upsertCard({
           token_id: result.tokenId,
+          chain_id: activeChainId,
           sender_address: (createAddress || '').toLowerCase(),
           recipient_address: formData.recipientType === 'address' ? formData.recipientAddress.toLowerCase() : null,
           recipient_username: recipientUsernameForStorage,
@@ -1131,7 +1137,7 @@ export function CreateGiftCard() {
           message: formData.message,
           redeemed: false,
           tx_hash: result.txHash,
-        });
+        }, activeChainId);
 
         // Save new IPFS URI to uri table (commented out -  only saving in gift_cards_graph)
         // await insertFakeUri(metadataUri, result.tokenId);
@@ -1139,6 +1145,7 @@ export function CreateGiftCard() {
         // Also save to gift_cards_graph table for leaderboard calculations
         await GiftCardsService.upsertCardGraph({
           token_id: result.tokenId,
+          chain_id: activeChainId,
           sender_address: (createAddress || '').toLowerCase(),
           recipient_address: formData.recipientType === 'address' ? formData.recipientAddress.toLowerCase() : null,
           recipient_username: recipientUsernameForStorage,
@@ -1150,10 +1157,9 @@ export function CreateGiftCard() {
           tx_hash: result.txHash,
           event_type: eventType,
           uri: metadataUri,
-          // block_number and block_timestamp will be filled later via sync if needed
           block_number: null,
           block_timestamp: null,
-        });
+        }, activeChainId);
         
         // Card saved to Supabase cache and graph table
       } catch (error) {
@@ -1197,7 +1203,7 @@ export function CreateGiftCard() {
       if (isUserRejected) {
         setError('');
         setErrorTxHash(null);
-        toast('Отменено', { duration: 2000 });
+        toast('Canceled', { duration: 2000 });
         return;
       }
       

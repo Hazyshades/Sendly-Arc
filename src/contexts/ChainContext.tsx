@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useMemo, useEffect, ReactNode } from 'react';
+import { useAccount } from 'wagmi';
 import { chains } from '@/lib/web3/wagmiConfig';
 import { getContractsForChain, type ChainContracts } from '@/lib/web3/constants';
 import web3Service from '@/lib/web3/web3Service';
@@ -31,6 +32,7 @@ function getStoredChainId(): number {
 
 export function ChainProvider({ children }: { children: ReactNode }) {
   const [activeChainId, setActiveChainId] = useState<number>(getStoredChainId);
+  const { chainId: walletChainId, isConnected } = useAccount();
 
   useEffect(() => {
     try {
@@ -41,6 +43,15 @@ export function ChainProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     web3Service.setChainId(activeChainId);
   }, [activeChainId]);
+
+  // Синхронизация контекста с сетью кошелька: если пользователь переключил сеть
+  // через кошелёк (например, модал RainbowKit), обновляем activeChainId.
+  useEffect(() => {
+    if (!isConnected || walletChainId === undefined) return;
+    if (chains.some((c) => c.id === walletChainId) && walletChainId !== activeChainId) {
+      setActiveChainId(walletChainId);
+    }
+  }, [isConnected, walletChainId, activeChainId]);
 
   const switchChain = (chainId: number) => {
     if (chains.some((c) => c.id === chainId)) {

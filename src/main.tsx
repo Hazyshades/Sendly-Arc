@@ -1,3 +1,6 @@
+import { Buffer } from 'buffer'
+;(globalThis as any).Buffer = Buffer
+
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'

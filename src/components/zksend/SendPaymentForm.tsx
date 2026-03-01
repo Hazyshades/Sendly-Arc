@@ -148,6 +148,8 @@ export function SendPaymentForm({
             amount,
             currency: tokenType,
             txHash,
+            chainId: activeChainId,
+            contractAddress: contracts.zksend,
           });
         } catch (dbError) {
           console.warn('[zkSEND] Failed to store payment in DB:', dbError);

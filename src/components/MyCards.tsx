@@ -259,10 +259,10 @@ export function MyCards({ onSpendCard }: MyCardsProps) {
       
       // Retrieve cards for all addresses (MetaMask + Internal wallets)
       const [allReceivedCards, supabaseSentCards] = await Promise.all([
-        Promise.all(recipientAddresses.map(addr => GiftCardsService.getCardsByRecipientAddress(addr))).then(
+        Promise.all(recipientAddresses.map(addr => GiftCardsService.getCardsByRecipientAddress(addr, activeChainId))).then(
           results => results.flat()
         ),
-        isConnected && address ? GiftCardsService.getCardsBySender(address) : Promise.resolve([])
+        isConnected && address ? GiftCardsService.getCardsBySender(address, activeChainId) : Promise.resolve([])
       ]);
 
         // Transform Supabase data to our format

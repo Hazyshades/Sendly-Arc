@@ -3,7 +3,7 @@ import type { GiftCardRecord, GiftCardInsert } from '@/types/giftCard';
 
 export type { GiftCardRecord, GiftCardInsert };
 
-const DEFAULT_CHAIN_ID = 5042002;
+const DEFAULT_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID || 5042002);
 
 export class GiftCardsService {
   static async upsertCard(card: GiftCardInsert, chainId?: number): Promise<GiftCardRecord | null> {
@@ -11,7 +11,7 @@ export class GiftCardsService {
       const row = { ...card, chain_id: card.chain_id ?? chainId ?? DEFAULT_CHAIN_ID, last_synced_at: new Date().toISOString() };
       const { data, error } = await supabase
         .from('gift_cards')
-        .upsert(row, { onConflict: 'token_id', ignoreDuplicates: false })
+        .upsert(row, { onConflict: 'chain_id,token_id', ignoreDuplicates: false })
         .select()
         .single();
       if (error) {
@@ -126,7 +126,7 @@ export class GiftCardsService {
         .from('gift_cards')
         .upsert(
           cards.map((card) => ({ ...card, last_synced_at: new Date().toISOString() })),
-          { onConflict: 'token_id', ignoreDuplicates: false }
+          { onConflict: 'chain_id,token_id', ignoreDuplicates: false }
         );
       if (error) {
         console.error('Error bulk upserting cards:', error);
