@@ -44,8 +44,8 @@ export function ChainProvider({ children }: { children: ReactNode }) {
     web3Service.setChainId(activeChainId);
   }, [activeChainId]);
 
-  // Синхронизация контекста с сетью кошелька: если пользователь переключил сеть
-  // через кошелёк (например, модал RainbowKit), обновляем activeChainId.
+  // Synchronization of the context with the wallet network: if the user switched the network
+  // through the wallet (for example, modal RainbowKit), we update activeChainId.
   useEffect(() => {
     if (!isConnected || walletChainId === undefined) return;
     if (chains.some((c) => c.id === walletChainId) && walletChainId !== activeChainId) {

@@ -70,12 +70,8 @@ export function BlogRoute() {
   return (
     <BlogLayout backLink={{ to: '/', label: '← Home' }}>
       {/* Blog Header */}
-      <div className="text-center mb-16">
-        <div className="flex items-center justify-center mb-6">
-          <div className="w-20 h-20 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <BookOpen className="w-10 h-10 text-white" />
-          </div>
-        </div>
+      <div className="text-center mb-6">
+        
         <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-4">
           Blog
         </h1>
@@ -85,7 +81,7 @@ export function BlogRoute() {
       </div>
 
       {/* Category Filters */}
-      <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
+      <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
         {categories.map((category) => (
           <button
             key={category}

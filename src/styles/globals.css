@@ -457,3 +457,9 @@ html {
 .cursor-blink {
   animation: cursor-blink 1s ease-in-out infinite;
 }
+
+/* RainbowKit: remove shadow from the wallet button (rk-account-button) */
+[data-rk] [data-testid="rk-account-button"],
+[data-rk] .ju367vei {
+  box-shadow: none !important;
+}

@@ -8,18 +8,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useLenisScroll } from '@/components/landing-page/smooth-scroll'
 
 gsap.registerPlugin(ScrollTrigger)
 
 const navItems = [
-  { id: "hero", label: "Gift Cards" },
-  { id: "signals", label: "Payments" },
-  { id: "work", label: "Blog", href: "/blog" },
+  { id: "signals", label: "Gift Cards" },
+  { id: "work", label: "Payments" },
+  { id: "blog", label: "Blog", href: "/blog" },
 ]
 
 export function SideNav() {
   const navRef = useRef<HTMLDivElement>(null)
   const [launchAppOpen, setLaunchAppOpen] = useState(false)
+  const lenisScrollTo = useLenisScroll()
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -55,9 +57,11 @@ export function SideNav() {
   }, [])
 
   const scrollToSection = (id: string) => {
-    const element = document.getElementById(id)
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" })
+    if (lenisScrollTo) {
+      lenisScrollTo(id)
+    } else {
+      const element = document.getElementById(id)
+      if (element) element.scrollIntoView({ behavior: "smooth" })
     }
   }
 
@@ -77,7 +81,7 @@ export function SideNav() {
               <Link
                 key={id}
                 to={href}
-                className="nav-text px-4 py-2 rounded-xl text-sm font-medium text-gray-700 hover:bg-white/90 backdrop-blur-sm transition-all duration-300"
+                className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] font-medium text-sm hover:shadow-lg hover:shadow-[#6366f1]/25 transition-all duration-300 !text-white hover:!text-white"
               >
                 {label}
               </Link>
@@ -100,7 +104,10 @@ export function SideNav() {
           >
             Launch App
           </button>
-          <DialogContent className="rounded-2xl border-white/30 bg-white/90 backdrop-blur-xl p-6 sm:max-w-md">
+          <DialogContent
+            className="rounded-2xl border-white/30 bg-white/90 backdrop-blur-xl p-6 sm:max-w-md"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle className="text-xl font-semibold text-gray-800">
                 Launch App

@@ -89,14 +89,24 @@ export const ARCSCAN_API_URL = 'https://testnet.arcscan.app/api/v2';
 // Avalanche Fuji contract addresses and RPC
 export const AVAX_ZKSEND_CONTRACT_ADDRESS =
   import.meta.env.VITE_AVAX_ZKSEND_CONTRACT_ADDRESS ||
-  "0xF49Cf8F6e0a630Ad328087D3f5fd98DBB3F1b709";
+  "0xAbDf446AC2ce28fDd18D772e4dd5C01EAdfBE72E";
 
 export const AVAX_CONTRACT_ADDRESS =
   import.meta.env.VITE_AVAX_CONTRACT_ADDRESS || "";
 
-export const AVAX_USDC_ADDRESS =
+// Fuji (43113): test USDC - always this contract on testnet
+const AVAX_FUJI_USDC_ADDRESS =
+  import.meta.env.VITE_AVAX_FUJI_USDC_ADDRESS ||
+  "0x5425890298aed601595a70AB815c96711a31Bc65";
+// Mainnet (43114): native USDC
+const AVAX_MAINNET_USDC_ADDRESS =
   import.meta.env.VITE_AVAX_USDC_ADDRESS ||
   "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E";
+/** For backward compatibility: if only one network is configured in the config - by VITE_AVAX_CHAIN_ID */
+export const AVAX_USDC_ADDRESS =
+  Number(import.meta.env.VITE_AVAX_CHAIN_ID || 43113) === 43114
+    ? AVAX_MAINNET_USDC_ADDRESS
+    : AVAX_FUJI_USDC_ADDRESS;
 
 export const AVAX_USDT_ADDRESS =
   import.meta.env.VITE_AVAX_USDT_ADDRESS ||
@@ -133,7 +143,6 @@ export const AVAX_RPC_URLS = (
   || []
 ).concat([
   import.meta.env.VITE_AVAX_RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc',
-  'https://43113.rpc.thirdweb.com',
 ]).filter(Boolean);
 
 export const AVAX_RPC_URL = AVAX_RPC_URLS[0];
@@ -161,15 +170,15 @@ export interface ChainContracts {
 }
 
 const ARC_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID || 5042002);
-const AVAX_CHAIN_ID = Number(import.meta.env.VITE_AVAX_CHAIN_ID || 43113);
 
 export function getContractsForChain(chainId: number): ChainContracts {
-  if (chainId === AVAX_CHAIN_ID) {
+  if (chainId === 43113 || chainId === 43114) {
+    const usdc = chainId === 43114 ? AVAX_MAINNET_USDC_ADDRESS : AVAX_FUJI_USDC_ADDRESS;
     return {
-      chainId: AVAX_CHAIN_ID,
+      chainId,
       contractAddress: AVAX_CONTRACT_ADDRESS || undefined,
       zksend: AVAX_ZKSEND_CONTRACT_ADDRESS,
-      usdc: AVAX_USDC_ADDRESS,
+      usdc,
       usdt: AVAX_USDT_ADDRESS,
       eurc: AVAX_EURC_ADDRESS || undefined,
       reclaimVerifier: AVAX_RECLAIM_VERIFIER_CONTRACT_ADDRESS,

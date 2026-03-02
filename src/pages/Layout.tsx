@@ -60,8 +60,8 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex items-center">
           <button
             onClick={() => setHeaderCollapsed(c => !c)}
-            className="p-1.5 rounded-xl bg-white/70 hover:bg-white/90 backdrop-blur-sm border border-gray-200 transition-all duration-300 shadow-circle-card shrink-0"
-            aria-label={headerCollapsed ? 'Показать панель' : 'Скрыть панель'}
+            className="p-1.5 rounded-xl transition-all duration-300 shrink-0"
+            aria-label={headerCollapsed ? 'Show panel' : 'Hide panel'}
           >
             <svg
               className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${headerCollapsed ? 'rotate-180' : ''}`}

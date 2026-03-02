@@ -20,16 +20,17 @@ export function BlogLayout({ children, backLink, cohereTypography = false }: Blo
       style={{ background: '#fafafa' }}
     >
       <header
-        className="sticky top-0 z-50 backdrop-blur-md border-b border-gray-200"
+        className="sticky top-0 z-50 backdrop-blur-md"
         style={{ backgroundColor: 'rgba(250, 250, 250, 0.9)' }}
       >
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-400 rounded-xl flex items-center justify-center">
-                <Gift className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-gray-900 text-xl font-semibold">Sendly</span>
+              <img
+                src="/sendly-wordmark.svg"
+                alt="Sendly"
+                className="h-10 w-auto object-contain"
+              />
             </Link>
             <Link
               to={backLink.to}
