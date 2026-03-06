@@ -33,28 +33,6 @@ export const arcTestnet = defineChain({
   },
 });
 
-// Avalanche Fuji Testnet chain definition
-const avaxChainId = Number(import.meta.env.VITE_AVAX_CHAIN_ID || 43113);
-const avaxRpcUrl = import.meta.env.VITE_AVAX_RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc';
-const avaxExplorerUrl = import.meta.env.VITE_AVAX_BLOCK_EXPLORER_URL || 'https://testnet.snowtrace.io';
-
-export const avalancheFuji = defineChain({
-  id: avaxChainId,
-  name: 'Avalanche Fuji',
-  nativeCurrency: {
-    name: 'Avalanche',
-    symbol: 'AVAX',
-    decimals: 18,
-  },
-  rpcUrls: {
-    default: { http: [avaxRpcUrl] },
-    public: { http: [avaxRpcUrl, 'https://avalanche-fuji-c-chain-rpc.publicnode.com'] },
-  },
-  blockExplorers: {
-    default: { name: 'Snowtrace', url: avaxExplorerUrl },
-  },
-});
-
 // Base Sepolia Testnet chain definition
 const baseSepoliaChainId = Number(import.meta.env.VITE_BASE_CHAIN_ID || 84532);
 const baseSepoliaRpcUrl = import.meta.env.VITE_BASE_RPC_URL || 'https://sepolia.base.org';
@@ -79,7 +57,7 @@ export const baseSepolia = defineChain({
 });
 
 // RainbowKit configuration - getDefaultConfig automatically includes Rainbow Wallet
-const allChains: [Chain, ...Chain[]] = [arcTestnet, avalancheFuji, baseSepolia];
+const allChains: [Chain, ...Chain[]] = [arcTestnet, baseSepolia];
 
 export const config = isZkLocalhost()
   ? createConfig({
@@ -87,7 +65,6 @@ export const config = isZkLocalhost()
       connectors: [injected()],
       transports: {
         [arcTestnet.id]: http(arcRpcUrl),
-        [avalancheFuji.id]: http(avaxRpcUrl),
         [baseSepolia.id]: http(baseSepoliaRpcUrl),
       },
       ssr: false,

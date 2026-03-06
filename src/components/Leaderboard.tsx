@@ -31,8 +31,7 @@ import { getLeaderboardSendersGraph, syncLeaderboardGraph, updateZnsDomainsGraph
 import { useAccount } from 'wagmi';
 import { toast } from 'sonner';
 import { getContractBalance, getContractTransactionsCount } from '@/lib/web3/contractBalance';
-import { CONTRACT_ADDRESS, ZKSEND_CONTRACT_ADDRESS, getContractsForChain } from '@/lib/web3/constants';
-import { useChain } from '@/contexts/ChainContext';
+import { CONTRACT_ADDRESS, getContractsForChain, ARC_CHAIN_ID } from '@/lib/web3/constants';
 import { isZkHost } from '@/lib/runtime/zkHost';
 import { getZkSendLeaderboardEntriesFromStats } from '@/lib/supabase/zksendPayments';
 
@@ -121,7 +120,8 @@ const AchievementBadges = ({ cardsSent, rank }: { cardsSent: number; rank: numbe
 };
 */}
 export function Leaderboard() {
-  const { activeChainId, contracts } = useChain();
+  const activeChainId = ARC_CHAIN_ID;
+  const contracts = getContractsForChain(ARC_CHAIN_ID);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);

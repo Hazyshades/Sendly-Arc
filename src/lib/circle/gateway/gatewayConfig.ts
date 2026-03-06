@@ -73,12 +73,6 @@ function getStaticGatewayConfig(chainId: number): GatewayContractConfig | null {
       usdc: '',
       domain: 0,
     },
-    43113: { // Avalanche Fuji
-      wallet: '',
-      minter: '',
-      usdc: '0x5425890298aed601595a70AB815c96711a31Bc65',
-      domain: 1,
-    },
     84532: { // Base Sepolia
       wallet: '',
       minter: '',

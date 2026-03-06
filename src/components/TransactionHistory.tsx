@@ -11,8 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
-import { useChain } from '@/contexts/ChainContext';
-import { getExplorerTxUrl } from '@/lib/web3/constants';
+import { arcTestnet } from '@/lib/web3/wagmiConfig';
+import { getExplorerTxUrl, getContractsForChain, ARC_CHAIN_ID } from '@/lib/web3/constants';
 import web3Service from '@/lib/web3/web3Service';
 import { GiftCardsService } from '@/lib/supabase/giftCards';
 import { isZkHost } from '@/lib/runtime/zkHost';
@@ -21,7 +21,6 @@ import {
   getZkSendPaymentsByRecipientWallet,
   type ZkSendPaymentRow,
 } from '@/lib/supabase/zksendPayments';
-import { getContractsForChain } from '@/lib/web3/constants';
 import { RecipientAvatar } from '@/components/RecipientAvatar';
 
 type SocialPlatform = 'twitter' | 'twitch' | 'telegram' | 'discord' | 'tiktok' | 'instagram' | '';
@@ -116,7 +115,8 @@ function toTransactionFromReceived(row: ZkSendPaymentRow): Transaction {
 
 export function TransactionHistory() {
   const { address, isConnected } = useAccount();
-  const { activeChain, activeChainId } = useChain();
+  const activeChain = arcTestnet;
+  const activeChainId = ARC_CHAIN_ID;
   const [dateFilter, setDateFilter] = useState('all');
   const [currencyFilter, setCurrencyFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');

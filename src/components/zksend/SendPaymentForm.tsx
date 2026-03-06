@@ -10,8 +10,7 @@ import {
   normalizeSocialUsername,
 } from '@/lib/reclaim/identity';
 import { createZkSendPaymentRecord } from '@/lib/zksend/zksendPaymentsAPI';
-import { getExplorerTxUrl } from '@/lib/web3/constants';
-import { useChain } from '@/contexts/ChainContext';
+import { getExplorerTxUrl, getContractsForChain, ARC_CHAIN_ID } from '@/lib/web3/constants';
 
 
 import { Button } from '@/components/ui/button';
@@ -63,7 +62,8 @@ export function SendPaymentForm({
 }: Props) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { activeChainId, contracts } = useChain();
+  const activeChainId = ARC_CHAIN_ID;
+  const contracts = getContractsForChain(ARC_CHAIN_ID);
   const TOKEN_OPTIONS = [
     { value: 'USDC' as const, label: 'USDC', address: contracts.usdc },
     { value: 'EURC' as const, label: 'EURC', address: contracts.eurc ?? contracts.usdc },

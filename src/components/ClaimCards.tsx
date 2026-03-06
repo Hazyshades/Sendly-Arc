@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 import { usePrivySafe } from '@/lib/privy/usePrivySafe';
 import { useAccount } from 'wagmi';
 import { createWalletClient, custom, createPublicClient, http } from 'viem';
-import { useChain } from '@/contexts/ChainContext';
+import { arcTestnet } from '@/lib/web3/wagmiConfig';
+import { getContractsForChain, ARC_CHAIN_ID } from '@/lib/web3/constants';
 import web3Service from '@/lib/web3/web3Service';
 import { getTwitterCardMapping, claimTwitterCard, type TwitterCardMapping } from '@/lib/twitter';
 import { getTwitchCardMapping, claimTwitchCard, type TwitchCardMapping } from '@/lib/twitch';
@@ -35,7 +36,9 @@ interface ClaimCardsProps {
 export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = false }: ClaimCardsProps) {
   const { authenticated, user } = usePrivySafe();
   const { address, isConnected } = useAccount();
-  const { activeChain, activeChainId, contracts } = useChain();
+  const activeChain = arcTestnet;
+  const activeChainId = ARC_CHAIN_ID;
+  const contracts = getContractsForChain(ARC_CHAIN_ID);
   const [pendingCards, setPendingCards] = useState<PendingCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [claimingTokenId, setClaimingTokenId] = useState<string | null>(null);
@@ -575,7 +578,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         }
         username = twitchUsername;
         socialUserId = getSocialUserId('twitch');
-        contractAddress = TWITCH_VAULT_CONTRACT_ADDRESS;
+        contractAddress = contracts.twitchVault ?? '';
         claimApiFunction = claimTwitchCard;
       } else if (selectedCardForClaim.cardType === 'twitter') {
         if (!user?.twitter) {
@@ -592,7 +595,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         }
         username = twitterUsername;
         socialUserId = getSocialUserId('twitter');
-        contractAddress = VAULT_CONTRACT_ADDRESS;
+        contractAddress = contracts.vaultContract ?? '';
         claimApiFunction = claimTwitterCard;
       } else if (selectedCardForClaim.cardType === 'telegram') {
         if (!telegramIdentifier) {
@@ -603,7 +606,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         platform = 'telegram';
         username = telegramIdentifier.toString().replace(/^@/, '');
         socialUserId = getSocialUserId('telegram');
-        contractAddress = TELEGRAM_VAULT_CONTRACT_ADDRESS;
+        contractAddress = contracts.telegramVault ?? '';
         claimApiFunction = claimTelegramCard;
       } else if (selectedCardForClaim.cardType === 'tiktok') {
         if (!user?.tiktok) {
@@ -620,7 +623,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         }
         username = tiktokUsername;
         socialUserId = getSocialUserId('tiktok');
-        contractAddress = TIKTOK_VAULT_CONTRACT_ADDRESS;
+        contractAddress = contracts.tiktokVault ?? '';
         claimApiFunction = claimTikTokCard;
       } else if (selectedCardForClaim.cardType === 'instagram') {
         if (!user?.instagram) {
@@ -637,7 +640,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
         }
         username = instagramUsername;
         socialUserId = getSocialUserId('instagram');
-        contractAddress = INSTAGRAM_VAULT_CONTRACT_ADDRESS;
+        contractAddress = contracts.instagramVault ?? '';
         claimApiFunction = claimInstagramCard;
       } else {
         toast.error(`Unsupported card type: ${selectedCardForClaim.cardType}`);
@@ -846,7 +849,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           const txResult = await DeveloperWalletService.sendTransaction({
             walletId: devWallet.circle_wallet_id,
             walletAddress: devWallet.wallet_address,
-            contractAddress: VAULT_CONTRACT_ADDRESS,
+            contractAddress: contracts.vaultContract ?? '',
             functionName: 'claimCard',
             args: [BigInt(card.tokenId), normalizedLoggedIn, devWallet.wallet_address],
             blockchain: 'ARC-TESTNET',
@@ -977,7 +980,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           const txResult = await DeveloperWalletService.sendTransaction({
             walletId: devWallet.circle_wallet_id,
             walletAddress: devWallet.wallet_address,
-            contractAddress: TWITCH_VAULT_CONTRACT_ADDRESS,
+            contractAddress: contracts.twitchVault ?? '',
             functionName: 'claimCard',
             args: [BigInt(card.tokenId), normalizedLoggedIn, devWallet.wallet_address],
             blockchain: 'ARC-TESTNET',
@@ -1101,7 +1104,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           const txResult = await DeveloperWalletService.sendTransaction({
             walletId: devWallet.circle_wallet_id,
             walletAddress: devWallet.wallet_address,
-            contractAddress: TELEGRAM_VAULT_CONTRACT_ADDRESS,
+            contractAddress: contracts.telegramVault ?? '',
             functionName: 'claimCard',
             args: [BigInt(card.tokenId), normalizedLoggedIn, devWallet.wallet_address],
             blockchain: 'ARC-TESTNET',
@@ -1230,7 +1233,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           const txResult = await DeveloperWalletService.sendTransaction({
             walletId: devWallet.circle_wallet_id,
             walletAddress: devWallet.wallet_address,
-            contractAddress: TIKTOK_VAULT_CONTRACT_ADDRESS,
+            contractAddress: contracts.tiktokVault ?? '',
             functionName: 'claimCard',
             args: [BigInt(card.tokenId), normalizedLoggedIn, devWallet.wallet_address],
             blockchain: 'ARC-TESTNET',
@@ -1359,7 +1362,7 @@ export function ClaimCards({ onCardClaimed, onPendingCountChange, autoLoad = fal
           const txResult = await DeveloperWalletService.sendTransaction({
             walletId: devWallet.circle_wallet_id,
             walletAddress: devWallet.wallet_address,
-            contractAddress: INSTAGRAM_VAULT_CONTRACT_ADDRESS,
+            contractAddress: contracts.instagramVault ?? '',
             functionName: 'claimCard',
             args: [BigInt(card.tokenId), normalizedLoggedIn, devWallet.wallet_address],
             blockchain: 'ARC-TESTNET',

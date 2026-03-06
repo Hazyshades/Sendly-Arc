@@ -86,69 +86,6 @@ export const ARC_RPC_URL = ARC_RPC_URLS[0];
 // Arc block explorer API (Blockscout-based)
 export const ARCSCAN_API_URL = 'https://testnet.arcscan.app/api/v2';
 
-// Avalanche Fuji contract addresses and RPC
-export const AVAX_ZKSEND_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_ZKSEND_CONTRACT_ADDRESS ||
-  "0xAbDf446AC2ce28fDd18D772e4dd5C01EAdfBE72E";
-
-export const AVAX_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_CONTRACT_ADDRESS || "";
-
-// Fuji (43113): test USDC - always this contract on testnet
-const AVAX_FUJI_USDC_ADDRESS =
-  import.meta.env.VITE_AVAX_FUJI_USDC_ADDRESS ||
-  "0x5425890298aed601595a70AB815c96711a31Bc65";
-// Mainnet (43114): native USDC
-const AVAX_MAINNET_USDC_ADDRESS =
-  import.meta.env.VITE_AVAX_USDC_ADDRESS ||
-  "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E";
-/** For backward compatibility: if only one network is configured in the config - by VITE_AVAX_CHAIN_ID */
-export const AVAX_USDC_ADDRESS =
-  Number(import.meta.env.VITE_AVAX_CHAIN_ID || 43113) === 43114
-    ? AVAX_MAINNET_USDC_ADDRESS
-    : AVAX_FUJI_USDC_ADDRESS;
-
-export const AVAX_USDT_ADDRESS =
-  import.meta.env.VITE_AVAX_USDT_ADDRESS ||
-  "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7";
-
-export const AVAX_EURC_ADDRESS =
-  import.meta.env.VITE_AVAX_EURC_ADDRESS || "";
-
-export const AVAX_VAULT_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_TWITTER_VAULT_ADDRESS ||
-  import.meta.env.VITE_AVAX_VAULT_CONTRACT_ADDRESS || "";
-
-export const AVAX_TWITCH_VAULT_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_TWITCH_VAULT_ADDRESS || "";
-
-export const AVAX_TELEGRAM_VAULT_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_TELEGRAM_VAULT_ADDRESS || "";
-
-export const AVAX_TIKTOK_VAULT_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_TIKTOK_VAULT_ADDRESS || "";
-
-export const AVAX_INSTAGRAM_VAULT_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_INSTAGRAM_VAULT_ADDRESS || "";
-
-export const AVAX_DIRECT_SEND_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_DIRECT_SEND_CONTRACT_ADDRESS || "";
-
-export const AVAX_RECLAIM_VERIFIER_CONTRACT_ADDRESS =
-  import.meta.env.VITE_AVAX_RECLAIM_VERIFIER_ADDRESS ||
-  "0x19a2D8029E66275c864907E0edDB768c9f0E56aB";
-
-export const AVAX_RPC_URLS = (
-  import.meta.env.VITE_AVAX_RPC_URLS?.split(',').map((s: string) => s.trim()).filter(Boolean)
-  || []
-).concat([
-  import.meta.env.VITE_AVAX_RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc',
-]).filter(Boolean);
-
-export const AVAX_RPC_URL = AVAX_RPC_URLS[0];
-export const SNOWTRACE_API_URL = 'https://api-testnet.snowtrace.io/api';
-export const SNOWTRACE_EXPLORER_URL = 'https://testnet.snowtrace.io';
-
 // Base Sepolia Testnet (84532)
 export const BASE_SEPOLIA_CHAIN_ID = Number(import.meta.env.VITE_BASE_CHAIN_ID || 84532);
 export const BASE_SEPOLIA_RPC_URLS = (
@@ -191,30 +128,9 @@ export interface ChainContracts {
   explorerApiUrl: string;
 }
 
-const ARC_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID || 5042002);
+export const ARC_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID || 5042002);
 
 export function getContractsForChain(chainId: number): ChainContracts {
-  if (chainId === 43113 || chainId === 43114) {
-    const usdc = chainId === 43114 ? AVAX_MAINNET_USDC_ADDRESS : AVAX_FUJI_USDC_ADDRESS;
-    return {
-      chainId,
-      contractAddress: AVAX_CONTRACT_ADDRESS || undefined,
-      zksend: AVAX_ZKSEND_CONTRACT_ADDRESS,
-      usdc,
-      usdt: AVAX_USDT_ADDRESS,
-      eurc: AVAX_EURC_ADDRESS || undefined,
-      reclaimVerifier: AVAX_RECLAIM_VERIFIER_CONTRACT_ADDRESS,
-      vaultContract: AVAX_VAULT_CONTRACT_ADDRESS || undefined,
-      twitchVault: AVAX_TWITCH_VAULT_CONTRACT_ADDRESS || undefined,
-      telegramVault: AVAX_TELEGRAM_VAULT_CONTRACT_ADDRESS || undefined,
-      tiktokVault: AVAX_TIKTOK_VAULT_CONTRACT_ADDRESS || undefined,
-      instagramVault: AVAX_INSTAGRAM_VAULT_CONTRACT_ADDRESS || undefined,
-      directSend: AVAX_DIRECT_SEND_CONTRACT_ADDRESS || undefined,
-      rpcUrls: [...AVAX_RPC_URLS],
-      explorerUrl: SNOWTRACE_EXPLORER_URL,
-      explorerApiUrl: SNOWTRACE_API_URL,
-    };
-  }
   if (chainId === BASE_SEPOLIA_CHAIN_ID) {
     return {
       chainId: BASE_SEPOLIA_CHAIN_ID,
@@ -228,6 +144,7 @@ export function getContractsForChain(chainId: number): ChainContracts {
       explorerApiUrl: BASE_SEPOLIA_EXPLORER_API_URL,
     };
   }
+  // Default: Arc Testnet
   return {
     chainId: ARC_CHAIN_ID,
     contractAddress: CONTRACT_ADDRESS,

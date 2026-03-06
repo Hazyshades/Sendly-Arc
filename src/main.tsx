@@ -9,7 +9,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit'
 import { Analytics } from '@vercel/analytics/react'
 import App from './App.tsx'
-import { ChainProvider } from '@/contexts/ChainContext'
 import '@/styles/globals.css'
 import '@rainbow-me/rainbowkit/styles.css'
 import { config } from '@/lib/web3/wagmiConfig'
@@ -40,10 +39,8 @@ const AppContent = () => (
   <WagmiProvider config={config}>
     <QueryClientProvider client={queryClient}>
       <RainbowKitProvider locale="en">
-        <ChainProvider>
-          <App />
-          <Analytics />
-        </ChainProvider>
+        <App />
+        <Analytics />
       </RainbowKitProvider>
     </QueryClientProvider>
   </WagmiProvider>

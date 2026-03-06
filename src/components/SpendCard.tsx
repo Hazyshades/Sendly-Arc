@@ -14,7 +14,8 @@ import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
 import { useNavigate } from 'react-router-dom';
-import { useChain } from '@/contexts/ChainContext';
+import { arcTestnet } from '@/lib/web3/wagmiConfig';
+import { getContractsForChain, ARC_CHAIN_ID } from '@/lib/web3/constants';
 import web3Service from '@/lib/web3/web3Service';
 import { GiftCardsService } from '@/lib/supabase/giftCards';
 import { GiftCardABI } from '@/lib/web3/constants';
@@ -59,7 +60,9 @@ const SERVICE_DISPLAY_NAMES: Record<string, string> = {
 
 export function SpendCard({ selectedTokenId = '' }: SpendCardProps) {
   const { address, isConnected } = useAccount();
-  const { activeChain, activeChainId, contracts } = useChain();
+  const activeChain = arcTestnet;
+  const activeChainId = ARC_CHAIN_ID;
+  const contracts = getContractsForChain(ARC_CHAIN_ID);
   const { authenticated, user: privyUser } = usePrivySafe();
   const navigate = useNavigate();
   const [hasDeveloperWallet, setHasDeveloperWallet] = useState(false);

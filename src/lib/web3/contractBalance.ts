@@ -4,11 +4,10 @@ import { chains } from './wagmiConfig';
 import { getContractsForChain, ERC20ABI } from './constants';
 
 const ARC_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID || 5042002);
-const AVAX_CHAIN_ID = Number(import.meta.env.VITE_AVAX_CHAIN_ID || 43113);
 const BASE_SEPOLIA_CHAIN_ID = Number(import.meta.env.VITE_BASE_CHAIN_ID || 84532);
 
 function isEtherscanLikeChain(chainId: number): boolean {
-  return chainId === AVAX_CHAIN_ID || chainId === BASE_SEPOLIA_CHAIN_ID;
+  return chainId === BASE_SEPOLIA_CHAIN_ID;
 }
 
 /**
@@ -113,7 +112,7 @@ export async function getContractCounters(
   gas_usage_count: string;
 }> {
   const contracts = getContractsForChain(chainId);
-  if (chainId === AVAX_CHAIN_ID || chainId === BASE_SEPOLIA_CHAIN_ID) {
+  if (chainId === BASE_SEPOLIA_CHAIN_ID) {
     return {
       transactions_count: 0,
       token_transfers_count: 0,
@@ -144,7 +143,7 @@ export async function getContractTransactionsCount(
     const counters = await getContractCounters(contractAddress, chainId);
     return counters.transactions_count;
   } catch (error) {
-    if (chainId === AVAX_CHAIN_ID || chainId === BASE_SEPOLIA_CHAIN_ID) return 0;
+    if (chainId === BASE_SEPOLIA_CHAIN_ID) return 0;
     const contracts = getContractsForChain(chainId);
     const response = await fetch(
       `${contracts.explorerApiUrl}/addresses/${contractAddress.toLowerCase()}`,

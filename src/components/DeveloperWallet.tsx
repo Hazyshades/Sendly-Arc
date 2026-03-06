@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
 import { toast } from 'sonner';
 import { createWalletClient, custom, createPublicClient, http } from 'viem';
-import { useChain } from '@/contexts/ChainContext';
+import { arcTestnet } from '@/lib/web3/wagmiConfig';
+import { ARC_CHAIN_ID } from '@/lib/web3/constants';
 import { DeveloperWalletService, DeveloperWallet } from '@/lib/circle/developerWalletService';
 import web3Service from '@/lib/web3/web3Service';
-import { USDC_ADDRESS, EURC_ADDRESS, ERC20ABI, getExplorerTxUrl, getExplorerAddressUrl } from '@/lib/web3/constants';
+import { USDC_ADDRESS, EURC_ADDRESS, ERC20ABI, getExplorerTxUrl, getExplorerAddressUrl, BASE_SEPOLIA_CHAIN_ID } from '@/lib/web3/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,8 +26,12 @@ interface DeveloperWalletProps {
 export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletCreated }: DeveloperWalletProps) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { activeChain, activeChainId } = useChain();
+  const activeChain = arcTestnet;
+  const activeChainId = ARC_CHAIN_ID;
   const { user: privyUser, authenticated } = usePrivySafe();
+
+  const INTERNAL_WALLET_DISABLED_CHAIN_IDS: number[] = [BASE_SEPOLIA_CHAIN_ID];
+  const isInternalWalletDisabled = INTERNAL_WALLET_DISABLED_CHAIN_IDS.includes(activeChainId);
   const [wallet, setWallet] = useState<DeveloperWallet | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -93,6 +98,11 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
     if (checkTimeoutRef.current) {
       clearTimeout(checkTimeoutRef.current);
       checkTimeoutRef.current = null;
+    }
+
+    if (isInternalWalletDisabled) {
+      setChecking(false);
+      return;
     }
 
     // Create a stable key for checking (use only important data, not the entire privyUser object)
@@ -167,7 +177,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
         checkTimeoutRef.current = null;
       }
     };
-  }, [isConnected, address, blockchain, authenticated, privyUser?.id]);
+  }, [isConnected, address, blockchain, authenticated, privyUser?.id, isInternalWalletDisabled]);
 
   // Load balances of the wallet
   useEffect(() => {
@@ -552,32 +562,42 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
       if (response.success) {
         toast.success('Testnet tokens requested! USDC and EURC will be sent to your wallet shortly.');
       } else {
-        // Check for rate limit error (429)
         const responseAny = response as any;
-        const details = responseAny.details || responseAny.message || '';
-        const errorText = responseAny.error || '';
-        
-        if (details.includes('429') || details.includes('API rate limit error') || 
-            errorText.includes('429') || errorText.includes('API rate limit error')) {
-          toast.error('Limit exceeded. Sorry, you\'ve hit the limit. We\'ll have more test tokens available in 24 hours. Use a default faucet for Internal Wallet');
+        const code = responseAny.code;
+        const faucetUrl = responseAny.faucetUrl || 'https://faucet.circle.com';
+        if (code === 'CIRCLE_FAUCET_FORBIDDEN') {
+          toast.error('Faucet via app is not available for this Circle account. Use the public faucet.', {
+            description: faucetUrl,
+            action: { label: 'Open faucet', onClick: () => window.open(faucetUrl, '_blank') }
+          });
+        } else if (code === 'CIRCLE_FAUCET_RATE_LIMIT' || responseAny.details?.includes('rate limit')) {
+          toast.error('Faucet rate limit reached. Use the public faucet for testnet tokens.', {
+            description: faucetUrl,
+            action: { label: 'Open faucet', onClick: () => window.open(faucetUrl, '_blank') }
+          });
         } else {
-          toast.error(response.message || 'Failed to request testnet tokens');
+          toast.error(responseAny.message || responseAny.error || 'Failed to request testnet tokens');
         }
       }
     } catch (error: any) {
       console.error('Error requesting testnet tokens:', error);
-      
-      // Check for rate limit error (429) in catch block
-      // Check errorData.details, error.details, error.message, and error.error
       const errorData = error?.errorData || {};
-      const errorDetails = errorData.details || error?.details || error?.message || '';
+      const code = errorData.code;
+      const details = errorData.details || error?.details || error?.message || '';
       const errorText = errorData.error || error?.error || '';
-      
-      // Check if any of these fields contain 429 or API rate limit error
-      const allErrorText = `${errorDetails} ${errorText} ${error?.message || ''}`;
-      
-      if (allErrorText.includes('429') || allErrorText.includes('API rate limit error')) {
-        toast.error('Limit exceeded. Sorry, you\'ve hit the limit. We\'ll have more test tokens available in 24 hours. Use a default faucet for Internal Wallet');
+      const allErrorText = `${details} ${errorText} ${error?.message || ''}`;
+      const faucetUrl = errorData.faucetUrl || 'https://faucet.circle.com';
+
+      if (code === 'CIRCLE_FAUCET_FORBIDDEN') {
+        toast.error('Faucet via app is not available for this Circle account. Use the public faucet.', {
+          description: faucetUrl,
+          action: { label: 'Open faucet', onClick: () => window.open(faucetUrl, '_blank') }
+        });
+      } else if (code === 'CIRCLE_FAUCET_RATE_LIMIT' || allErrorText.includes('429') || allErrorText.includes('API rate limit')) {
+        toast.error('Faucet rate limit reached. Use the public faucet for testnet tokens.', {
+          description: faucetUrl,
+          action: { label: 'Open faucet', onClick: () => window.open(faucetUrl, '_blank') }
+        });
       } else {
         toast.error(error?.message || 'Failed to request testnet tokens');
       }
@@ -669,6 +689,25 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   // if (!isConnected || !address) {
   //   return null;
   // }
+
+  if (isInternalWalletDisabled) {
+    return (
+      <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card opacity-60 pointer-events-none">
+        <CardHeader className="pb-6">
+          <div className="grid grid-rows-2 items-start gap-3">
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-gray-700" />
+              Internal Wallet
+            </CardTitle>
+            <CardDescription className="text-left text-sm text-gray-600 -mt-1">
+              Smart wallet for quick receipt and sending of funds
+            </CardDescription>
+          </div>
+        </CardHeader>
+    
+      </Card>
+    );
+  }
 
   if (checking) {
     return (

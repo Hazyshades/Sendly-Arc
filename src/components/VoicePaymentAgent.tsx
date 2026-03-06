@@ -11,7 +11,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { toast } from 'sonner';
 import { useAccount, useWalletClient } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
-import { useChain } from '@/contexts/ChainContext';
+import { arcTestnet } from '@/lib/web3/wagmiConfig';
+import { ARC_CHAIN_ID } from '@/lib/web3/constants';
 import web3Service from '@/lib/web3/web3Service';
 import pinataService from '@/lib/pinata';
 import imageGenerator from '@/lib/imageGenerator';
@@ -28,7 +29,8 @@ const VOICE_AGENT_ENABLED = false;
 export function VoicePaymentAgent() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { activeChain, activeChainId } = useChain();
+  const activeChain = arcTestnet;
+  const activeChainId = ARC_CHAIN_ID;
   const { authenticated, user: privyUser } = usePrivySafe();
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [contacts] = useState<Contact[]>([]);

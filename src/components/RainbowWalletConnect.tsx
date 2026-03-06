@@ -1,5 +1,4 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { ChainSwitcher } from '@/components/ChainSwitcher';
 
 export function RainbowWalletConnect() {
   return (
@@ -64,7 +63,6 @@ export function RainbowWalletConnect() {
 
               return (
                 <div className="flex items-center gap-2">
-                  <ChainSwitcher />
                   <button
                     onClick={openChainModal}
                     className="bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30 px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-2"

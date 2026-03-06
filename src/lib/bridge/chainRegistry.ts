@@ -46,17 +46,6 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 }
   },
   {
-    chainId: 43113,
-    name: 'Avalanche Fuji',
-    slug: 'avalanche-fuji',
-    domain: 1,
-    bridgeKitId: 'Avalanche_Fuji',
-    rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
-    blockExplorer: 'https://testnet.snowtrace.io',
-    isTestnet: true,
-    nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 }
-  },
-  {
     chainId: 10,
     name: 'OP Mainnet',
     slug: 'optimism',

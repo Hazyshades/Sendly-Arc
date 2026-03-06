@@ -19,9 +19,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { toast } from 'sonner';
 import { useAccount, useWalletClient } from 'wagmi';
 import { createWalletClient, custom, createPublicClient, http } from 'viem';
-import { useChain } from '@/contexts/ChainContext';
 import web3Service from '@/lib/web3/web3Service';
-import { ERC20ABI, getExplorerTxUrl } from '@/lib/web3/constants';
+import { arcTestnet } from '@/lib/web3/wagmiConfig';
+import { ERC20ABI, getExplorerTxUrl, getContractsForChain, ARC_CHAIN_ID } from '@/lib/web3/constants';
 import { generateNewIpfsUri } from '@/lib/newIpfsUri';
 // import { insertFakeUri } from '@/lib/supabase/uriService';
 import { createTwitterCardMapping } from '@/lib/twitter';
@@ -196,7 +196,9 @@ function getWalletName(): string {
 export function CreateGiftCard() {
   const { address, isConnected, connector } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { activeChain, activeChainId, contracts } = useChain();
+  const activeChain = arcTestnet;
+  const activeChainId = ARC_CHAIN_ID;
+  const contracts = getContractsForChain(ARC_CHAIN_ID);
   const { authenticated, user: privyUser } = usePrivySafe();
   const [walletName, setWalletName] = useState<string>('Web3 Wallet');
   const navigate = useNavigate();

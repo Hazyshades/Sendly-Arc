@@ -11,7 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
-import { useChain } from '@/contexts/ChainContext';
+import { arcTestnet } from '@/lib/web3/wagmiConfig';
+import { ARC_CHAIN_ID } from '@/lib/web3/constants';
 import web3Service from '@/lib/web3/web3Service';
 import { ClaimCards } from './ClaimCards';
 import { usePrivySafe } from '@/lib/privy/usePrivySafe';
@@ -41,7 +42,8 @@ interface MyCardsProps {
 
 export function MyCards({ onSpendCard }: MyCardsProps) {
   const { address, isConnected } = useAccount();
-  const { activeChain, activeChainId } = useChain();
+  const activeChain = arcTestnet;
+  const activeChainId = ARC_CHAIN_ID;
   const { authenticated, user } = usePrivySafe();
   const telegramAccount = (user as any)?.telegram;
   const telegramUsername = ((telegramAccount?.username || telegramAccount?.telegramUserId || telegramAccount?.id || '') as string).replace(/^@/, '').trim();

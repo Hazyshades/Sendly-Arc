@@ -4,8 +4,7 @@ import { toast } from 'sonner';
 import { Wallet } from 'lucide-react';
 
 import web3Service from '@/lib/web3/web3Service';
-import { getExplorerTxUrl } from '@/lib/web3/constants';
-import { useChain } from '@/contexts/ChainContext';
+import { getExplorerTxUrl, getContractsForChain, ARC_CHAIN_ID } from '@/lib/web3/constants';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,7 +26,8 @@ function isValidAddress(value: string): boolean {
 export function DirectSendForm() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { activeChainId, contracts } = useChain();
+  const activeChainId = ARC_CHAIN_ID;
+  const contracts = getContractsForChain(ARC_CHAIN_ID);
   const TOKEN_OPTIONS = [
     { value: 'USDC' as const, label: 'USDC', address: contracts.usdc },
     { value: 'EURC' as const, label: 'EURC', address: contracts.eurc ?? contracts.usdc },
@@ -94,7 +94,7 @@ export function DirectSendForm() {
   };
 
   const isDirectSendConfigured =
-    DIRECT_SEND_CONTRACT_ADDRESS && DIRECT_SEND_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000';
+    contracts.directSend && contracts.directSend !== '0x0000000000000000000000000000000000000000';
   const canSubmit =
     isDirectSendConfigured &&
     isRecipientValid &&

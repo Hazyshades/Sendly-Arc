@@ -12,8 +12,7 @@ import { fetchReclaimProofRequestConfig, verifyReclaimProofs } from '@/lib/recla
 import { toOnchainReclaimProof } from '@/lib/reclaim/onchain';
 import type { ReclaimProof } from '@/lib/reclaim/types';
 import { markZkSendPaymentClaimed } from '@/lib/zksend/zksendPaymentsAPI';
-import { getExplorerTxUrl, getExplorerAddressUrl } from '@/lib/web3/constants';
-import { useChain } from '@/contexts/ChainContext';
+import { getExplorerTxUrl, getExplorerAddressUrl, getContractsForChain, ARC_CHAIN_ID } from '@/lib/web3/constants';
 import { ReclaimProofRequest } from '@reclaimprotocol/js-sdk';
 import { usePrivySafe } from '@/lib/privy/usePrivySafe';
 import { isZkLocalhost } from '@/lib/runtime/zkHost';
@@ -65,7 +64,8 @@ function shortenAddress(addr: string): string {
 }
 
 export function PendingPayments({ platform, username, isActive, isIdentityValid = false, truncateAddresses = false }: Props) {
-  const { activeChainId, contracts } = useChain();
+  const activeChainId = ARC_CHAIN_ID;
+  const contracts = getContractsForChain(ARC_CHAIN_ID);
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { authenticated, getAccessToken } = usePrivySafe();

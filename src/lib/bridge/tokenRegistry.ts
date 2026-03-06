@@ -34,7 +34,6 @@ export const TOKENS: Record<string, TokenConfig> = {
       
       // Testnet
       11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
-      43113: '0x5425890298aed601595a70AB815c96711a31Bc65', // Fuji test USDC
       11155420: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
       421614: '0x75faf114eafb1BDbe2F0316DF893fd58Ce51AA87',
       84532: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
@@ -72,7 +71,6 @@ export const TOKENS: Record<string, TokenConfig> = {
       
       // Testnet
       11155111: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      43113: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       11155420: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       421614: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       84532: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
@@ -82,7 +80,7 @@ export const TOKENS: Record<string, TokenConfig> = {
     },
     supportedChainIds: [
       1, 11155111,
-      43114, 43113,
+      43114,
       10, 11155420,
       42161, 421614,
       8453, 84532,
