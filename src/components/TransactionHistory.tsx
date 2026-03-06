@@ -807,13 +807,13 @@ export function TransactionHistory() {
                 </button>
               </div>
             </div>
-            <div className={`text-lg font-bold ${avgMode === 'sent' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+            <div className={`text-lg font-bold relative -top-[14px] ${avgMode === 'sent' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
               $
               {avgMode === 'sent'
                 ? (analytics.cardsSent > 0 ? (parseFloat(analytics.totalSent) / analytics.cardsSent).toFixed(2) : '0.00')
                 : (analytics.cardsReceived > 0 ? (parseFloat(analytics.totalReceived) / analytics.cardsReceived).toFixed(2) : '0.00')}
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400 relative -top-[14px]">
               {avgMode === 'sent' ? 'per sent payment' : 'per received payment'}
             </p>
           </div>
