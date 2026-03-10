@@ -39,23 +39,24 @@ CREATE INDEX IF NOT EXISTS idx_zksend_platform
 -- Enable RLS
 ALTER TABLE zksend_payments ENABLE ROW LEVEL SECURITY;
 
--- Policy: Anyone can read payments (they're public on blockchain anyway)
+-- Policies (DROP IF EXISTS so migration is idempotent when table already exists)
+DROP POLICY IF EXISTS "zksend_payments_select" ON zksend_payments;
 CREATE POLICY "zksend_payments_select" ON zksend_payments
   FOR SELECT
   USING (true);
 
--- Policy: Only authenticated users can insert (for tracking)
+DROP POLICY IF EXISTS "zksend_payments_insert" ON zksend_payments;
 CREATE POLICY "zksend_payments_insert" ON zksend_payments
   FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
 
--- Policy: Only authenticated users can update
+DROP POLICY IF EXISTS "zksend_payments_update" ON zksend_payments;
 CREATE POLICY "zksend_payments_update" ON zksend_payments
   FOR UPDATE
   USING (auth.role() = 'authenticated');
 
--- Optional: Create a view for pending payments
-CREATE OR REPLACE VIEW zksend_pending_payments AS
+-- Optional: Create a view for pending payments (security_invoker = RLS applies to caller)
+CREATE OR REPLACE VIEW zksend_pending_payments WITH (security_invoker = on) AS
 SELECT 
   id,
   payment_id,

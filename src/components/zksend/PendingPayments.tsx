@@ -16,6 +16,10 @@ import { getExplorerTxUrl, getExplorerAddressUrl, getContractsForChain, ARC_CHAI
 import { ReclaimProofRequest } from '@reclaimprotocol/js-sdk';
 import { usePrivySafe } from '@/lib/privy/usePrivySafe';
 import { isZkLocalhost } from '@/lib/runtime/zkHost';
+import { DeveloperWalletService, type DeveloperWallet } from '@/lib/circle/developerWalletService';
+import { apiCall } from '@/lib/supabase/client';
+import { getCircleWalletPrivyUserIdForTx } from '@/hooks/useCircleWallet';
+import { WalletSourceToggle, type WalletSource } from './WalletSourceToggle';
 
 
 import { Button } from '@/components/ui/button';
@@ -56,6 +60,10 @@ type Props = {
   isActive?: boolean;
   isIdentityValid?: boolean;
   truncateAddresses?: boolean;
+  walletSource?: WalletSource;
+  onWalletSourceChange?: (value: WalletSource) => void;
+  developerWallet?: DeveloperWallet | null;
+  hasDeveloperWallet?: boolean;
 };
 
 function shortenAddress(addr: string): string {
@@ -63,12 +71,22 @@ function shortenAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-export function PendingPayments({ platform, username, isActive, isIdentityValid = false, truncateAddresses = false }: Props) {
+export function PendingPayments({
+  platform,
+  username,
+  isActive,
+  isIdentityValid = false,
+  truncateAddresses = false,
+  walletSource = 'external',
+  onWalletSourceChange,
+  developerWallet = null,
+  hasDeveloperWallet = false,
+}: Props) {
   const activeChainId = ARC_CHAIN_ID;
   const contracts = getContractsForChain(ARC_CHAIN_ID);
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { authenticated, getAccessToken } = usePrivySafe();
+  const { authenticated, getAccessToken, user: privyUser } = usePrivySafe();
   const reclaimApiBaseUrl = (() => {
     const envUrl =
       (import.meta.env.VITE_ZKTLS_SERVICE_URL as string | undefined) ||
@@ -111,6 +129,14 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
   const [reclaimProofs, setReclaimProofs] = useState<ReclaimProof[] | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (walletSource !== 'circle') return;
+    if (!hasDeveloperWallet && onWalletSourceChange) onWalletSourceChange('external');
+  }, [walletSource, hasDeveloperWallet, onWalletSourceChange]);
+
+  const useCircle = walletSource === 'circle' && hasDeveloperWallet && !!developerWallet;
+  const effectiveRecipientAddress = useCircle ? developerWallet!.wallet_address : address;
 
   useEffect(() => {
     if (accessToken) return;
@@ -322,10 +348,26 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
     return [proof as ReclaimProof];
   };
 
+  const pollCircleTxHash = async (transactionId: string): Promise<string> => {
+    const maxAttempts = 30;
+    const pollInterval = 1000;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+      const status = (await apiCall(`/wallets/transaction-status?transactionId=${encodeURIComponent(transactionId)}`, {
+        method: 'GET',
+      })) as { txHash?: string; transactionState?: string; error?: string };
+      if (status?.transactionState === 'FAILED') {
+        throw new Error(status?.error ?? 'Transaction failed');
+      }
+      if (status?.txHash) return status.txHash;
+    }
+    throw new Error('Transaction status timeout');
+  };
+
   const startReclaimFlow = async () => {
     const u = normalizeSocialUsername(username.replace(/^@/, ''));
     if (!u) throw new Error('Enter username');
-    if (!address) throw new Error('Connect wallet to generate proof');
+    if (!effectiveRecipientAddress) throw new Error('Select a wallet to generate proof');
 
     setProofLoading(true);
     setProofError(null);
@@ -333,7 +375,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
       const config = await fetchReclaimProofRequestConfig({
         platform,
         username: u,
-        recipient: address,
+        recipient: effectiveRecipientAddress,
         paymentId: undefined,
         redirectUrl: window.location.href,
       });
@@ -515,9 +557,8 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
 
   const claim = async (paymentId: string) => {
     try {
-      if (!isConnected || !address || !walletClient) {
-        throw new Error('Connect wallet to claim payment');
-      }
+      if (!useCircle && (!isConnected || !address || !walletClient)) throw new Error('Connect wallet to claim payment');
+      if (useCircle && !developerWallet) throw new Error('Internal wallet not available');
       const u = normalizeSocialUsername(username.replace(/^@/, ''));
       if (!u) throw new Error('Enter username');
       const normalizedPlatform = normalizeSocialPlatform(platform);
@@ -554,7 +595,9 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
       }
 
       setClaimingId(paymentId);
-      await web3Service.initialize(walletClient, address, activeChainId);
+      if (!useCircle) {
+        await web3Service.initialize(walletClient, address!, activeChainId);
+      }
 
       if (
         normalizedPlatform !== 'twitter' &&
@@ -584,11 +627,34 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
         }
 
         const onchainProof = toOnchainReclaimProof(proofsArray[0]);
-        const txHash = await web3Service.claimZkSendPayment({
-          paymentId,
-          proof: onchainProof,
-          recipient: address as `0x${string}`,
-        });
+        const txHash = useCircle
+          ? await (async () => {
+              const privyUserIdForTx = getCircleWalletPrivyUserIdForTx(
+                developerWallet!,
+                address ?? undefined,
+                privyUser?.id
+              );
+              const res = await DeveloperWalletService.sendTransaction({
+                walletId: developerWallet!.circle_wallet_id,
+                walletAddress: developerWallet!.wallet_address,
+                contractAddress: contracts.zksend,
+                functionName: 'claimPayment',
+                args: [paymentId, onchainProof, developerWallet!.wallet_address],
+                blockchain: 'ARC-TESTNET',
+                privyUserId: privyUserIdForTx,
+                socialPlatform: developerWallet!.social_platform ?? undefined,
+                socialUserId: developerWallet!.social_user_id ?? undefined,
+              });
+              if (!res.success) throw new Error(res.error ?? 'Claim failed');
+              if (res.txHash) return res.txHash;
+              if (res.transactionId) return await pollCircleTxHash(res.transactionId);
+              throw new Error('Missing transactionId');
+            })()
+          : await web3Service.claimZkSendPayment({
+              paymentId,
+              proof: onchainProof,
+              recipient: address as `0x${string}`,
+            });
 
         const paymentRow = rows.find((row) => row.paymentId === paymentId);
         const identityHashValue = identityHash ?? generateSocialIdentityHash(platform, u);
@@ -601,7 +667,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
               platform: paymentRow.platform,
               amount: paymentRow.amount,
               currency: resolveCurrency(paymentRow.token),
-              recipientWallet: address,
+              recipientWallet: (useCircle ? developerWallet!.wallet_address : address)!,
               claimTxHash: txHash,
               chainId: activeChainId,
               contractAddress: contracts.zksend,
@@ -713,7 +779,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
           platform: normalizedPlatform,
           username: u,
           paymentId,
-          recipient: address,
+          recipient: effectiveRecipientAddress,
           responseMatches: [
             {
               type: 'regex',
@@ -765,11 +831,34 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
       }
 
       const onchainProof = toOnchainReclaimProof(proofsArray[0]);
-      const txHash = await web3Service.claimZkSendPayment({
-        paymentId,
-        proof: onchainProof,
-        recipient: address as `0x${string}`,
-      });
+      const txHash = useCircle
+        ? await (async () => {
+            const privyUserIdForTx = getCircleWalletPrivyUserIdForTx(
+              developerWallet!,
+              address ?? undefined,
+              privyUser?.id
+            );
+            const res = await DeveloperWalletService.sendTransaction({
+              walletId: developerWallet!.circle_wallet_id,
+              walletAddress: developerWallet!.wallet_address,
+              contractAddress: contracts.zksend,
+              functionName: 'claimPayment',
+              args: [paymentId, onchainProof, developerWallet!.wallet_address],
+              blockchain: 'ARC-TESTNET',
+              privyUserId: privyUserIdForTx,
+              socialPlatform: developerWallet!.social_platform ?? undefined,
+              socialUserId: developerWallet!.social_user_id ?? undefined,
+            });
+            if (!res.success) throw new Error(res.error ?? 'Claim failed');
+            if (res.txHash) return res.txHash;
+            if (res.transactionId) return await pollCircleTxHash(res.transactionId);
+            throw new Error('Missing transactionId');
+          })()
+        : await web3Service.claimZkSendPayment({
+            paymentId,
+            proof: onchainProof,
+            recipient: address as `0x${string}`,
+          });
 
       const paymentRow = rows.find((row) => row.paymentId === paymentId);
       const identityHashValue = identityHash ?? generateSocialIdentityHash(platform, u);
@@ -782,7 +871,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
             platform: paymentRow.platform,
             amount: paymentRow.amount,
             currency: resolveCurrency(paymentRow.token),
-            recipientWallet: address,
+          recipientWallet: (useCircle ? developerWallet!.wallet_address : address)!,
             claimTxHash: txHash,
             chainId: activeChainId,
             contractAddress: contracts.zksend,
@@ -818,9 +907,8 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
   const claimAll = async () => {
     if (rows.length === 0) return;
     try {
-      if (!isConnected || !address || !walletClient) {
-        throw new Error('Connect wallet to claim payment');
-      }
+      if (!useCircle && (!isConnected || !address || !walletClient)) throw new Error('Connect wallet to claim payment');
+      if (useCircle && !developerWallet) throw new Error('Internal wallet not available');
       const u = normalizeSocialUsername(username.replace(/^@/, ''));
       if (!u) throw new Error('Enter username');
       const normalizedPlatform = normalizeSocialPlatform(platform);
@@ -852,7 +940,9 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
       }
 
       setClaimingAll(true);
-      await web3Service.initialize(walletClient, address, activeChainId);
+      if (!useCircle) {
+        await web3Service.initialize(walletClient, address!, activeChainId);
+      }
 
       const paymentIds = rows.map((r) => r.paymentId);
       const identityHashValue = identityHash ?? generateSocialIdentityHash(platform, u);
@@ -883,11 +973,34 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
           throw new Error('Reclaim proof verification failed (backend)');
         }
         const onchainProof = toOnchainReclaimProof(proofsArray[0]);
-        const txHash = await web3Service.claimZkSendPayments({
-          paymentIds,
-          proof: onchainProof,
-          recipient: address as `0x${string}`,
-        });
+        const txHash = useCircle
+          ? await (async () => {
+              const privyUserIdForTx = getCircleWalletPrivyUserIdForTx(
+                developerWallet!,
+                address ?? undefined,
+                privyUser?.id
+              );
+              const res = await DeveloperWalletService.sendTransaction({
+                walletId: developerWallet!.circle_wallet_id,
+                walletAddress: developerWallet!.wallet_address,
+                contractAddress: contracts.zksend,
+                functionName: 'claimPayments',
+                args: [paymentIds.map((id) => BigInt(id).toString()), onchainProof, developerWallet!.wallet_address],
+                blockchain: 'ARC-TESTNET',
+                privyUserId: privyUserIdForTx,
+                socialPlatform: developerWallet!.social_platform ?? undefined,
+                socialUserId: developerWallet!.social_user_id ?? undefined,
+              });
+              if (!res.success) throw new Error(res.error ?? 'Claim failed');
+              if (res.txHash) return res.txHash;
+              if (res.transactionId) return await pollCircleTxHash(res.transactionId);
+              throw new Error('Missing transactionId');
+            })()
+          : await web3Service.claimZkSendPayments({
+              paymentIds,
+              proof: onchainProof,
+              recipient: address as `0x${string}`,
+            });
         await Promise.all(
           rows.map((paymentRow) =>
             markZkSendPaymentClaimed({
@@ -897,7 +1010,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
               platform: paymentRow.platform,
               amount: paymentRow.amount,
               currency: resolveCurrency(paymentRow.token),
-              recipientWallet: address,
+              recipientWallet: (useCircle ? developerWallet!.wallet_address : address)!,
               claimTxHash: txHash,
               chainId: activeChainId,
               contractAddress: contracts.zksend,
@@ -994,7 +1107,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
           platform: normalizedPlatform,
           username: u,
           paymentId: firstPaymentId,
-          recipient: address,
+          recipient: effectiveRecipientAddress,
           responseMatches: [{ type: 'regex', value: regexPattern }],
         }),
       });
@@ -1033,11 +1146,34 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
       }
 
       const onchainProof = toOnchainReclaimProof(proofsArray[0]);
-      const txHash = await web3Service.claimZkSendPayments({
-        paymentIds,
-        proof: onchainProof,
-        recipient: address as `0x${string}`,
-      });
+      const txHash = useCircle
+        ? await (async () => {
+            const privyUserIdForTx = getCircleWalletPrivyUserIdForTx(
+              developerWallet!,
+              address ?? undefined,
+              privyUser?.id
+            );
+            const res = await DeveloperWalletService.sendTransaction({
+              walletId: developerWallet!.circle_wallet_id,
+              walletAddress: developerWallet!.wallet_address,
+              contractAddress: contracts.zksend,
+              functionName: 'claimPayments',
+              args: [paymentIds.map((id) => BigInt(id).toString()), onchainProof, developerWallet!.wallet_address],
+              blockchain: 'ARC-TESTNET',
+              privyUserId: privyUserIdForTx,
+              socialPlatform: developerWallet!.social_platform ?? undefined,
+              socialUserId: developerWallet!.social_user_id ?? undefined,
+            });
+            if (!res.success) throw new Error(res.error ?? 'Claim failed');
+            if (res.txHash) return res.txHash;
+            if (res.transactionId) return await pollCircleTxHash(res.transactionId);
+            throw new Error('Missing transactionId');
+          })()
+        : await web3Service.claimZkSendPayments({
+            paymentIds,
+            proof: onchainProof,
+            recipient: address as `0x${string}`,
+          });
 
       await Promise.all(
         rows.map((paymentRow) =>
@@ -1048,7 +1184,7 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
             platform: paymentRow.platform,
             amount: paymentRow.amount,
             currency: resolveCurrency(paymentRow.token),
-            recipientWallet: address,
+          recipientWallet: (useCircle ? developerWallet!.wallet_address : address)!,
             claimTxHash: txHash,
             chainId: activeChainId,
             contractAddress: contracts.zksend,
@@ -1084,8 +1220,16 @@ export function PendingPayments({ platform, username, isActive, isIdentityValid 
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>Receive</CardTitle>
+        {!truncateAddresses && onWalletSourceChange ? (
+          <WalletSourceToggle
+            value={walletSource}
+            onChange={onWalletSourceChange}
+            hasCircleWallet={hasDeveloperWallet}
+            compact
+          />
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
 

@@ -43,43 +43,60 @@ export function normalizeTwitterHandle(handle: string): string {
   return handle.trim().replace(/^@/, '');
 }
 
+export interface FetchTwitterUserPreviewOptions {
+  /** Skip Supabase cache and always call Edge Function. Use when image returned 404 to get fresh profile_image_url. */
+  skipCache?: boolean;
+  /** Append refresh=1 so backend can force-refresh cache (e.g. after avatar 404). */
+  refresh?: boolean;
+}
+
 /**
  * Fetch Twitter user profile by username for preview.
  * First looks up Supabase cache to avoid calling Twitter API; only calls Edge Function on cache miss.
+ * Use options.skipCache (e.g. when profile image returned 404) to get fresh data from API.
  * Returns result with success/error for UI to show avatar, name, or error message.
  */
-export async function fetchTwitterUserPreview(username: string): Promise<TwitterUserLookupResponse> {
+export async function fetchTwitterUserPreview(
+  username: string,
+  options?: FetchTwitterUserPreviewOptions
+): Promise<TwitterUserLookupResponse> {
   const normalized = normalizeTwitterHandle(username);
   if (!normalized) {
     return { success: false, error: 'Enter a username', code: 'MISSING_USERNAME' };
   }
 
-  // 1. First check Supabase cache so we don't hit Twitter API when data already exists
-  try {
-    const { data: row, error: dbError } = await supabase
-      .from(TWITTER_USER_CACHE_TABLE)
-      .select('username, name, profile_image_url')
-      .ilike('username', normalized)
-      .maybeSingle();
+  const skipCache = options?.skipCache === true || options?.refresh === true;
 
-    if (!dbError && row?.username) {
-      return {
-        success: true,
-        data: {
-          username: row.username,
-          name: row.name ?? row.username,
-          profile_image_url: row.profile_image_url ?? null,
-        },
-      };
+  // 1. Check Supabase cache unless skipCache (e.g. after image 404)
+  if (!skipCache) {
+    try {
+      const { data: row, error: dbError } = await supabase
+        .from(TWITTER_USER_CACHE_TABLE)
+        .select('username, name, profile_image_url')
+        .ilike('username', normalized)
+        .maybeSingle();
+
+      if (!dbError && row?.username) {
+        return {
+          success: true,
+          data: {
+            username: row.username,
+            name: row.name ?? row.username,
+            profile_image_url: row.profile_image_url ?? null,
+          },
+        };
+      }
+    } catch {
+      // Supabase unavailable or table missing: fall through to Edge Function
     }
-    // On DB error or no row, fall through to Edge Function (e.g. new username)
-  } catch {
-    // Supabase unavailable or table missing: fall through to Edge Function
   }
 
-  // 2. Cache miss or no cache table: call zk-sender Edge Function (may use Twitter API)
+  // 2. Cache miss or skipCache: call zk-sender Edge Function (refresh=1 asks backend to refresh cache if supported)
   const base = getTwitterLookupBaseUrl().replace(/\/$/, '');
-  const url = `${base}/zk-sender/twitter/user?username=${encodeURIComponent(normalized)}`;
+  let url = `${base}/zk-sender/twitter/user?username=${encodeURIComponent(normalized)}`;
+  if (skipCache || options?.refresh === true) {
+    url += '&refresh=1';
+  }
 
   try {
     const res = await fetch(url, {

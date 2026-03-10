@@ -65,26 +65,24 @@ interface RecipientAvatarProps {
 }
 
 export function RecipientAvatar({ platform = '', counterpart, displayName, alt }: RecipientAvatarProps) {
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
-    const key = `${platform}:${counterpart}`;
-    return avatarCache.get(key) ?? null;
-  });
+  const key = `${platform}:${counterpart}`;
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => avatarCache.get(key) ?? null);
   const fetchedRef = useRef(false);
+  const retryRef = useRef(false);
 
   useEffect(() => {
     if (!canFetchAvatar(platform, counterpart) || fetchedRef.current) return;
-    const key = `${platform}:${counterpart}`;
     if (avatarCache.has(key)) {
       setAvatarUrl(avatarCache.get(key)!);
       return;
     }
     fetchedRef.current = true;
 
-    const fetchAvatar = async () => {
+    const fetchAvatar = async (skipCache = false) => {
       try {
         let url: string | null = null;
         if (platform === 'twitter') {
-          const res = await fetchTwitterUserPreview(counterpart);
+          const res = await fetchTwitterUserPreview(counterpart, skipCache ? { skipCache: true } : undefined);
           if (res.success && res.data.profile_image_url) url = res.data.profile_image_url;
         } else if (platform === 'twitch') {
           const res = await fetchTwitchUserPreview(counterpart);
@@ -101,20 +99,53 @@ export function RecipientAvatar({ platform = '', counterpart, displayName, alt }
       }
     };
     fetchAvatar();
-  }, [platform, counterpart]);
+  }, [platform, counterpart, key]);
+
+  const handleImageError = () => {
+    if (retryRef.current) {
+      setAvatarUrl(null);
+      return;
+    }
+    retryRef.current = true;
+    avatarCache.delete(key);
+    setAvatarUrl(null);
+    if (platform === 'twitter') {
+      fetchTwitterUserPreview(counterpart, { skipCache: true }).then((res) => {
+        if (res.success && res.data.profile_image_url) {
+          avatarCache.set(key, res.data.profile_image_url!);
+          setAvatarUrl(res.data.profile_image_url);
+        }
+      });
+    } else if (platform === 'twitch') {
+      fetchTwitchUserPreview(counterpart).then((res) => {
+        if (res.success && res.data.profile_image_url) {
+          avatarCache.set(key, res.data.profile_image_url!);
+          setAvatarUrl(res.data.profile_image_url);
+        }
+      });
+    }
+  };
 
   const letter = displayName?.charAt(0)?.toUpperCase() || '?';
   const cfg = PLATFORM_CONFIG[platform] ?? PLATFORM_CONFIG[''];
 
   return (
     <div className="relative shrink-0">
-      <div
-        className="size-10 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-sm bg-cover bg-center"
-        style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : undefined}
-        data-alt={alt ?? `Profile of ${displayName}`}
-      >
-        {!avatarUrl && letter}
-      </div>
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={alt ?? `Profile of ${displayName}`}
+          className="size-10 rounded-full object-cover bg-slate-200 dark:bg-slate-600"
+          onError={handleImageError}
+        />
+      ) : (
+        <div
+          className="size-10 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-sm"
+          aria-label={alt ?? `Profile of ${displayName}`}
+        >
+          {letter}
+        </div>
+      )}
       {platform && cfg.icon && (
         <div
           className={`absolute -bottom-1 -right-1 rounded-full p-0.5 border-2 border-white dark:border-[#16202a] ${cfg.bg}`}

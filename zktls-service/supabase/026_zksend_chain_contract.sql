@@ -20,9 +20,9 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_zksend_chain_contract
   ON zksend_payments(chain_id, contract_address);
 
--- Recreate view with new columns (DROP required: column order/count changed)
+-- Recreate view with new columns (security_invoker = RLS applies to caller)
 DROP VIEW IF EXISTS zksend_pending_payments;
-CREATE VIEW zksend_pending_payments AS
+CREATE VIEW zksend_pending_payments WITH (security_invoker = on) AS
 SELECT
   id,
   chain_id,

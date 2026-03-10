@@ -121,6 +121,9 @@ export function PlatformUsernameInput({
   const telegramDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const telegramLastRequestRef = useRef<string>('');
   const telegramInFlightRequestRef = useRef<string>('');
+  /** After 404 Twitter avatar, do one refetch with skipCache. Reset when username changes. */
+  const twitterAvatarRetryRef = useRef(false);
+  const lastTwitterUsernameRef = useRef<string>('');
 
   const currentPlatformOpt = PLATFORM_OPTIONS.find((o) => o.value === platform) ?? PLATFORM_OPTIONS[0];
   const normalizedUsername = normalizeTwitterHandle(username);
@@ -131,6 +134,11 @@ export function PlatformUsernameInput({
   const showTwitchPreview = platform === 'twitch';
   const showGitHubPreview = platform === 'github';
   const showTelegramPreview = platform === 'telegram';
+
+  if (lastTwitterUsernameRef.current !== normalizedUsername) {
+    lastTwitterUsernameRef.current = normalizedUsername;
+    twitterAvatarRetryRef.current = false;
+  }
 
   useEffect(() => {
     if (!showTwitterPreview || !normalizedUsername) {
@@ -190,6 +198,28 @@ export function PlatformUsernameInput({
       }
     };
   }, [showTwitterPreview, normalizedUsername]);
+
+  const handleTwitterAvatarError = () => {
+    if (twitterAvatarRetryRef.current || !normalizedUsername) return;
+    twitterAvatarRetryRef.current = true;
+    twitterPreviewCache.delete(normalizedUsername);
+    setPreviewStatus('loading');
+    setPreviewError(null);
+    fetchTwitterUserPreview(normalizedUsername, { skipCache: true })
+      .then((result) => {
+        if (result.success) {
+          twitterPreviewCache.set(normalizedUsername, result.data);
+          setPreviewStatus('success');
+          setPreviewData(result.data);
+          setPreviewError(null);
+        } else {
+          setPreviewStatus('error');
+          setPreviewData(null);
+          setPreviewError(result.error);
+        }
+      })
+      .finally(() => {});
+  };
 
   useEffect(() => {
     if (!showTwitchPreview || !normalizedTwitchLogin) {
@@ -519,6 +549,7 @@ export function PlatformUsernameInput({
                   className="h-8 w-8 shrink-0 rounded-full object-cover"
                   width={32}
                   height={32}
+                  onError={handleTwitterAvatarError}
                 />
               ) : (
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">

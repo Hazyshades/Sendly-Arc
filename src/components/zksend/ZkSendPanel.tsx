@@ -5,6 +5,8 @@ import { SendPaymentForm, type SendPaymentPreviewValues } from './SendPaymentFor
 import { IdentitySelector } from './IdentitySelector';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { normalizeSocialUsername } from '@/lib/reclaim/identity';
+import { useCircleWallet } from '@/hooks/useCircleWallet';
+import type { WalletSource } from './WalletSourceToggle';
 
 export type ZkSendPlatform = 'twitter' | 'twitch' | 'github' | 'telegram' | 'instagram' /* | 'tiktok' */ | 'gmail' | 'linkedin';
 
@@ -22,6 +24,9 @@ export function ZkSendPanel({ initialTab = 'send', preview = false, previewValue
   const [activeTab, setActiveTab] = useState<'send' | 'receive'>(initialTab);
   const [platform, setPlatform] = useState<SendRecipientType>(preview && previewValues ? previewValues.platform : 'twitter');
   const [username, setUsername] = useState(preview && previewValues ? previewValues.username : '');
+
+  const { developerWallet, hasDeveloperWallet } = useCircleWallet();
+  const [walletSource, setWalletSource] = useState<WalletSource>('external');
 
   const normalizedUsername = useMemo(() => normalizeSocialUsername(username.replace(/^@/, '')), [username]);
   const isIdentityValid = platform === 'address' ? /^0x[a-fA-F0-9]{40}$/.test(username.trim()) : !!normalizedUsername;
@@ -44,6 +49,10 @@ export function ZkSendPanel({ initialTab = 'send', preview = false, previewValue
             onGoToPending={() => setActiveTab('receive')}
             preview={preview}
             previewValues={previewValues}
+            walletSource={walletSource}
+            onWalletSourceChange={setWalletSource}
+            developerWallet={developerWallet}
+            hasDeveloperWallet={hasDeveloperWallet}
           />
         </TabsContent>
 
@@ -64,6 +73,10 @@ export function ZkSendPanel({ initialTab = 'send', preview = false, previewValue
             isActive={activeTab === 'receive'}
             isIdentityValid={platform === 'address' ? false : isIdentityValid}
             truncateAddresses={preview}
+            walletSource={walletSource}
+            onWalletSourceChange={setWalletSource}
+            developerWallet={developerWallet}
+            hasDeveloperWallet={hasDeveloperWallet}
           />
         </TabsContent>
       </Tabs>
