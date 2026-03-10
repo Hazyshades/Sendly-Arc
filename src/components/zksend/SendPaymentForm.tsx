@@ -335,19 +335,35 @@ export function SendPaymentForm({
             console.warn('[zkSEND] Failed to store payment in DB:', dbError);
           }
         }
-        if (paymentId) {
-          toast.success(`Payment created successfully! Payment ID: ${paymentId}`);
-        }
-        if (txHash) {
-          toast.success(
-            <span>
-              Payment created successfully!{' '}
-              <a href={getExplorerTxUrl(activeChainId, txHash)} target="_blank" rel="noopener noreferrer" className="underline font-medium">
+        if (paymentId && txHash) {
+          toast.success(`Payment created successfully! Payment ID: ${paymentId}`, {
+            description: (
+              <a
+                href={getExplorerTxUrl(activeChainId, txHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium"
+              >
                 TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
               </a>
-            </span>
-          );
-        } else if (!paymentId) {
+            ),
+          });
+        } else if (paymentId) {
+          toast.success(`Payment created successfully! Payment ID: ${paymentId}`);
+        } else if (txHash) {
+          toast.success('Payment created successfully!', {
+            description: (
+              <a
+                href={getExplorerTxUrl(activeChainId, txHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium"
+              >
+                TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+              </a>
+            ),
+          });
+        } else {
           toast.success('Payment created successfully.');
         }
         return;
@@ -420,13 +436,9 @@ export function SendPaymentForm({
         console.warn('[zkSEND] Payment created without paymentId; DB record was not stored.');
       }
 
-      if (paymentId) {
-        toast.success(`Payment created successfully! Payment ID: ${paymentId}`);
-      }
-      if (txHash) {
-        toast.success(
-          <span>
-            Payment created successfully!{' '}
+      if (paymentId && txHash) {
+        toast.success(`Payment created successfully! Payment ID: ${paymentId}`, {
+          description: (
             <a
               href={getExplorerTxUrl(activeChainId, txHash)}
               target="_blank"
@@ -435,9 +447,24 @@ export function SendPaymentForm({
             >
               TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
             </a>
-          </span>
-        );
-      } else if (!paymentId) {
+          ),
+        });
+      } else if (paymentId) {
+        toast.success(`Payment created successfully! Payment ID: ${paymentId}`);
+      } else if (txHash) {
+        toast.success('Payment created successfully!', {
+          description: (
+            <a
+              href={getExplorerTxUrl(activeChainId, txHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium"
+            >
+              TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+            </a>
+          ),
+        });
+      } else {
         toast.success('Payment created successfully.');
       }
     } catch (e) {
