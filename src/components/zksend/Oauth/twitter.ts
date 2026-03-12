@@ -2,7 +2,23 @@ import { toast } from 'sonner';
 import { createPopupWindow } from './utils';
 
 const getZkTlsApiUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    try {
+      const url = new URL(window.location.origin);
+      let hostname = url.hostname.toLowerCase();
+
+      // Normalize www-prefixed hostnames (e.g. www.zk.sendly.digital -> zk.sendly.digital)
+      if (hostname.startsWith('www.')) {
+        hostname = hostname.slice(4);
+        url.hostname = hostname;
+        return url.origin;
+      }
+
+      return window.location.origin;
+    } catch {
+      return window.location.origin;
+    }
+  }
   const envUrl =
     (import.meta.env.VITE_ZKTLS_SERVICE_URL as string | undefined) ||
     (import.meta.env.VITE_ZKTLS_API_URL as string | undefined);
