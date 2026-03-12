@@ -20,11 +20,17 @@ function isUnaliasableVercelPreview(hostname: string): boolean {
 
 /** Maps main hostname to zk hostname (e.g. localhost -> zk.localhost, sendly.digital -> zk.sendly.digital). */
 export function toZkHostname(hostname: string): string {
-  const h = hostname.toLowerCase();
+  let h = hostname.toLowerCase();
+
+  // Normalize www-prefixed hostnames so www.sendly.digital -> zk.sendly.digital
+  if (h.startsWith('www.')) {
+    h = h.slice(4);
+  }
+
   if (h === 'zk.localhost' || h.startsWith('zk.') || h.includes('.zk.')) return hostname;
   if (h === 'localhost') return 'zk.localhost';
   if (isUnaliasableVercelPreview(h)) return ZK_PREVIEW_HOST;
-  return `zk.${hostname}`;
+  return `zk.${h}`;
 }
 
 export function toZkUrl(currentUrl: string): string {
