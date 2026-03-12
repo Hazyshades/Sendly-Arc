@@ -3,6 +3,13 @@ import { createPopupWindow } from './utils';
 import { toZkHostname } from '@/lib/runtime/zkHost';
 
 const getZkTlsApiUrl = (): string => {
+  // В проде используем явный API-хост (api.sendly.digital),
+  // чтобы не упираться в TLS-сертификат фронтенд-домена.
+  const envUrl =
+    (import.meta.env.VITE_ZKTLS_SERVICE_URL as string | undefined) ||
+    (import.meta.env.VITE_ZKTLS_API_URL as string | undefined);
+  if (envUrl) return envUrl;
+
   if (typeof window !== 'undefined' && window.location?.origin) {
     try {
       const url = new URL(window.location.origin);
@@ -20,10 +27,7 @@ const getZkTlsApiUrl = (): string => {
       return window.location.origin;
     }
   }
-  const envUrl =
-    (import.meta.env.VITE_ZKTLS_SERVICE_URL as string | undefined) ||
-    (import.meta.env.VITE_ZKTLS_API_URL as string | undefined);
-  if (envUrl) return envUrl;
+
   return 'http://localhost:3001';
 };
 
