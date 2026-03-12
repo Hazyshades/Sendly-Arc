@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { createPopupWindow } from './utils';
+import { toZkHostname } from '@/lib/runtime/zkHost';
 
 const getZkTlsApiUrl = (): string => {
   if (typeof window !== 'undefined' && window.location?.origin) {
@@ -39,10 +40,25 @@ export const requestTwitterOAuth1Flow = async (): Promise<TwitterOAuth1Tokens | 
   return new Promise((resolve) => {
     const apiUrl = getZkTlsApiUrl().replace(/\/$/, '');
     const origin = window.location.origin;
+
+    // Default callback: same origin but normalized to zk-host
+    const originUrl = new URL(origin);
+    originUrl.hostname = toZkHostname(originUrl.hostname);
+    const defaultCallback = `${originUrl.origin}/auth/twitter-oauth1/callback`;
+
     const baseCallback =
-      (import.meta.env.VITE_TWITTER_OAUTH1_CALLBACK as string | undefined) ||
-      `${origin}/auth/twitter-oauth1/callback`;
-    const callbackUrl = baseCallback.replace(/\/$/, '');
+      (import.meta.env.VITE_TWITTER_OAUTH1_CALLBACK as string | undefined) || defaultCallback;
+
+    let callbackUrl = baseCallback.replace(/\/$/, '');
+
+    // Normalize callback hostname as zk-host (e.g. strip www., ensure zk.*)
+    try {
+      const cbUrl = new URL(callbackUrl);
+      cbUrl.hostname = toZkHostname(cbUrl.hostname);
+      callbackUrl = cbUrl.toString().replace(/\/$/, '');
+    } catch {
+      // ignore, fall back to raw callbackUrl
+    }
 
     const run = async () => {
       try {

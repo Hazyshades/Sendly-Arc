@@ -22,9 +22,12 @@ function isUnaliasableVercelPreview(hostname: string): boolean {
 export function toZkHostname(hostname: string): string {
   let h = hostname.toLowerCase();
 
-  // Normalize www-prefixed hostnames so www.sendly.digital -> zk.sendly.digital
+  // Normalize www-prefixed hostnames:
+  // - www.sendly.digital -> sendly.digital
+  // - www.zk.sendly.digital -> zk.sendly.digital
   if (h.startsWith('www.')) {
     h = h.slice(4);
+    hostname = h;
   }
 
   if (h === 'zk.localhost' || h.startsWith('zk.') || h.includes('.zk.')) return hostname;
