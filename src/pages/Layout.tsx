@@ -84,14 +84,6 @@ export function Layout({ children }: LayoutProps) {
                 <PrivyConnectedAccounts />
               </Suspense>
             ) : null}
-            {!zkLocal ? (
-              <button
-                onClick={() => setIsPrivyModalOpen(true)}
-                className="bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 px-4 py-2 rounded-2xl transition-all duration-200 flex items-center gap-2 font-medium"
-              >
-                Social login
-              </button>
-            ) : null}
             {!zk ? (
               disablePaymentsInHeader ? (
                 <button

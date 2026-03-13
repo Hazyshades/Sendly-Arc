@@ -119,7 +119,35 @@ export const requestTwitterOAuth1Flow = async (): Promise<TwitterOAuth1Tokens | 
           if (event.data?.target === 'metamask-inpage' || event.data?.name === 'metamask-provider') {
             return;
           }
-          if (event.origin !== window.location.origin) return;
+
+          // Accept messages from the same logical zk host even if www-prefix differs
+          try {
+            const currentOriginUrl = new URL(window.location.origin);
+            const eventOriginUrl = new URL(event.origin);
+
+            const normalizeHostname = (hostname: string) => {
+              let h = hostname.toLowerCase();
+              if (h.startsWith('www.')) {
+                h = h.slice(4);
+              }
+              return toZkHostname(h);
+            };
+
+            const normalizeOrigin = (url: URL) => {
+              const hostname = normalizeHostname(url.hostname);
+              const port = url.port ? `:${url.port}` : '';
+              return `${url.protocol}//${hostname}${port}`;
+            };
+
+            const normalizedCurrent = normalizeOrigin(currentOriginUrl);
+            const normalizedEvent = normalizeOrigin(eventOriginUrl);
+
+            if (normalizedCurrent !== normalizedEvent) {
+              return;
+            }
+          } catch {
+            if (event.origin !== window.location.origin) return;
+          }
 
           if (
             event.data &&

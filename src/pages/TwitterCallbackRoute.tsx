@@ -40,6 +40,20 @@ export function TwitterCallbackRoute() {
     console.log('[POPUP] State:', state);
     console.log('[POPUP] Stored state:', storedState);
 
+    const closeOrRedirect = () => {
+      if (window.opener && !window.opener.closed) {
+        setTimeout(() => {
+          try {
+            window.close();
+          } catch {
+            // ignore
+          }
+        }, 300);
+      } else {
+        navigate(redirectUrl);
+      }
+    };
+
     if (error) {
       console.error('Twitter OAuth error:', error);
       sessionStorage.removeItem('twitter_oauth_state');
@@ -53,7 +67,7 @@ export function TwitterCallbackRoute() {
         }, window.location.origin);
       }
       
-      navigate(redirectUrl);
+      closeOrRedirect();
       return;
     }
 
@@ -62,7 +76,7 @@ export function TwitterCallbackRoute() {
       sessionStorage.removeItem('twitter_oauth_state');
       sessionStorage.removeItem('twitter_oauth_redirect');
       sessionStorage.removeItem('twitter_code_verifier');
-      navigate(redirectUrl);
+      closeOrRedirect();
       return;
     }
 
@@ -71,7 +85,7 @@ export function TwitterCallbackRoute() {
       sessionStorage.removeItem('twitter_oauth_state');
       sessionStorage.removeItem('twitter_oauth_redirect');
       sessionStorage.removeItem('twitter_code_verifier');
-      navigate(redirectUrl);
+      closeOrRedirect();
       return;
     }
 
@@ -177,15 +191,9 @@ export function TwitterCallbackRoute() {
           } catch (error) {
             console.error('[POPUP] ❌ Error sending postMessage:', error);
           }
-          
-          setTimeout(() => {
-            console.log('[POPUP] Closing popup window...');
-            window.close();
-          }, 1000);
-        } else {
-          console.log('[POPUP] No window.opener or opener is closed, navigating instead...');
-          navigate(redirectUrl);
         }
+
+        closeOrRedirect();
       } catch (error) {
         console.error('[POPUP] Error exchanging code for token:', error);
         sessionStorage.removeItem('twitter_oauth_state');
@@ -199,7 +207,7 @@ export function TwitterCallbackRoute() {
           }, window.location.origin);
         }
         
-        navigate(redirectUrl);
+        closeOrRedirect();
       }
     };
 
