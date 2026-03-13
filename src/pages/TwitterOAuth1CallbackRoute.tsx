@@ -1,6 +1,57 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+
+const firstString = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.length > 0) return value;
+  }
+  return undefined;
+};
+
+const parseOAuth1AccessTokenResponse = (
+  raw: unknown
+): { oauthToken: string; oauthTokenSecret: string; screenName?: string } | null => {
+  const root = asRecord(raw);
+  if (!root) return null;
+
+  const nested = asRecord(root.data) ?? asRecord(root.result) ?? asRecord(root.payload);
+
+  const token = firstString(
+    root.oauthToken,
+    root.oauth_token,
+    root.accessToken,
+    root.access_token,
+    nested?.oauthToken,
+    nested?.oauth_token,
+    nested?.accessToken,
+    nested?.access_token
+  );
+  const secret = firstString(
+    root.oauthTokenSecret,
+    root.oauth_token_secret,
+    root.accessTokenSecret,
+    root.access_token_secret,
+    nested?.oauthTokenSecret,
+    nested?.oauth_token_secret,
+    nested?.accessTokenSecret,
+    nested?.access_token_secret
+  );
+  const screenName = firstString(
+    root.screenName,
+    root.screen_name,
+    root.username,
+    nested?.screenName,
+    nested?.screen_name,
+    nested?.username
+  );
+
+  if (!token || !secret) return null;
+  return { oauthToken: token, oauthTokenSecret: secret, screenName };
+};
+
 const getZkTlsApiUrl = (): string => {
   if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
   const envUrl =
@@ -50,32 +101,31 @@ export function TwitterOAuth1CallbackRoute() {
           throw new Error(`OAuth1 access-token failed: ${res.status} ${text}`);
         }
 
-        const data = (await res.json()) as {
-          oauthToken?: string;
-          oauthTokenSecret?: string;
-          screenName?: string;
-        };
+        const raw = (await res.json()) as unknown;
+        const parsed = parseOAuth1AccessTokenResponse(raw);
 
-        if (data.oauthToken && data.oauthTokenSecret) {
-          localStorage.setItem('twitter_oauth1_token', data.oauthToken);
-          localStorage.setItem('twitter_oauth1_secret', data.oauthTokenSecret);
-          if (data.screenName) {
-            localStorage.setItem('twitter_oauth1_screen_name', data.screenName);
+        if (parsed?.oauthToken && parsed.oauthTokenSecret) {
+          localStorage.setItem('twitter_oauth1_token', parsed.oauthToken);
+          localStorage.setItem('twitter_oauth1_secret', parsed.oauthTokenSecret);
+          if (parsed.screenName) {
+            localStorage.setItem('twitter_oauth1_screen_name', parsed.screenName);
           }
 
           if (window.opener && !window.opener.closed) {
             window.opener.postMessage(
               {
                 type: 'twitter_oauth1_token',
-                oauthToken: data.oauthToken,
-                oauthTokenSecret: data.oauthTokenSecret,
-                screenName: data.screenName,
+                oauthToken: parsed.oauthToken,
+                oauthTokenSecret: parsed.oauthTokenSecret,
+                screenName: parsed.screenName,
               },
               window.location.origin
             );
             window.close();
             return;
           }
+        } else {
+          console.error('[OAuth1 Callback] Unexpected access-token response shape:', raw);
         }
       } catch (error) {
         console.error('[OAuth1 Callback] exchange failed:', error);

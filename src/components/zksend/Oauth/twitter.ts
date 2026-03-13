@@ -37,6 +37,56 @@ export type TwitterOAuth1Tokens = {
   screenName?: string;
 };
 
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+
+const firstString = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.length > 0) return value;
+  }
+  return undefined;
+};
+
+const parseOAuth1AccessTokenResponse = (raw: unknown): TwitterOAuth1Tokens | null => {
+  const root = asRecord(raw);
+  if (!root) return null;
+
+  const nested = asRecord(root.data) ?? asRecord(root.result) ?? asRecord(root.payload);
+
+  const oauthToken = firstString(
+    root.oauthToken,
+    root.oauth_token,
+    root.accessToken,
+    root.access_token,
+    nested?.oauthToken,
+    nested?.oauth_token,
+    nested?.accessToken,
+    nested?.access_token
+  );
+  const oauthTokenSecret = firstString(
+    root.oauthTokenSecret,
+    root.oauth_token_secret,
+    root.accessTokenSecret,
+    root.access_token_secret,
+    nested?.oauthTokenSecret,
+    nested?.oauth_token_secret,
+    nested?.accessTokenSecret,
+    nested?.access_token_secret
+  );
+  const screenName = firstString(
+    root.screenName,
+    root.screen_name,
+    root.username,
+    nested?.screenName,
+    nested?.screen_name,
+    nested?.username
+  );
+
+  if (!oauthToken || !oauthTokenSecret) return null;
+
+  return { oauthToken, oauthTokenSecret, screenName };
+};
+
 const exchangeTwitterOAuth1AccessToken = async (
   apiUrl: string,
   oauthToken: string,
@@ -53,21 +103,13 @@ const exchangeTwitterOAuth1AccessToken = async (
     throw new Error(`OAuth1 access-token failed: ${res.status}${text ? ` ${text}` : ''}`);
   }
 
-  const data = (await res.json()) as {
-    oauthToken?: string;
-    oauthTokenSecret?: string;
-    screenName?: string;
-  };
-
-  if (!data.oauthToken || !data.oauthTokenSecret) {
+  const raw = (await res.json()) as unknown;
+  const parsed = parseOAuth1AccessTokenResponse(raw);
+  if (!parsed) {
     throw new Error('Missing oauth token/secret in OAuth1 access-token response');
   }
 
-  return {
-    oauthToken: data.oauthToken,
-    oauthTokenSecret: data.oauthTokenSecret,
-    screenName: data.screenName,
-  };
+  return parsed;
 };
 
 /**
