@@ -127,14 +127,20 @@ export const requestTwitterOAuth1Flow = async (): Promise<TwitterOAuth1Tokens | 
     const envCallback = import.meta.env.VITE_TWITTER_OAUTH1_CALLBACK as string | undefined;
     const isLocalOrigin = originUrl.hostname.includes('localhost');
 
-    // Use env callback only when:
-    // - it is set AND
-    //   - or this not localhost
-    // else in prode ingone callback zk.localhost + defaultCallback.
-    const baseCallback =
-      envCallback && (!envCallback.includes('localhost') || isLocalOrigin)
-        ? envCallback
-        : defaultCallback;
+    // Prefer runtime origin callback in production to avoid www/non-www mismatch.
+    // Env callback is only allowed for local development override, or when host matches exactly.
+    let baseCallback = defaultCallback;
+    if (envCallback) {
+      try {
+        const envUrl = new URL(envCallback);
+        const sameHost = envUrl.hostname.toLowerCase() === originUrl.hostname.toLowerCase();
+        if (isLocalOrigin || sameHost) {
+          baseCallback = envCallback;
+        }
+      } catch {
+        // Invalid env callback format - ignore and use default callback.
+      }
+    }
 
     let callbackUrl = baseCallback.replace(/\/$/, '');
 
