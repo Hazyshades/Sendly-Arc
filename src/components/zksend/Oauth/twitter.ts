@@ -230,6 +230,8 @@ export const requestTwitterOAuth1Flow = async (): Promise<TwitterOAuth1Tokens | 
         let checkPopupOAuthParams: ReturnType<typeof setInterval> | null = null;
         let flowTimeout: ReturnType<typeof setTimeout> | null = null;
         let sawSameOriginWithoutOAuth = false;
+        let fallbackExchangeInFlight = false;
+        let fallbackExchangeAttemptKey: string | null = null;
 
         const cleanup = () => {
           window.removeEventListener('message', messageHandler);
@@ -304,16 +306,34 @@ export const requestTwitterOAuth1Flow = async (): Promise<TwitterOAuth1Tokens | 
 
             const oauthToken = popupUrl.searchParams.get('oauth_token');
             const oauthVerifier = popupUrl.searchParams.get('oauth_verifier');
+            const isCallbackRoute = popupUrl.pathname === '/auth/twitter-oauth1/callback';
 
             if (oauthToken && oauthVerifier) {
+              // When popup is already on callback route, that route performs exchange itself.
+              // Avoid duplicate access-token exchange from parent, it causes 400 "Unknown oauthToken".
+              if (isCallbackRoute) return;
+
+              const attemptKey = `${oauthToken}:${oauthVerifier}`;
+              if (fallbackExchangeInFlight || fallbackExchangeAttemptKey === attemptKey) return;
+              fallbackExchangeInFlight = true;
+              fallbackExchangeAttemptKey = attemptKey;
+
               void exchangeTwitterOAuth1AccessToken(apiUrl, oauthToken, oauthVerifier)
                 .then((tokens) => {
                   settle(tokens, true);
                 })
                 .catch((error) => {
+                  const message = error instanceof Error ? error.message : String(error);
+                  // Benign duplicate exchange after popup callback already succeeded.
+                  if (message.includes('Unknown oauthToken')) {
+                    console.warn('[Twitter OAuth1] Ignoring duplicate fallback exchange:', message);
+                    return;
+                  }
                   console.error('[Twitter OAuth1] fallback exchange error:', error);
                   toast.error('Twitter callback returned, but token exchange failed');
-                  settle(null, true);
+                })
+                .finally(() => {
+                  fallbackExchangeInFlight = false;
                 });
               return;
             }
