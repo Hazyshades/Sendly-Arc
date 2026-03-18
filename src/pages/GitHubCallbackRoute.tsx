@@ -2,13 +2,27 @@ import { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const getZkTlsApiUrl = (): string => {
-  // In browser: use same origin so Vite proxy forwards /api to zktls-service (port 3001).
-  // Avoids mixed content (HTTPS page → HTTP API) and 404 when env points to localhost:3001.
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
   const envUrl =
     (import.meta.env.VITE_ZKTLS_SERVICE_URL as string | undefined) ||
     (import.meta.env.VITE_ZKTLS_API_URL as string | undefined);
   if (envUrl) return envUrl;
+
+  // Fallback: in browser use same origin so Vite proxy forwards /api to zktls-service (port 3001).
+  // Also normalize www-prefixed hosts (e.g. www.zk.sendly.digital -> zk.sendly.digital)
+  // to reduce "www vs non-www" mismatches.
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    try {
+      const url = new URL(window.location.origin);
+      const hostname = url.hostname.toLowerCase();
+      if (hostname.startsWith('www.')) {
+        url.hostname = hostname.slice(4);
+        return url.origin;
+      }
+      return window.location.origin;
+    } catch {
+      return window.location.origin;
+    }
+  }
   return 'http://localhost:3001';
 };
 

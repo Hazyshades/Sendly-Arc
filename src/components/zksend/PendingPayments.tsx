@@ -678,9 +678,8 @@ export function PendingPayments({
         }
 
         setLastClaimedTxHash(txHash);
-        toast.success(
-          <span>
-            Payment claimed.{' '}
+        toast.success('Payment claimed.', {
+          description: (
             <a
               href={getExplorerTxUrl(activeChainId, txHash)}
               target="_blank"
@@ -689,8 +688,8 @@ export function PendingPayments({
             >
               TX: {txHash.slice(0, 10)}...
             </a>
-          </span>
-        );
+          ),
+        });
         await loadPending();
         return;
       }
@@ -882,9 +881,8 @@ export function PendingPayments({
       }
 
       setLastClaimedTxHash(txHash);
-      toast.success(
-        <span>
-          Payment claimed.{' '}
+      toast.success('Payment claimed.', {
+        description: (
           <a
             href={getExplorerTxUrl(activeChainId, txHash)}
             target="_blank"
@@ -893,8 +891,8 @@ export function PendingPayments({
           >
             TX: {txHash.slice(0, 10)}...
           </a>
-        </span>
-      );
+        ),
+      });
       await loadPending();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to claim payment';
@@ -1361,14 +1359,17 @@ export function PendingPayments({
         {rows.length === 0 ? (
           <div className="text-sm text-muted-foreground">
             {lastClaimedTxHash ? (
-              <a
-                href={getExplorerTxUrl(activeChainId, lastClaimedTxHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline font-medium text-foreground hover:opacity-80"
-              >
-                Payment claimed. View transaction: {lastClaimedTxHash.slice(0, 10)}...
-              </a>
+              <span className="font-semibold text-foreground">
+                Payment claimed. View transaction:{' '}
+                <a
+                  href={getExplorerTxUrl(activeChainId, lastClaimedTxHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:opacity-80"
+                >
+                  {lastClaimedTxHash.slice(0, 10)}...
+                </a>
+              </span>
             ) : null}
           </div>
         ) : (
