@@ -272,8 +272,8 @@ export function SendPaymentForm({
             toast.success(
               <span>
                 Payment sent successfully!{' '}
-                <a href={getExplorerTxUrl(activeChainId, txHash)} target="_blank" rel="noopener noreferrer" className="underline font-medium">
-                  TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                <a href={getExplorerTxUrl(activeChainId, txHash)} target="_blank" rel="noopener noreferrer" className="font-medium">
+                  TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
                 </a>
               </span>
             );
@@ -355,20 +355,20 @@ export function SendPaymentForm({
           }
         }
         if (paymentId && txHash) {
-          toast.success(`Payment created successfully! Payment ID: ${paymentId}`, {
+          toast.success('Payment created successfully!', {
             description: (
               <a
                 href={getExplorerTxUrl(activeChainId, txHash)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline font-medium"
+                className="font-medium"
               >
-                TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
               </a>
             ),
           });
         } else if (paymentId) {
-          toast.success(`Payment created successfully! Payment ID: ${paymentId}`);
+          toast.success('Payment created successfully!');
         } else if (txHash) {
           toast.success('Payment created successfully!', {
             description: (
@@ -376,9 +376,9 @@ export function SendPaymentForm({
                 href={getExplorerTxUrl(activeChainId, txHash)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline font-medium"
+                className="font-medium"
               >
-                TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
               </a>
             ),
           });
@@ -413,9 +413,9 @@ export function SendPaymentForm({
                 href={getExplorerTxUrl(activeChainId, txHash)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline font-medium"
+                className="font-medium"
               >
-                TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
               </a>
             </span>
           );
@@ -456,20 +456,20 @@ export function SendPaymentForm({
       }
 
       if (paymentId && txHash) {
-        toast.success(`Payment created successfully! Payment ID: ${paymentId}`, {
+        toast.success('Payment created successfully!', {
           description: (
             <a
               href={getExplorerTxUrl(activeChainId, txHash)}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline font-medium"
+              className="font-medium"
             >
-              TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+              TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
             </a>
           ),
         });
       } else if (paymentId) {
-        toast.success(`Payment created successfully! Payment ID: ${paymentId}`);
+        toast.success('Payment created successfully!');
       } else if (txHash) {
         toast.success('Payment created successfully!', {
           description: (
@@ -477,9 +477,9 @@ export function SendPaymentForm({
               href={getExplorerTxUrl(activeChainId, txHash)}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline font-medium"
+              className="font-medium"
             >
-              TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+              TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
             </a>
           ),
         });
@@ -523,9 +523,9 @@ export function SendPaymentForm({
               href={getExplorerTxUrl(activeChainId, txHash)}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline font-medium"
+              className="font-medium"
             >
-              TX: {txHash.slice(0, 10)}...
+              TX: <span className="underline">{txHash.slice(0, 10)}...</span>
             </a>
           </span>
         );

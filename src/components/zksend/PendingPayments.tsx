@@ -705,9 +705,9 @@ export function PendingPayments({
               href={getExplorerTxUrl(activeChainId, txHash)}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline font-medium"
+              className="font-medium"
             >
-              TX: {txHash.slice(0, 10)}...
+              TX: <span className="underline">{txHash.slice(0, 10)}...</span>
             </a>
           ),
         });
@@ -908,9 +908,9 @@ export function PendingPayments({
             href={getExplorerTxUrl(activeChainId, txHash)}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline font-medium"
+            className="font-medium"
           >
-            TX: {txHash.slice(0, 10)}...
+            TX: <span className="underline">{txHash.slice(0, 10)}...</span>
           </a>
         ),
       });
@@ -1045,9 +1045,9 @@ export function PendingPayments({
               href={getExplorerTxUrl(activeChainId, txHash)}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline font-medium"
+              className="font-medium"
             >
-              TX: {txHash.slice(0, 10)}...
+              TX: <span className="underline">{txHash.slice(0, 10)}...</span>
             </a>
           ),
         });
@@ -1219,9 +1219,9 @@ export function PendingPayments({
             href={getExplorerTxUrl(activeChainId, txHash)}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline font-medium"
+            className="font-medium"
           >
-            TX: {txHash.slice(0, 10)}...
+            TX: <span className="underline">{txHash.slice(0, 10)}...</span>
           </a>
         ),
       });
@@ -1417,7 +1417,7 @@ export function PendingPayments({
                 className="flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
               >
                 <div className="space-y-1">
-                  <div className="text-sm font-medium">paymentId: {p.paymentId}</div>
+                  <div className="text-sm font-medium">Payment</div>
                   <div className="text-xs text-muted-foreground">
                     from:{' '}
                     <a

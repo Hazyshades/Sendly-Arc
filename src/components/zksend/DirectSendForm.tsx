@@ -73,9 +73,9 @@ export function DirectSendForm() {
               href={getExplorerTxUrl(activeChainId, txHash)}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline font-medium"
+              className="font-medium"
             >
-              TX: {txHash.slice(0, 10)}...
+              TX: <span className="underline">{txHash.slice(0, 10)}...</span>
             </a>
           </span>
         );
