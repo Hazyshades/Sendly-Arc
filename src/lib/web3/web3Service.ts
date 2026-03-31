@@ -1,4 +1,4 @@
-import { createPublicClient, http, parseAbiItem, parseEventLogs } from 'viem';
+import { createPublicClient, http, parseAbiItem, parseEventLogs, type Log } from 'viem';
 import { chains } from './wagmiConfig';
 import {
   getContractsForChain,
@@ -13,8 +13,16 @@ import {
   DirectSendV2ABI,
   ERC20ABI,
   getDirectSendV2Eip712Name,
+  getDirectSendV2EffectiveFromBlock,
+  getDirectSendV2LogChunkBlocks,
+  getDirectSendV2MaxLogChunks,
+  getDirectSendV2PendingSource,
   isDirectSendEscrowActiveForChain,
 } from './constants';
+import {
+  fetchDirectDepositsPendingForRecipient,
+  type DirectDepositRecord,
+} from '@/lib/directsend/directSendPaymentsAPI';
 
 const ARC_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID || 5042002);
 
@@ -1991,8 +1999,97 @@ export class Web3Service {
   }
 
   /**
-   * Pending deposits for an address (by logs + on-chain claimed flag).
-   * May be heavy on first run if RPC limits block range; set VITE_DIRECT_SEND_V2_FROM_BLOCK if needed.
+   * DepositCreated logs for a recipient, split into chunks to satisfy `eth_getLogs` block-range limits per RPC.
+   */
+  private async getDirectSendDepositCreatedLogsChunked(
+    v2: `0x${string}`,
+    recipient: `0x${string}`,
+    depositCreatedEvent: ReturnType<typeof parseAbiItem>,
+    fromBlock: bigint
+  ): Promise<Log[]> {
+    const latest = await this.safeRequest(async () => {
+      return await this.publicClient.getBlockNumber();
+    });
+    if (fromBlock > latest) {
+      return [];
+    }
+
+    const chunk = getDirectSendV2LogChunkBlocks(this.chainId);
+    const maxChunks = getDirectSendV2MaxLogChunks();
+    const all: Log[] = [];
+
+    let start = fromBlock;
+    let chunkCount = 0;
+    while (start <= latest && chunkCount < maxChunks) {
+      const end = start + chunk - 1n <= latest ? start + chunk - 1n : latest;
+      const batch = await this.safeRequest(async () => {
+        return await this.publicClient.getLogs({
+          address: v2,
+          event: depositCreatedEvent,
+          args: { recipient },
+          fromBlock: start,
+          toBlock: end,
+        });
+      });
+      all.push(...batch);
+      start = end + 1n;
+      chunkCount += 1;
+    }
+
+    if (start <= latest && chunkCount >= maxChunks) {
+      console.warn(
+        '[DirectSend V2] eth_getLogs scan stopped at max chunk count; set VITE_DIRECT_SEND_V2_FROM_BLOCK, adjust lookback, or VITE_DIRECT_SEND_V2_MAX_LOG_CHUNKS.'
+      );
+    }
+
+    return all;
+  }
+
+  /** Reconcile index rows with on-chain deposit state (cheap readContract per id). */
+  private async mapDirectDepositRecordsToPending(
+    records: DirectDepositRecord[]
+  ): Promise<
+    Array<{
+      depositId: string;
+      sender: string;
+      amount: string;
+      amountWei: string;
+      token: string;
+      claimed: boolean;
+      createdAt: number;
+    }>
+  > {
+    const out: Array<{
+      depositId: string;
+      sender: string;
+      amount: string;
+      amountWei: string;
+      token: string;
+      claimed: boolean;
+      createdAt: number;
+    }> = [];
+    const seen = new Set<string>();
+    for (const r of records) {
+      const id = String(r.deposit_id ?? '').trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const state = await this.getDirectDepositState(id);
+      if (!state || state.claimed) continue;
+      out.push({
+        depositId: id,
+        sender: state.sender,
+        amount: state.amount,
+        amountWei: state.amountWei,
+        token: state.token,
+        claimed: state.claimed,
+        createdAt: state.createdAt,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Pending deposits for an address: optional Supabase index, else RPC log scan (bounded lookback by default).
    */
   async getPendingDirectDepositsForRecipient(recipient: `0x${string}`): Promise<
     Array<{
@@ -2010,23 +2107,57 @@ export class Web3Service {
       return [];
     }
 
-    const fromBlockEnv = import.meta.env.VITE_DIRECT_SEND_V2_FROM_BLOCK;
-    const fromBlock =
-      fromBlockEnv && String(fromBlockEnv).trim() !== '' ? BigInt(String(fromBlockEnv).trim()) : 0n;
+    const source = getDirectSendV2PendingSource();
+
+    if (source === 'subgraph') {
+      if (import.meta.env.DEV) {
+        console.info(
+          '[DirectSend V2] VITE_DIRECT_SEND_V2_PENDING_SOURCE=subgraph: no subgraph client; returning [].'
+        );
+      }
+      return [];
+    }
+
+    if (source === 'supabase' || source === 'auto') {
+      try {
+        const rows = await fetchDirectDepositsPendingForRecipient({
+          recipientWallet: recipient,
+          chainId: this.chainId,
+          contractAddress: v2,
+        });
+        if (rows != null && rows.length > 0) {
+          return await this.mapDirectDepositRecordsToPending(rows);
+        }
+        if (source === 'supabase') {
+          return [];
+        }
+      } catch (e) {
+        console.warn('[DirectSend V2] Supabase index:', e);
+        if (source === 'supabase') {
+          return [];
+        }
+      }
+    }
+
+    if (source !== 'rpc' && source !== 'auto') {
+      return [];
+    }
+
+    const latest = await this.safeRequest(async () => {
+      return await this.publicClient.getBlockNumber();
+    });
+    const fromBlock = getDirectSendV2EffectiveFromBlock(latest, this.chainId);
 
     const depositCreatedEvent = parseAbiItem(
       'event DepositCreated(uint256 indexed depositId, address indexed sender, address indexed recipient, uint256 amount, address token)'
     );
 
-    const logs = await this.safeRequest(async () => {
-      return await this.publicClient.getLogs({
-        address: v2 as `0x${string}`,
-        event: depositCreatedEvent,
-        args: { recipient },
-        fromBlock,
-        toBlock: 'latest',
-      });
-    });
+    const logs = await this.getDirectSendDepositCreatedLogsChunked(
+      v2 as `0x${string}`,
+      recipient,
+      depositCreatedEvent,
+      fromBlock
+    );
 
     const out: Array<{
       depositId: string;
@@ -2039,8 +2170,9 @@ export class Web3Service {
     }> = [];
 
     for (const log of logs) {
-      const args = log.args as { depositId?: bigint; sender?: `0x${string}`; amount?: bigint; token?: `0x${string}` };
-      if (args.depositId == null || args.amount == null || !args.token) continue;
+      const args = (log as { args?: { depositId?: bigint; sender?: `0x${string}`; amount?: bigint; token?: `0x${string}` } })
+        .args;
+      if (!args || args.depositId == null || args.amount == null || !args.token) continue;
       const depositId = args.depositId.toString();
       const state = await this.getDirectDepositState(depositId);
       if (!state || state.claimed) continue;

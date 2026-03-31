@@ -51,11 +51,15 @@ export const DIRECT_SEND_CONTRACT_ADDRESS =
 
 /** DirectSend V2 (escrow + claim). Deploy `contracts/hardhat/DirectSendV2.sol` / `DirectSendTempoV2.sol`. */
 export const ARC_DIRECT_SEND_V2_CONTRACT_ADDRESS =
-  import.meta.env.VITE_ARC_DIRECT_SEND_V2_CONTRACT_ADDRESS || '';
+  import.meta.env.VITE_ARC_DIRECT_SEND_V2_CONTRACT_ADDRESS ||
+  '0x55c1AaE779c774c5bB622045CC30278F64E90AAf';
 export const TEMPO_DIRECT_SEND_V2_CONTRACT_ADDRESS =
-  import.meta.env.VITE_TEMPO_DIRECT_SEND_V2_CONTRACT_ADDRESS || '';
+  import.meta.env.VITE_TEMPO_DIRECT_SEND_V2_CONTRACT_ADDRESS ||
+  '0x7B46C6f4dcDF763608F2FA2652754E819d3c6E14';
+/** Base Sepolia V2 (`VITE_BASE_CHAIN_ID` defaults to 84532). */
 export const BASE_SEPOLIA_DIRECT_SEND_V2_CONTRACT_ADDRESS =
-  import.meta.env.VITE_BASE_DIRECT_SEND_V2_CONTRACT_ADDRESS || '';
+  import.meta.env.VITE_BASE_DIRECT_SEND_V2_CONTRACT_ADDRESS ||
+  '0x85a8A0cb107b03bc7a25DD54fF76cA2719B6F0be';
 
 /** `legacy` = instant send (DirectSend v1). `escrow_v2` = deposit + claim when V2 address is set. */
 export type DirectSendClaimMode = 'legacy' | 'escrow_v2';
@@ -74,6 +78,67 @@ export function isDirectSendEscrowActiveForChain(chainId: number): boolean {
   if (getDirectSendClaimMode() !== 'escrow_v2') return false;
   const a = getContractsForChain(chainId).directSendV2;
   return !!a && a !== '0x0000000000000000000000000000000000000000';
+}
+
+/**
+ * Max block range per `eth_getLogs` when scanning DirectSend V2 `DepositCreated` (RPC limits vary).
+ * Override with `VITE_DIRECT_SEND_V2_LOG_CHUNK` if your provider differs.
+ */
+export function getDirectSendV2LogChunkBlocks(chainId: number): bigint {
+  const raw = import.meta.env.VITE_DIRECT_SEND_V2_LOG_CHUNK;
+  if (raw != null && String(raw).trim() !== '') {
+    const n = BigInt(String(raw).trim());
+    if (n > 0n) return n;
+  }
+  if (chainId === 5042002) return 10_000n; // Arc testnet: 10k max range
+  if (chainId === 42431) return 100_000n; // Tempo: 100k max range
+  if (chainId === 84532) return 10_000n; // Base Sepolia (typical public RPC)
+  return 10_000n;
+}
+
+/**
+ * Blocks to scan backward from `latest` when `VITE_DIRECT_SEND_V2_FROM_BLOCK` is unset.
+ * Avoids scanning from genesis (thousands of eth_getLogs). Override via env or set FROM_BLOCK explicitly.
+ */
+export function getDirectSendV2LookbackBlocks(chainId: number): bigint {
+  const raw = import.meta.env.VITE_DIRECT_SEND_V2_LOOKBACK_BLOCKS;
+  if (raw != null && String(raw).trim() !== '') {
+    const n = BigInt(String(raw).trim());
+    if (n > 0n) return n;
+  }
+  if (chainId === 42431) return 500_000n; // Tempo: chunk 100k → ~5 RPC calls
+  if (chainId === 5042002) return 100_000n; // Arc: chunk 10k → ~10 RPC calls
+  if (chainId === 84532) return 100_000n;
+  return 100_000n;
+}
+
+/** Lower bound for log scan: explicit FROM_BLOCK, or (latest − lookback). */
+export function getDirectSendV2EffectiveFromBlock(latest: bigint, chainId: number): bigint {
+  const explicit = import.meta.env.VITE_DIRECT_SEND_V2_FROM_BLOCK;
+  if (explicit !== undefined && String(explicit).trim() !== '') {
+    return BigInt(String(explicit).trim());
+  }
+  const lookback = getDirectSendV2LookbackBlocks(chainId);
+  return latest > lookback ? latest - lookback : 0n;
+}
+
+/** Where to load pending deposits: rpc-only, Supabase index, subgraph (stub), or try index then RPC. */
+export type DirectSendV2PendingSource = 'rpc' | 'supabase' | 'subgraph' | 'auto';
+
+export function getDirectSendV2PendingSource(): DirectSendV2PendingSource {
+  const v = (import.meta.env.VITE_DIRECT_SEND_V2_PENDING_SOURCE || 'auto').toLowerCase().trim();
+  if (v === 'rpc' || v === 'supabase' || v === 'subgraph') return v;
+  return 'auto';
+}
+
+/** Safety cap on eth_getChunks batches when scanning a wide from..latest range (e.g. FROM_BLOCK=0). */
+export function getDirectSendV2MaxLogChunks(): number {
+  const raw = import.meta.env.VITE_DIRECT_SEND_V2_MAX_LOG_CHUNKS;
+  if (raw != null && String(raw).trim() !== '') {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return Math.min(Math.floor(n), 1_000_000);
+  }
+  return 500;
 }
 
 export const RECLAIM_VERIFIER_CONTRACT_ADDRESS =
