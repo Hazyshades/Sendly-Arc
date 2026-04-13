@@ -190,17 +190,23 @@ export function PrivyOAuthInfographic({
   compact = false,
   embedded = false,
 }: PrivyOAuthInfographicProps) {
+  const compactBaseWidth = 800;
+  const compactBaseHeight = 380;
+  const compactScale = 0.34;
+  const compactPreviewWidth = Math.round(compactBaseWidth * compactScale);
+  const compactPreviewHeight = Math.round(compactBaseHeight * compactScale);
+
   const containerClass = compact
-    ? 'flex flex-col items-center justify-center px-2 py-4 rounded-xl overflow-hidden'
+    ? 'flex w-full flex-col items-center justify-center py-3 rounded-xl overflow-hidden'
     : embedded
       ? 'flex w-full flex-col items-center justify-center px-8 py-12'
       : 'flex min-h-screen w-full flex-col items-center justify-center px-8 py-16';
 
   const contentStyle = compact
     ? {
-        width: 800,
-        minWidth: 800,
-        transform: 'scale(0.4)',
+        width: compactBaseWidth,
+        minWidth: compactBaseWidth,
+        transform: `scale(${compactScale})`,
         transformOrigin: 'center top',
       }
     : undefined;
@@ -209,8 +215,8 @@ export function PrivyOAuthInfographic({
     : 'mb-12 text-3xl font-semibold';
 
   // SVG dimensions for positioning
-  const svgWidth = compact ? 800 : 900;
-  const svgHeight = compact ? 380 : 600;
+  const svgWidth = compact ? compactBaseWidth : 900;
+  const svgHeight = compact ? compactBaseHeight : 600;
 
   // Node positions (centers)
   // Row 0 (top): MPC Key (only non-compact, centered above Privy)
@@ -251,8 +257,9 @@ export function PrivyOAuthInfographic({
         style={
           compact
             ? {
-                width: 320,
-                height: 160,
+                width: '100%',
+                maxWidth: compactPreviewWidth,
+                height: compactPreviewHeight,
                 overflow: 'hidden',
               }
             : {
