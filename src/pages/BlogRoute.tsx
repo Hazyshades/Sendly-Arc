@@ -16,36 +16,48 @@ interface BlogPost {
 
 const blogPosts: BlogPost[] = [
   {
-    slug: 'privy_results',
-    title: 'Privy testnet results: metrics, methodology, and takeaways',
-    description:
-      'Testnet metrics, the Privy + OAuth token workflow, how we verify data, and main practical takeaways.',
-    date: '2026-02-10',
-    category: 'Technology',
-    tags: ['Privy', 'OAuth', 'Testnet'],
-    readTime: '8 min',
-    image: '/Sendly x Privy.png'
-  },
-  {
     slug: 'zktls_payments_guide',
     title: 'User Guide: Payments (zkTLS and zkSend)',
     description:
-      'Discover our zkTLS technology: send and receive payments via social identity with proof of ownership - no data sharing.',
+      'Send money to platform:username. The recipient proves they control that account (zkTLS), then the contract sends funds to their wallet.',
     date: '2026-02-11',
     category: 'Tutorial',
     tags: ['zkTLS', 'zkSend', 'Payments'],
-    readTime: '10 min',
+    readTime: '8 min',
     image: '/SENDLY-ZKTLS.png'
   },
   {
     slug: 'nft_gift_cards_guide',
-    title: 'NFT Gift Cards -  User Guide',
-    description: 'An NFT gift card is a digital card minted on-chain. Choose amount, add a message, send to a wallet or social username.',
+    title: 'NFT Gift Cards - User Guide',
+    description:
+      'Mint a gift card on-chain. Pick an amount, add a message, and send it to a wallet or to someone\'s social username.',
     date: '2026-02-11',
     category: 'Tutorial',
     tags: ['NFT', 'Gift Cards', 'Tutorial'],
     readTime: '8 min',
     image: '/SENDLY GIFT CARD.png'
+  },
+  {
+    slug: 'circle_sdk_wallet_playbook',
+    title: 'Circle SDK in Sendly: Internal Wallet, Asset Flow, and NFT Cards',
+    description:
+      'How Sendly uses Circle Developer Wallet: internal-wallet payments, funding and transfers, and minting NFT gift cards.',
+    date: '2026-04-14',
+    category: 'Technology',
+    tags: ['Circle', 'Developer Wallets', 'NFT'],
+    readTime: '9 min',
+    image: '/SENDLY x CIRCLE.png'
+  },
+  {
+    slug: 'privy_results',
+    title: 'Privy testnet results: metrics, methodology, and takeaways',
+    description:
+      'Privy testnet snapshot: 11k+ addresses, 31k+ cards, about $82k TVL, about $310k total volume. How Privy + OAuth fit our stack, how we verified numbers in three layers, and what we learned running it.',
+    date: '2026-02-10',
+    category: 'Technology',
+    tags: ['Privy', 'OAuth', 'Testnet'],
+    readTime: '6 min',
+    image: '/Sendly x Privy.png'
   }
 ];
 
@@ -76,7 +88,7 @@ export function BlogRoute() {
           Blog
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          News, updates and guides for Sendly
+          Release notes, how-tos, and product writeups
         </p>
       </div>
 
