@@ -9,6 +9,8 @@ import { PrivyOAuthInfographic } from '@/components/figma/PrivyOAuthInfographic'
 import { ZkSendPanel } from '@/components/zksend/ZkSendPanel';
 import type { SendPaymentPreviewValues } from '@/components/zksend/SendPaymentForm';
 import { CreateGiftCardPreview } from '@/components/CreateGiftCardPreview';
+import { InternalWalletDashboardPreview } from '@/components/InternalWalletDashboardPreview';
+import { InternalWalletCreatePromptPreview } from '@/components/InternalWalletCreatePromptPreview';
 import { BlogLayout } from '@/components/BlogLayout';
 import { fetchTwitterUserPreview } from '@/lib/twitter/userLookup';
 
@@ -48,7 +50,7 @@ interface BlogSection {
 interface BlogImage {
   id: string;
   src?: string;
-  componentId?: 'verification-infographic' | 'zktls-infographic' | 'zktls-architecture-infographic' | 'privy-oauth-infographic' | 'payments-send-embed' | 'payments-receive-embed' | 'gift-card-create-embed';
+  componentId?: 'verification-infographic' | 'zktls-infographic' | 'zktls-architecture-infographic' | 'privy-oauth-infographic' | 'payments-send-embed' | 'payments-receive-embed' | 'gift-card-create-embed' | 'internal-wallet-dashboard-embed' | 'internal-wallet-create-embed';
   alt: string;
   caption: string;
 }
@@ -369,8 +371,14 @@ const blogPosts: Record<string, BlogPost> = {
     readTime: '9 min',
     images: [
       {
+        id: 'circle-create-wallet',
+        componentId: 'internal-wallet-create-embed',
+        alt: 'Create internal wallet prompt in Sendly',
+        caption: ''
+      },
+      {
         id: 'circle-cover',
-        src: '/ttt.png',
+        componentId: 'internal-wallet-dashboard-embed',
         alt: 'Circle wallet flow in Sendly',
         caption: ''
       }
@@ -388,7 +396,7 @@ const blogPosts: Record<string, BlogPost> = {
           'Read balances and fund the wallet (top-up or deposit-style flows).',
           'Mint and claim NFT gift cards to a wallet address or a social handle.'
         ],
-        imageId: 'circle-cover'
+        imageId: 'circle-create-wallet'
       },
       
       {
@@ -400,11 +408,7 @@ const blogPosts: Record<string, BlogPost> = {
           'Scenario 1: Social login, no web3 wallet yet. They create an internal wallet and can receive a payment to it. Some flows create the wallet right before claim.',
           'Scenario 2: They already use a web3 wallet. They can still add an internal wallet and tie it to socials or to an external address, depending on how you wire identity.'
         ],
-        bullets: [
-          'Primary UI entry: `DeveloperWallet.tsx`.',
-          'Wallet helper logic: `useCircleWallet.ts`.',
-          'Service wrapper: `developerWalletService.ts`.'
-        ]
+      
       },
       {
         id: 'asset-flow',
@@ -417,7 +421,8 @@ const blogPosts: Record<string, BlogPost> = {
           'Gateway client/service modules hold the balance and transfer plumbing.',
           'Internal wallet UI includes top-up and test-token requests.',
           'Transactions are not always synchronous: the UI polls by `transactionId` until it gets a hash or a final state.'
-        ]
+        ],
+        imageId: 'circle-cover'
       },
       {
         id: 'nft-cards',
@@ -434,13 +439,13 @@ const blogPosts: Record<string, BlogPost> = {
       },
       {
         id: 'internal-wallet-stats',
-        title: 'Statistics (cards minted via Internal Wallet)',
+        title: 'Statistics',
         paragraphs: [
           'Counts and amounts below are gift cards minted through Circle Developer Wallet (internal wallet). Balances use 6 decimals; raw is the integer in smallest units.',
           'Our testnet writeup put total volume around $310k. The percentage is internal-wallet mint face value divided by that $310k number. Treat it as a rough comparison (EURC is not exactly USD).'
         ],
         bullets: [
-          'Users who minted cards via Internal Wallet: 216.',
+          'Users who minted cards via Internal Wallet: 220.',
           'Combined face value of those mints: 6,634.486746 (raw 6,634,486,746, 6 decimals).',
           'USDC portion: 4,499.750146.',
           'EURC portion: 2,134.736600.',
@@ -669,6 +674,12 @@ export function BlogPostRoute() {
       }
       if (img.componentId === 'payments-receive-embed') {
         return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden" aria-label={`Open: ${img.alt}`}><div className="p-4 min-h-[200px]"><ZkSendPanel initialTab="receive" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} /></div></button>);
+      }
+      if (img.componentId === 'internal-wallet-dashboard-embed') {
+        return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl overflow-hidden" aria-label={`Open: ${img.alt}`}><div className="p-2 min-h-[200px]"><InternalWalletDashboardPreview compact /></div></button>);
+      }
+      if (img.componentId === 'internal-wallet-create-embed') {
+        return (<button type="button" onClick={() => setActiveImage(img)} className="w-full text-left rounded-xl overflow-hidden" aria-label={`Open: ${img.alt}`}><div className="p-2 min-h-[200px]"><InternalWalletCreatePromptPreview compact /></div></button>);
       }
       const isSR = img.id === 'send-tab' || img.id === 'receive-tab';
       return (<button type="button" onClick={() => setActiveImage(img)} className={`w-full text-left ${isSR ? 'border-0 shadow-none ring-0 outline-none' : ''}`} aria-label={`Open image: ${img.alt}`}><img src={img.src} alt={img.alt} loading="lazy" className={`w-full h-40 object-cover ${isSR ? 'rounded-xl border-0 shadow-none' : 'rounded-xl'}`} />{!isSR && img.caption && <div className="mt-3 text-sm text-gray-600">{img.caption}</div>}</button>);
@@ -1010,6 +1021,14 @@ export function BlogPostRoute() {
             ) : activeImage.componentId === 'payments-receive-embed' || activeImage.id === 'receive-tab' ? (
               <div className="bg-white rounded-xl overflow-hidden p-6 max-h-[85vh] overflow-y-auto">
                 <ZkSendPanel initialTab="receive" preview previewValues={paymentsPreviewValues ?? PAYMENTS_SEND_PREVIEW_FALLBACK} />
+              </div>
+            ) : activeImage.componentId === 'internal-wallet-dashboard-embed' ? (
+              <div className="bg-white rounded-xl overflow-hidden p-6 max-h-[85vh] overflow-y-auto">
+                <InternalWalletDashboardPreview />
+              </div>
+            ) : activeImage.componentId === 'internal-wallet-create-embed' ? (
+              <div className="bg-white rounded-xl overflow-hidden p-6 max-h-[85vh] overflow-y-auto">
+                <InternalWalletCreatePromptPreview />
               </div>
             ) : (
               <div className={isFramelessPreview ? 'overflow-hidden' : 'rounded-xl overflow-hidden bg-gray-900'}>

@@ -1032,8 +1032,8 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
   const shouldShowConnectMessage = !isConnected && (!authenticated || !privyUser);
 
   return (
-    <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card">
-  <CardHeader className="pb-6"> {/* add bottom margin, so the description does not stick to the content below */}
+    <Card className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-circle-card gap-2">
+  <CardHeader className="pb-0">
     <div className="grid grid-rows-2 items-start gap-3">
       {/* Title with icon - left */}
       <CardTitle className="flex items-center gap-2">
@@ -1045,7 +1045,7 @@ export function DeveloperWalletComponent({ blockchain = 'ARC-TESTNET', onWalletC
       <CardDescription className="text-left text-sm text-gray-600 -mt-1">
         {shouldShowConnectMessage
           ? 'Please connect your wallet or social account to use platform functionality.'
-          : 'To use Circle functionality, please create an internal wallet.'}
+          : 'Create an Internal Wallet to use the platform seamlessly.'}
       </CardDescription>
     </div>
   </CardHeader>
