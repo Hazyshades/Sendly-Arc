@@ -6,7 +6,10 @@ import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, LogOut } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { getPrivyAuthMode, setPrivyAuthMode, type PrivyAuthMode } from '@/lib/privy/authMode';
+import { getPrivyAppIdByMode } from '@/lib/privy';
 
 interface PrivyAuthModalProps {
   isOpen: boolean;
@@ -22,6 +25,20 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
   const { login: loginWithTelegram, state: telegramState } = useLoginWithTelegram();
   const [loading, setLoading] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const currentAuthMode = getPrivyAuthMode();
+  const isLegacyMode = currentAuthMode === 'legacy';
+  const activePrivyAppId = getPrivyAppIdByMode(currentAuthMode);
+
+  const logAuthAttempt = (step: string, extra?: Record<string, unknown>) => {
+    console.info('[PrivyDebug] Auth attempt', {
+      step,
+      mode: currentAuthMode,
+      appId: activePrivyAppId,
+      authenticated,
+      userId: user?.id ?? null,
+      ...extra,
+    });
+  };
 
   const hasTwitter = user?.twitter;
   const hasTwitch = user?.twitch;
@@ -38,13 +55,16 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
       
       if (authenticated && user) {
         if (provider === 'twitter') {
+          logAuthAttempt('link-twitter');
           await linkTwitter();
           onClose();
         } else if (provider === 'twitch') {
+          logAuthAttempt('link-twitch');
           await linkTwitch();
           onClose();
         }
       } else {
+        logAuthAttempt('login-default-from-handleLogin', { provider });
         await login();
         onClose();
       }
@@ -136,6 +156,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
           setLoading(null);
         }
       } else {
+        logAuthAttempt('login-telegram');
         await loginWithTelegram();
         onClose();
       }
@@ -243,6 +264,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
         }
       } else {
         // For login, use the standard login method which will show Instagram as an option
+        logAuthAttempt('login-default-from-instagram');
         await login();
         onClose();
       }
@@ -358,6 +380,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
           setLoading(null);
         }
       } else {
+        logAuthAttempt('login-default-from-tiktok');
         await login();
         onClose();
       }
@@ -483,6 +506,22 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
     onClose();
   };
 
+  const handleSwitchAuthMode = (mode: PrivyAuthMode) => {
+    if (mode === currentAuthMode) {
+      return;
+    }
+
+    console.info('[PrivyDebug] Mode switch requested', {
+      from: currentAuthMode,
+      to: mode,
+      fromAppId: activePrivyAppId,
+      toAppId: getPrivyAppIdByMode(mode),
+    });
+    setPrivyAuthMode(mode);
+    // PrivyProvider often keeps the first mounted appId; full reload guarantees the new env app loads.
+    window.location.reload();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
@@ -493,6 +532,51 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="rounded-xl border border-border/70 bg-gradient-to-b from-muted/40 via-muted/25 to-background/80 p-4 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+            <p className="mb-3 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Login profile
+            </p>
+            <div
+              className="flex w-full gap-1 rounded-lg border border-border/60 bg-muted/60 p-1 shadow-inner"
+              role="radiogroup"
+              aria-label="Choose Privy login: new or existing Sendly users"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!isLegacyMode}
+                disabled={loading !== null}
+                onClick={() => handleSwitchAuthMode('new')}
+                className={cn(
+                  'relative flex-1 rounded-md px-3 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                  !isLegacyMode
+                    ? 'bg-background text-foreground shadow-sm ring-1 ring-border/80 dark:bg-background/95'
+                    : 'text-muted-foreground hover:bg-background/50 hover:text-foreground',
+                )}
+              >
+                New users
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isLegacyMode}
+                disabled={loading !== null}
+                onClick={() => handleSwitchAuthMode('legacy')}
+                className={cn(
+                  'relative flex-1 rounded-md px-3 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                  isLegacyMode
+                    ? 'bg-background text-foreground shadow-sm ring-1 ring-border/80 dark:bg-background/95'
+                    : 'text-muted-foreground hover:bg-background/50 hover:text-foreground',
+                )}
+              >
+                Existing users
+              </button>
+            </div>
+            <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
+              Use <span className="font-medium text-foreground">Existing users</span> if you signed up on Sendly before the new login rollout.
+            </p>
+          </div>
+
           {errorMessage && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -643,6 +727,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
               )}
             </div>
 
+            {/* Instagram / Threads — temporarily hidden
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 rounded-lg flex items-center justify-center overflow-hidden">
@@ -750,6 +835,7 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
                 </Tooltip>
               )}
             </div>
+            */}
           </div>
 
           <Separator />
@@ -768,8 +854,10 @@ export function PrivyAuthModal({ isOpen, onClose }: PrivyAuthModalProps) {
             </div>
           )}
 
+          {/* Only users who have logged in to Sendly with Privy can receive or send a gift card via social accounts.
           <div className="text-sm text-muted-foreground text-center">
 Only users who have logged in to Sendly with Privy can receive or send a gift card via social accounts.          </div>
+          */}
         </div>
       </DialogContent>
     </Dialog>
