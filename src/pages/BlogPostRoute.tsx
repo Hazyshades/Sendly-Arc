@@ -445,11 +445,11 @@ const blogPosts: Record<string, BlogPost> = {
           'Our testnet writeup put total volume around $310k. The percentage is internal-wallet mint face value divided by that $310k number. Treat it as a rough comparison (EURC is not exactly USD).'
         ],
         bullets: [
-          'Users who minted cards via Internal Wallet: 220.',
-          'Combined face value of those mints: 6,634.486746 (raw 6,634,486,746, 6 decimals).',
-          'USDC portion: 4,499.750146.',
-          'EURC portion: 2,134.736600.',
-          'Versus ~$310k total volume: 6,634.486746 / 310,000 ≈ 2.14% (rough; EURC vs USD is not 1:1 in the market).'
+          'Users who minted cards via Internal Wallet: 220',
+          'Combined face value of those mints: 6,634',
+          'USDC portion: 4,499',
+          'EURC portion: 2,134',
+          'Versus ~$310k total volume:≈ 2.14%.'
         ]
       },
       {
