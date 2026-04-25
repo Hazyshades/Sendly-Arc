@@ -14,7 +14,6 @@ import type { ReclaimProof } from '@/lib/reclaim/types';
 import { markZkSendPaymentClaimed } from '@/lib/zksend/zksendPaymentsAPI';
 import { markDirectDepositClaimed } from '@/lib/directsend/directSendPaymentsAPI';
 import {
-  getExplorerTxUrl,
   getExplorerAddressUrl,
   getContractsForChain,
   ARC_CHAIN_ID,
@@ -27,6 +26,10 @@ import { DeveloperWalletService, type DeveloperWallet } from '@/lib/circle/devel
 import { apiCall } from '@/lib/supabase/client';
 import { getCircleWalletPrivyUserIdForTx } from '@/hooks/useCircleWallet';
 import { WalletSourceToggle, type WalletSource } from './WalletSourceToggle';
+import {
+  ZKSEND_SUCCESS_COPY,
+  renderTransactionLink,
+} from './transactionFeedback';
 
 
 import { Button } from '@/components/ui/button';
@@ -758,16 +761,11 @@ export function PendingPayments({
         }
 
         setLastClaimedTxHash(txHash);
-        toast.success('Payment claimed.', {
+        toast.success(ZKSEND_SUCCESS_COPY.paymentClaimed, {
           description: (
-            <a
-              href={getExplorerTxUrl(activeChainId, txHash)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium"
-            >
-              TX: <span className="underline">{txHash.slice(0, 10)}...</span>
-            </a>
+            <span className="text-sm">
+              TX: {renderTransactionLink(activeChainId, txHash)}
+            </span>
           ),
         });
         await loadPending();
@@ -961,16 +959,11 @@ export function PendingPayments({
       }
 
       setLastClaimedTxHash(txHash);
-      toast.success('Payment claimed.', {
+      toast.success(ZKSEND_SUCCESS_COPY.paymentClaimed, {
         description: (
-          <a
-            href={getExplorerTxUrl(activeChainId, txHash)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium"
-          >
-            TX: <span className="underline">{txHash.slice(0, 10)}...</span>
-          </a>
+          <span className="text-sm">
+            TX: {renderTransactionLink(activeChainId, txHash)}
+          </span>
         ),
       });
       await loadPending();
@@ -1098,16 +1091,11 @@ export function PendingPayments({
           )
         );
         setLastClaimedTxHash(txHash);
-        toast.success('All payments claimed.', {
+        toast.success(ZKSEND_SUCCESS_COPY.paymentsClaimed, {
           description: (
-            <a
-              href={getExplorerTxUrl(activeChainId, txHash)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium"
-            >
-              TX: <span className="underline">{txHash.slice(0, 10)}...</span>
-            </a>
+            <span className="text-sm">
+              TX: {renderTransactionLink(activeChainId, txHash)}
+            </span>
           ),
         });
         await loadPending();
@@ -1272,16 +1260,11 @@ export function PendingPayments({
       );
 
       setLastClaimedTxHash(txHash);
-      toast.success('All payments claimed.', {
+      toast.success(ZKSEND_SUCCESS_COPY.paymentsClaimed, {
         description: (
-          <a
-            href={getExplorerTxUrl(activeChainId, txHash)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium"
-          >
-            TX: <span className="underline">{txHash.slice(0, 10)}...</span>
-          </a>
+          <span className="text-sm">
+            TX: {renderTransactionLink(activeChainId, txHash)}
+          </span>
         ),
       });
       await loadPending();
@@ -1349,16 +1332,11 @@ export function PendingPayments({
       }
 
       setLastClaimedTxHash(txHash);
-      toast.success('Deposit claimed.', {
+      toast.success(ZKSEND_SUCCESS_COPY.depositClaimed, {
         description: (
-          <a
-            href={getExplorerTxUrl(activeChainId, txHash)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium"
-          >
-            TX: <span className="underline">{txHash.slice(0, 10)}...</span>
-          </a>
+          <span className="text-sm">
+            TX: {renderTransactionLink(activeChainId, txHash)}
+          </span>
         ),
       });
       await loadPending();
@@ -1530,16 +1508,9 @@ export function PendingPayments({
           directRows.length === 0 ? (
             <div className="text-sm text-muted-foreground">
               {lastClaimedTxHash ? (
-                <span className="font-semibold text-foreground">
-                  Deposit claimed. View transaction:{' '}
-                  <a
-                    href={getExplorerTxUrl(activeChainId, lastClaimedTxHash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:opacity-80"
-                  >
-                    {lastClaimedTxHash.slice(0, 10)}...
-                  </a>
+                <span className="font-medium text-foreground">
+                  {ZKSEND_SUCCESS_COPY.depositClaimed}:{' '}
+                  {renderTransactionLink(activeChainId, lastClaimedTxHash)}
                 </span>
               ) : (
                 'No pending deposits for this address.'
@@ -1592,16 +1563,9 @@ export function PendingPayments({
           rows.length === 0 ? (
             <div className="text-sm text-muted-foreground">
               {lastClaimedTxHash ? (
-                <span className="font-semibold text-foreground">
-                  Payment claimed. View transaction:{' '}
-                  <a
-                    href={getExplorerTxUrl(activeChainId, lastClaimedTxHash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:opacity-80"
-                  >
-                    {lastClaimedTxHash.slice(0, 10)}...
-                  </a>
+                <span className="font-medium text-foreground">
+                  {ZKSEND_SUCCESS_COPY.paymentClaimed}:{' '}
+                  {renderTransactionLink(activeChainId, lastClaimedTxHash)}
                 </span>
               ) : null}
             </div>

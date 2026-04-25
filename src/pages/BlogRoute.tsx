@@ -52,7 +52,7 @@ const blogPosts: BlogPost[] = [
     slug: 'privy_results',
     title: 'Privy testnet results: metrics, methodology, and takeaways',
     description:
-      'Privy testnet snapshot: 11k+ addresses, 31k+ cards, about $82k TVL, about $310k total volume. How Privy + OAuth fit our stack, how we verified numbers in three layers, and what we learned running it.',
+      '11k+ addresses, 31k+ cards, about $85k TVL and $310k total volume. How Privy fit our stack, how we verified numbers in three layers, and what we learned running it.',
     date: '2026-02-10',
     category: 'Technology',
     tags: ['Privy', 'OAuth', 'Testnet'],

@@ -1128,7 +1128,7 @@ export function CreateGiftCard() {
       };
 
       setCreatedCard(createdCardData);
-      toast.success(`Gift card created successfully! Token ID: ${result.tokenId}`);
+      toast.success('Gift card created successfully!');
       toast.success(`Gift card created successfully! TX: ${result.txHash.slice(0, 10)}...${result.txHash.slice(-8)}`);
       
       // Save to Supabase for caching
@@ -1850,7 +1850,7 @@ If recipient never log in on Sendly with this social, please, DONT'T SEND the fu
             <Alert>
               <CheckCircle className="h-4 w-4" />
               <AlertDescription className="space-y-2">
-                <div>Gift card created successfully! Token ID: {createdCard.id}</div>
+                <div>Gift card created successfully!</div>
                 <div className="text-sm">
                   TX: 
                   <button
@@ -1899,7 +1899,7 @@ If recipient never log in on Sendly with this social, please, DONT'T SEND the fu
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Sorry, this feature is temporarily unavailable</p>
+              <p>This feature is temporarily unavailable</p>
             </TooltipContent>
           </Tooltip>
         </div>

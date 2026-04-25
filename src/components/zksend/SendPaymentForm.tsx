@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import { PlatformUsernameInput } from './PlatformUsernameInput';
 import { WalletSourceToggle } from './WalletSourceToggle';
+import { ZKSEND_SUCCESS_COPY, renderTransactionLink } from './transactionFeedback';
 
 import type { SendRecipientType } from './ZkSendPanel';
 import type { WalletSource } from './WalletSourceToggle';
@@ -118,6 +119,7 @@ export function SendPaymentForm({
   );
   const [loading, setLoading] = useState(false);
   const [circleBalance, setCircleBalance] = useState<string | null>(null);
+  const [lastCreatedTxHash, setLastCreatedTxHash] = useState<string | null>(null);
 
   const tokenConfig = TOKEN_OPTIONS.find((t) => t.value === tokenType) ?? TOKEN_OPTIONS[0];
   const { data: balance } = useBalance({
@@ -199,6 +201,7 @@ export function SendPaymentForm({
 
   const onSubmit = async () => {
     try {
+      setLastCreatedTxHash(null);
       const useCircle = walletSource === 'circle' && hasDeveloperWallet && developerWallet;
       if (useCircle) {
         if (!developerWallet || !amount || Number(amount) <= 0) throw new Error('Enter amount > 0');
@@ -365,35 +368,27 @@ export function SendPaymentForm({
           }
         }
         if (paymentId && txHash) {
-          toast.success('Payment created successfully!', {
+          setLastCreatedTxHash(txHash);
+          toast.success(ZKSEND_SUCCESS_COPY.paymentCreated, {
             description: (
-              <a
-                href={getExplorerTxUrl(activeChainId, txHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium"
-              >
-                TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
-              </a>
+              <span className="text-sm">
+                TX: {renderTransactionLink(activeChainId, txHash)}
+              </span>
             ),
           });
         } else if (paymentId) {
-          toast.success('Payment created successfully!');
+          toast.success(ZKSEND_SUCCESS_COPY.paymentCreated);
         } else if (txHash) {
-          toast.success('Payment created successfully!', {
+          setLastCreatedTxHash(txHash);
+          toast.success(ZKSEND_SUCCESS_COPY.paymentCreated, {
             description: (
-              <a
-                href={getExplorerTxUrl(activeChainId, txHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium"
-              >
-                TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
-              </a>
+              <span className="text-sm">
+                TX: {renderTransactionLink(activeChainId, txHash)}
+              </span>
             ),
           });
         } else {
-          toast.success('Payment created successfully.');
+          toast.success(ZKSEND_SUCCESS_COPY.paymentCreated);
         }
         return;
       }
@@ -509,35 +504,27 @@ export function SendPaymentForm({
       }
 
       if (paymentId && txHash) {
-        toast.success('Payment created successfully!', {
+        setLastCreatedTxHash(txHash);
+        toast.success(ZKSEND_SUCCESS_COPY.paymentCreated, {
           description: (
-            <a
-              href={getExplorerTxUrl(activeChainId, txHash)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium"
-            >
-              TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
-            </a>
+            <span className="text-sm">
+              TX: {renderTransactionLink(activeChainId, txHash)}
+            </span>
           ),
         });
       } else if (paymentId) {
-        toast.success('Payment created successfully!');
+        toast.success(ZKSEND_SUCCESS_COPY.paymentCreated);
       } else if (txHash) {
-        toast.success('Payment created successfully!', {
+        setLastCreatedTxHash(txHash);
+        toast.success(ZKSEND_SUCCESS_COPY.paymentCreated, {
           description: (
-            <a
-              href={getExplorerTxUrl(activeChainId, txHash)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium"
-            >
-              TX: <span className="underline">{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
-            </a>
+            <span className="text-sm">
+              TX: {renderTransactionLink(activeChainId, txHash)}
+            </span>
           ),
         });
       } else {
-        toast.success('Payment created successfully.');
+        toast.success(ZKSEND_SUCCESS_COPY.paymentCreated);
       }
     } catch (e) {
       let msg = 'Failed to send payment';
@@ -694,6 +681,13 @@ export function SendPaymentForm({
             </Button>
           ) : null}
         </div>
+        {!preview && lastCreatedTxHash ? (
+          <div className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {ZKSEND_SUCCESS_COPY.paymentCreated} TX: {renderTransactionLink(activeChainId, lastCreatedTxHash)}
+            </span>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
